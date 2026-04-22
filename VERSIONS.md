@@ -1,6 +1,43 @@
 # Version History
 
 Note: entries are listed newest first and oldest last.
+Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan step in `docs/plan.md` for the current active work phase and optional `.y` is reserved for sub-updates within that active step. If work is currently under Step 4, then related fixes or improvements still version as `v0.4.y` until the active step changes.
+
+---
+
+## v0.4.2 - 2026-04-22
+
+**Step 2 accuracy iteration: added context-aware weekly features and revision-delta reporting.**
+
+- Added shared weekly feature helpers in `models/feature_utils.py` so position models can reuse lagged rolling-rate and group-context feature engineering
+- Improved `models/qb.py` with rolling efficiency features (`yards_per_attempt`, TD rate, INT rate, completion rate) plus lagged team passing context and opponent passing-defense context
+- Improved `models/rb.py` with rolling efficiency features (`yards_per_carry`, TDs per carry) plus lagged team rushing context and opponent rushing-defense context
+- Improved `models/wr_te.py` with rolling efficiency features (catch rate, yards per target, TDs per target) plus lagged team receiving context and opponent receiving-defense context
+- Extended `eval/model_backtest.py` to preserve the prior saved metrics report long enough to generate explicit before/after revision comparisons
+- Generated new comparison artifacts:
+  - `docs/model_revision_comparison.json`
+  - `docs/model_revision_comparison.md`
+  - `docs/holdout_revision_comparison.json`
+  - `docs/holdout_revision_comparison.md`
+- Regenerated `docs/walk_forward_metrics.*` and `docs/holdout_metrics.*` with the updated models
+
+**Measured result:** walk-forward and 2025 holdout MAE/RMSE improved modestly on most core volume stats, with the clearest gains in RB rushing volume and WR/TE receiving yards. Bias remains a follow-up area, especially for some QB/receiving outputs.
+
+**Verification:** `75 passed, 4 deselected` via `uv run pytest -q`
+
+---
+
+## v0.4.1 - 2026-04-22
+
+**Step 4 started: local paper-trade replay pipeline and parlay candidate generation.**
+
+- Added local replay support in `eval/replay_pipeline.py` so a historical prop-lines file can be replayed end-to-end without waiting on live API wiring
+- Extended `eval/prop_pricer.py` with two-sided market pricing, bet settlement, unit-profit math, paper-trade pick selection, and replay summaries
+- Implemented a lightweight same-week parlay builder in `eval/parlay_builder.py` with conservative same-game/team penalties instead of naive independence
+- Exposed `load_props_file(...)` from `eval/calibration_pipeline.py` so replay and calibration can share one local prop-line file format
+- Added replay pipeline tests in `tests/test_replay_pipeline.py`
+
+**Step 4 note:** this is a local historical replay path, not full Odds API historical wiring yet. It is intended to keep Step 4 moving while external historical player-prop access remains constrained.
 
 ---
 

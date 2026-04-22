@@ -6,13 +6,16 @@ import pandas as pd
 
 from eval.model_backtest import (
     MODEL_SPECS,
+    compare_report_revisions,
     render_holdout_markdown,
+    render_revision_comparison_markdown,
     render_walk_forward_markdown,
     run_holdout_evaluation,
     run_all_walk_forward,
     save_blocked_report,
     save_holdout_markdown,
     save_holdout_reports,
+    save_revision_comparison,
     save_walk_forward_markdown,
     save_walk_forward_reports,
     walk_forward_backtest,
@@ -198,3 +201,46 @@ def test_save_blocked_report(tmp_path):
     assert payload["status"] == "blocked"
     assert "HTTP Error 404" in payload["reason"]
     assert "Blocked:" in markdown
+
+
+def test_compare_report_revisions_and_save(tmp_path):
+    previous = {
+        "reports": {
+            "qb": {
+                "per_stat": {
+                    "passing_yards": {
+                        "overall": {"n": 10.0, "mae": 80.0, "rmse": 100.0, "bias": 5.0}
+                    }
+                }
+            }
+        }
+    }
+    current = {
+        "reports": {
+            "qb": {
+                "per_stat": {
+                    "passing_yards": {
+                        "overall": {"n": 10.0, "mae": 75.0, "rmse": 96.0, "bias": 3.0}
+                    }
+                }
+            }
+        }
+    }
+
+    comparison = compare_report_revisions(
+        previous,
+        current,
+        previous_label="baseline",
+        current_label="context_upgrade",
+        report_name="walk_forward",
+    )
+
+    markdown = render_revision_comparison_markdown(comparison)
+    json_path = tmp_path / "comparison.json"
+    md_path = tmp_path / "comparison.md"
+    save_revision_comparison(comparison, json_path, md_path)
+
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert payload["models"]["qb"]["passing_yards"]["delta"]["mae"] == -5.0
+    assert "context_upgrade" in markdown
+    assert "delta -5.000" in md_path.read_text(encoding="utf-8")

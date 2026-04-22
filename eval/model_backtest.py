@@ -79,6 +79,76 @@ def _metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
     }
 
 
+def _load_existing_report(path: Path) -> dict[str, Any] | None:
+    path = Path(path)
+    if not path.exists():
+        return None
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(payload, dict) or "reports" not in payload:
+        return None
+    return payload
+
+
+def compare_report_revisions(
+    previous_report: dict[str, Any],
+    current_report: dict[str, Any],
+    *,
+    previous_label: str = "previous",
+    current_label: str = "current",
+    report_name: str = "walk_forward",
+) -> dict[str, Any]:
+    comparison: dict[str, Any] = {
+        "report_name": report_name,
+        "previous_label": previous_label,
+        "current_label": current_label,
+        "models": {},
+    }
+
+    for model_name, current_model_report in current_report.get("reports", {}).items():
+        previous_model_report = previous_report.get("reports", {}).get(model_name, {})
+        stat_comparison: dict[str, Any] = {}
+
+        for stat_name, current_stat_report in current_model_report.get("per_stat", {}).items():
+            previous_stat_report = (
+                previous_model_report.get("per_stat", {}).get(stat_name, {}).get("overall")
+            )
+            current_overall = current_stat_report.get("overall", {})
+            if not previous_stat_report:
+                continue
+
+            prev_bias = float(previous_stat_report.get("bias", 0.0))
+            curr_bias = float(current_overall.get("bias", 0.0))
+            stat_comparison[stat_name] = {
+                "previous": {
+                    "n": float(previous_stat_report.get("n", 0.0)),
+                    "mae": float(previous_stat_report.get("mae", 0.0)),
+                    "rmse": float(previous_stat_report.get("rmse", 0.0)),
+                    "bias": prev_bias,
+                },
+                "current": {
+                    "n": float(current_overall.get("n", 0.0)),
+                    "mae": float(current_overall.get("mae", 0.0)),
+                    "rmse": float(current_overall.get("rmse", 0.0)),
+                    "bias": curr_bias,
+                },
+                "delta": {
+                    "mae": float(current_overall.get("mae", 0.0) - previous_stat_report.get("mae", 0.0)),
+                    "rmse": float(current_overall.get("rmse", 0.0) - previous_stat_report.get("rmse", 0.0)),
+                    "bias": float(curr_bias - prev_bias),
+                    "abs_bias": float(abs(curr_bias) - abs(prev_bias)),
+                },
+            }
+
+        comparison["models"][model_name] = stat_comparison
+
+    return comparison
+
+
 def _predict_for_eval_rows(
     spec: ModelSpec,
     fit_years: list[int],
@@ -286,6 +356,51 @@ def save_walk_forward_markdown(report: dict[str, Any], path: Path) -> None:
     path.write_text(render_walk_forward_markdown(report), encoding="utf-8")
 
 
+def render_revision_comparison_markdown(comparison: dict[str, Any]) -> str:
+    lines: list[str] = [
+        "# Model Revision Comparison",
+        "",
+        f"Report: `{comparison['report_name']}`",
+        f"Previous label: `{comparison['previous_label']}`",
+        f"Current label: `{comparison['current_label']}`",
+        "",
+        "Negative delta values for MAE/RMSE mean the current revision improved.",
+        "",
+    ]
+
+    for model_name, model_comparison in comparison.get("models", {}).items():
+        lines.append(f"## {model_name.upper()}")
+        lines.append("")
+        for stat_name, stat_comparison in model_comparison.items():
+            previous = stat_comparison["previous"]
+            current = stat_comparison["current"]
+            delta = stat_comparison["delta"]
+            lines.append(
+                f"- `{stat_name}`: "
+                f"MAE {previous['mae']:.3f} -> {current['mae']:.3f} "
+                f"(delta {delta['mae']:+.3f}), "
+                f"RMSE {previous['rmse']:.3f} -> {current['rmse']:.3f} "
+                f"(delta {delta['rmse']:+.3f}), "
+                f"|bias| delta {delta['abs_bias']:+.3f}"
+            )
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def save_revision_comparison(
+    comparison: dict[str, Any],
+    json_path: Path,
+    md_path: Path,
+) -> None:
+    json_path = Path(json_path)
+    md_path = Path(md_path)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(json.dumps(comparison, indent=2), encoding="utf-8")
+    md_path.write_text(render_revision_comparison_markdown(comparison), encoding="utf-8")
+
+
 def render_holdout_markdown(report: dict[str, Any]) -> str:
     lines: list[str] = [
         "# Holdout Metrics",
@@ -337,9 +452,28 @@ def save_blocked_report(title: str, reason: str, json_path: Path, md_path: Path)
 
 
 def main() -> None:
+    walk_forward_path = Path("docs") / "walk_forward_metrics.json"
+    holdout_path = Path("docs") / "holdout_metrics.json"
+    previous_walk_forward = _load_existing_report(walk_forward_path)
+    previous_holdout = _load_existing_report(holdout_path)
+
     walk_forward_report = run_all_walk_forward()
-    save_walk_forward_reports(walk_forward_report, Path("docs") / "walk_forward_metrics.json")
+    save_walk_forward_reports(walk_forward_report, walk_forward_path)
     save_walk_forward_markdown(walk_forward_report, Path("docs") / "walk_forward_metrics.md")
+
+    if previous_walk_forward is not None:
+        comparison = compare_report_revisions(
+            previous_walk_forward,
+            walk_forward_report,
+            previous_label="previous_saved",
+            current_label="current_run",
+            report_name="walk_forward",
+        )
+        save_revision_comparison(
+            comparison,
+            json_path=Path("docs") / "model_revision_comparison.json",
+            md_path=Path("docs") / "model_revision_comparison.md",
+        )
 
     try:
         holdout_report = run_holdout_evaluation()
@@ -351,8 +485,21 @@ def main() -> None:
             md_path=Path("docs") / "holdout_metrics.md",
         )
     else:
-        save_holdout_reports(holdout_report, Path("docs") / "holdout_metrics.json")
+        save_holdout_reports(holdout_report, holdout_path)
         save_holdout_markdown(holdout_report, Path("docs") / "holdout_metrics.md")
+        if previous_holdout is not None:
+            comparison = compare_report_revisions(
+                previous_holdout,
+                holdout_report,
+                previous_label="previous_saved",
+                current_label="current_run",
+                report_name="holdout",
+            )
+            save_revision_comparison(
+                comparison,
+                json_path=Path("docs") / "holdout_revision_comparison.json",
+                md_path=Path("docs") / "holdout_revision_comparison.md",
+            )
 
 
 if __name__ == "__main__":

@@ -15,11 +15,17 @@ import pandas as pd
 from sklearn.linear_model import GammaRegressor, PoissonRegressor
 
 from models.base import StatDistribution
+from models.feature_utils import (
+    add_group_rolling_mean,
+    merge_group_context,
+    safe_col,
+    safe_ratio,
+)
 
 # Columns we want from weekly data
 _WEEKLY_COLS = [
     "player_id", "player_name", "position", "season", "week", "recent_team",
-    "receptions", "receiving_yards", "receiving_tds", "targets",
+    "opponent_team", "receptions", "receiving_yards", "receiving_tds", "targets",
     "target_share", "air_yards_share", "wopr", "receiving_epa",
 ]
 
@@ -35,20 +41,17 @@ _DIST_TYPES: dict[str, str] = {
     "receiving_tds": "poisson",
 }
 
-
-def _safe_col(df: pd.DataFrame, col: str, fill: float = 0.0) -> pd.Series:
-    if col in df.columns:
-        return df[col].fillna(fill)
-    return pd.Series(fill, index=df.index)
-
-
-def _rolling_mean(series: pd.Series, window: int = 4) -> pd.Series:
-    return series.shift(1).rolling(window, min_periods=1).mean()
-
-
 def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     """Build per-player feature matrix. df must be sorted by player, season, week."""
     df = df.sort_values(["player_id", "season", "week"]).copy()
+
+    targets = safe_col(df, "targets")
+    receptions = safe_col(df, "receptions")
+    receiving_yards = safe_col(df, "receiving_yards")
+    receiving_tds = safe_col(df, "receiving_tds")
+    df["catch_rate"] = safe_ratio(receptions, targets).to_numpy()
+    df["yards_per_target"] = safe_ratio(receiving_yards, targets).to_numpy()
+    df["tds_per_target"] = safe_ratio(receiving_tds, targets).to_numpy()
 
     feature_cols: list[str] = []
 
@@ -56,30 +59,54 @@ def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
     for col in _TARGET_STATS + ["targets"]:
         fname = f"roll_{col}"
-        df[fname] = grp[col].transform(lambda s: _rolling_mean(s))
+        df[fname] = grp[col].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
         feature_cols.append(fname)
 
+    for source_col, feature_name in (
+        ("catch_rate", "roll_catch_rate"),
+        ("yards_per_target", "roll_yards_per_target"),
+        ("tds_per_target", "roll_tds_per_target"),
+    ):
+        df = add_group_rolling_mean(df, "player_id", source_col, feature_name)
+        feature_cols.append(feature_name)
+
     df["roll_target_share"] = grp["target_share"].transform(
-        lambda s: _rolling_mean(s)
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     ) if "target_share" in df.columns else 0.0
     feature_cols.append("roll_target_share")
 
     df["roll_air_yards_share"] = grp["air_yards_share"].transform(
-        lambda s: _rolling_mean(s)
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     ) if "air_yards_share" in df.columns else 0.0
     feature_cols.append("roll_air_yards_share")
 
     df["roll_wopr"] = grp["wopr"].transform(
-        lambda s: _rolling_mean(s)
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     ) if "wopr" in df.columns else 0.0
     feature_cols.append("roll_wopr")
 
     df["roll_receiving_epa"] = grp["receiving_epa"].transform(
-        lambda s: _rolling_mean(s)
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     ) if "receiving_epa" in df.columns else 0.0
     feature_cols.append("roll_receiving_epa")
 
-    df["is_home"] = _safe_col(df, "is_home", 0.5)
+    df, team_feature_cols = merge_group_context(
+        df,
+        group_col="recent_team",
+        stat_cols=("receptions", "receiving_yards", "receiving_tds", "targets"),
+        prefix="team_rec",
+    )
+    feature_cols.extend(team_feature_cols)
+
+    df, opponent_feature_cols = merge_group_context(
+        df,
+        group_col="opponent_team",
+        stat_cols=("receptions", "receiving_yards", "receiving_tds", "targets"),
+        prefix="opp_rec_allowed",
+    )
+    feature_cols.extend(opponent_feature_cols)
+
+    df["is_home"] = safe_col(df, "is_home", 0.5)
     feature_cols.append("is_home")
 
     df["week_num"] = df["week"].astype(float)

@@ -14,12 +14,18 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import GammaRegressor
 
+from models.feature_utils import (
+    add_group_rolling_mean,
+    merge_group_context,
+    safe_col,
+    safe_ratio,
+)
 from models.base import StatDistribution
 
 # Columns we want from weekly data
 _WEEKLY_COLS = [
     "player_id", "player_name", "position", "season", "week", "recent_team",
-    "passing_yards", "passing_tds", "interceptions", "completions",
+    "opponent_team", "passing_yards", "passing_tds", "interceptions", "completions",
     "attempts", "sacks", "passing_air_yards", "passing_epa", "dakota",
 ]
 
@@ -29,29 +35,24 @@ _TARGET_STATS = ["passing_yards", "passing_tds", "interceptions", "completions"]
 _MIN_MEAN = 1e-3
 
 
-def _safe_col(df: pd.DataFrame, col: str, fill: float = 0.0) -> pd.Series:
-    if col in df.columns:
-        return df[col].fillna(fill)
-    return pd.Series(fill, index=df.index)
-
-
-def _rolling_mean(series: pd.Series, window: int = 4) -> pd.Series:
-    return series.shift(1).rolling(window, min_periods=1).mean()
-
-
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     """Build per-player feature matrix. df must be sorted by player, season, week."""
     df = df.sort_values(["player_id", "season", "week"]).copy()
 
-    attempts = _safe_col(df, "attempts")
-    sacks = _safe_col(df, "sacks")
-    air_yards = _safe_col(df, "passing_air_yards")
-    passing_epa = _safe_col(df, "passing_epa")
-    dakota = _safe_col(df, "dakota")
+    attempts = safe_col(df, "attempts")
+    sacks = safe_col(df, "sacks")
+    completions = safe_col(df, "completions")
+    passing_yards = safe_col(df, "passing_yards")
+    passing_tds = safe_col(df, "passing_tds")
+    interceptions = safe_col(df, "interceptions")
 
     # Pressure proxy: sacks / (sacks + attempts)
     total_drops = sacks + attempts
     df["pressure_proxy"] = np.where(total_drops > 0, sacks / total_drops, 0.0)
+    df["yards_per_attempt"] = safe_ratio(passing_yards, attempts).to_numpy()
+    df["td_rate"] = safe_ratio(passing_tds, attempts).to_numpy()
+    df["int_rate"] = safe_ratio(interceptions, attempts).to_numpy()
+    df["completion_rate"] = safe_ratio(completions, attempts).to_numpy()
 
     feature_cols: list[str] = []
 
@@ -59,28 +60,69 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
 
     for col in _TARGET_STATS + ["attempts"]:
         fname = f"roll_{col}"
-        df[fname] = grp[col].transform(lambda s: _rolling_mean(s))
+        df[fname] = grp[col].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
         feature_cols.append(fname)
 
+    for source_col, feature_name in (
+        ("yards_per_attempt", "roll_yards_per_attempt"),
+        ("td_rate", "roll_td_rate"),
+        ("int_rate", "roll_int_rate"),
+        ("completion_rate", "roll_completion_rate"),
+    ):
+        df = add_group_rolling_mean(df, "player_id", source_col, feature_name)
+        feature_cols.append(feature_name)
+
     df["roll_air_yards"] = grp["passing_air_yards"].transform(
-        lambda s: _rolling_mean(s)
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     ) if "passing_air_yards" in df.columns else 0.0
     feature_cols.append("roll_air_yards")
 
-    df["roll_pressure"] = grp["pressure_proxy"].transform(lambda s: _rolling_mean(s))
+    df["roll_pressure"] = grp["pressure_proxy"].transform(
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
+    )
     feature_cols.append("roll_pressure")
 
     df["roll_passing_epa"] = grp["passing_epa"].transform(
-        lambda s: _rolling_mean(s)
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     ) if "passing_epa" in df.columns else 0.0
     feature_cols.append("roll_passing_epa")
 
     df["roll_dakota"] = grp["dakota"].transform(
-        lambda s: _rolling_mean(s)
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     ) if "dakota" in df.columns else 0.0
     feature_cols.append("roll_dakota")
 
-    df["is_home"] = _safe_col(df, "is_home", 0.5)
+    df, team_feature_cols = merge_group_context(
+        df,
+        group_col="recent_team",
+        stat_cols=(
+            "passing_yards",
+            "passing_tds",
+            "completions",
+            "attempts",
+            "interceptions",
+            "sacks",
+        ),
+        prefix="team_pass",
+    )
+    feature_cols.extend(team_feature_cols)
+
+    df, opponent_feature_cols = merge_group_context(
+        df,
+        group_col="opponent_team",
+        stat_cols=(
+            "passing_yards",
+            "passing_tds",
+            "completions",
+            "attempts",
+            "interceptions",
+            "sacks",
+        ),
+        prefix="opp_pass_allowed",
+    )
+    feature_cols.extend(opponent_feature_cols)
+
+    df["is_home"] = safe_col(df, "is_home", 0.5)
     feature_cols.append("is_home")
 
     df["week_num"] = df["week"].astype(float)
