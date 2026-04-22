@@ -181,11 +181,6 @@ class TestLoadTeamDesc:
             df = load_team_desc()
         _check(df, ["team_abbr"])
 
-    def test_team_abbr_column_present(self, tmp_cache):
-        with patch("nfl_data_py.import_team_desc", return_value=self._fake.copy()):
-            df = load_team_desc()
-        assert "team_abbr" in df.columns
-
     def test_cache_hit_skips_fetch(self, tmp_cache):
         with patch("nfl_data_py.import_team_desc", return_value=self._fake.copy()) as mock:
             load_team_desc()
@@ -214,8 +209,8 @@ class TestLoadNgs:
             load_ngs("rushing", _SMALL_YEARS)
         files = list(tmp_cache.glob("ngs_*.parquet"))
         names = {f.name for f in files}
-        assert "ngs_passing_2023_2023.parquet" in names
-        assert "ngs_rushing_2023_2023.parquet" in names
+        assert "ngs_passing_2023.parquet" in names
+        assert "ngs_rushing_2023.parquet" in names
 
     def test_cache_hit_skips_fetch(self, tmp_cache):
         with patch("nfl_data_py.import_ngs_data", return_value=self._fake.copy()) as mock:
@@ -284,7 +279,8 @@ class TestCacheStaleness:
             load_weekly(_SMALL_YEARS)
 
         # Make the cache file appear older than 24h
-        cache_file = tmp_cache / "weekly_2023_2023.parquet"
+        cache_files = list(tmp_cache.glob("*.parquet"))
+        cache_file = cache_files[0]
         old_mtime = time.time() - (25 * 60 * 60)
         import os
         os.utime(cache_file, (old_mtime, old_mtime))

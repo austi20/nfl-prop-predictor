@@ -32,8 +32,7 @@ DOME_TEAMS: frozenset[str] = frozenset({
     "LV",   # Allegiant Stadium (fixed dome)
     "MIN",  # U.S. Bank Stadium (fixed dome)
     "NO",   # Caesars Superdome (fixed dome)
-    "NYG",  # MetLife Stadium (open, but included as shared dome-adjacent)
-    "NYJ",  # MetLife Stadium (open, but included as shared dome-adjacent)
+    # NYG and NYJ play at MetLife Stadium, which is open-air - not a dome
 })
 
 
@@ -50,7 +49,7 @@ _CACHE_MAX_AGE_SECONDS = 24 * 60 * 60  # 24 hours
 
 
 def _year_tag(years: list[int]) -> str:
-    return f"{min(years)}_{max(years)}"
+    return "-".join(str(y) for y in sorted(set(years)))
 
 
 def _cache_path(data_type: str, years: list[int] | None = None) -> Path:
