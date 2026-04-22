@@ -1,0 +1,19 @@
+[project]
+name = "nfl-prop-predictor"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "nfl-data-py>=0.3.2",
+    "pandas>=2.0",
+    "pyarrow>=24.0.0",
+    "pytest>=9.0.3",
+    "requests>=2.33.1",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.17.1",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests that hit the real nfl_data_py API (deselect with '-m not slow')",
+]
