@@ -66,7 +66,7 @@ Train + backtest: **nfl_data_py only**. Live/inference add **The Odds API** (pro
 |   - per-stat heads (pass yds, rush yds, rec,   |
 |     rec yds, TDs, INTs, etc.)                  |
 |   - Bayesian shrinkage (small sample)          |
-|   - Game-script simulator (10k Monte Carlo)    |
+|   - Game-script simulator (500k Monte Carlo)    |
 +------------------------------------------------+
 |  Prop Evaluator                                |
 |   - joins model distribution vs book line      |
@@ -110,7 +110,7 @@ Position-specific regression + distributional output (we need distributions, not
 - **WR/TE receptions/rec yards/rec TDs**: Poisson for receptions, Gamma/log-normal for yards, conditional on target sim.
 - **Kicker FG/points**: Poisson, conditional on drive count + red-zone stall rate.
 
-All wrapped in a 10k-sim Monte Carlo at the game level so correlated props (QB pass yds + his WR1 rec yds) share the same simulated paths - this is what enables correlation-aware parlays.
+All wrapped in a 500k-sim Monte Carlo at the game level so correlated props (QB pass yds + his WR1 rec yds) share the same simulated paths - this is what enables correlation-aware parlays.
 
 Training: 1999-2025 play-by-play, walk-forward CV by season. Backtest prop edges against The Odds API historical endpoint (if the free tier covers it) or against closing-line archives.
 
