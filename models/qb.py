@@ -20,7 +20,7 @@ from models.base import StatDistribution
 _WEEKLY_COLS = [
     "player_id", "player_name", "position", "season", "week", "recent_team",
     "passing_yards", "passing_tds", "interceptions", "completions",
-    "attempts", "sacks", "air_yards_completed",
+    "attempts", "sacks", "passing_air_yards", "passing_epa", "dakota",
 ]
 
 _TARGET_STATS = ["passing_yards", "passing_tds", "interceptions", "completions"]
@@ -45,7 +45,9 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
 
     attempts = _safe_col(df, "attempts")
     sacks = _safe_col(df, "sacks")
-    air_yards = _safe_col(df, "air_yards_completed")
+    air_yards = _safe_col(df, "passing_air_yards")
+    passing_epa = _safe_col(df, "passing_epa")
+    dakota = _safe_col(df, "dakota")
 
     # Pressure proxy: sacks / (sacks + attempts)
     total_drops = sacks + attempts
@@ -60,13 +62,23 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
         df[fname] = grp[col].transform(lambda s: _rolling_mean(s))
         feature_cols.append(fname)
 
-    df["roll_air_yards"] = grp["air_yards_completed"].transform(
+    df["roll_air_yards"] = grp["passing_air_yards"].transform(
         lambda s: _rolling_mean(s)
-    ) if "air_yards_completed" in df.columns else 0.0
+    ) if "passing_air_yards" in df.columns else 0.0
     feature_cols.append("roll_air_yards")
 
     df["roll_pressure"] = grp["pressure_proxy"].transform(lambda s: _rolling_mean(s))
     feature_cols.append("roll_pressure")
+
+    df["roll_passing_epa"] = grp["passing_epa"].transform(
+        lambda s: _rolling_mean(s)
+    ) if "passing_epa" in df.columns else 0.0
+    feature_cols.append("roll_passing_epa")
+
+    df["roll_dakota"] = grp["dakota"].transform(
+        lambda s: _rolling_mean(s)
+    ) if "dakota" in df.columns else 0.0
+    feature_cols.append("roll_dakota")
 
     df["is_home"] = _safe_col(df, "is_home", 0.5)
     feature_cols.append("is_home")
@@ -97,10 +109,14 @@ class QBModel:
     # Fit
     # ------------------------------------------------------------------
 
-    def fit(self, years: list[int]) -> None:
-        from data.nflverse_loader import load_weekly
+    def fit(self, years: list[int], weekly: pd.DataFrame | None = None) -> None:
+        if weekly is None:
+            from data.nflverse_loader import load_weekly
 
-        weekly = load_weekly(years)
+            weekly = load_weekly(years)
+        else:
+            weekly = weekly.copy()
+
         qbs = weekly[weekly["position"] == "QB"].copy()
 
         # Ensure required columns exist (fill missing with 0)
@@ -109,20 +125,22 @@ class QBModel:
                 qbs[col] = 0.0
 
         qbs, feature_cols = _build_features(qbs)
+        train_qbs = qbs[qbs["season"].isin(years)].copy()
         self._feature_cols = feature_cols
 
         # Drop rows with no data yet (week 1 rolling is fine - min_periods=1)
         qbs = qbs.dropna(subset=feature_cols + _TARGET_STATS)
+        train_qbs = train_qbs.dropna(subset=feature_cols + _TARGET_STATS)
 
         # Store player rolling stats for predict()
         self._player_stats = qbs.copy()
 
         for stat in _TARGET_STATS:
-            y = qbs[stat].values.astype(float)
+            y = train_qbs[stat].values.astype(float)
             # Gamma requires strictly positive target - clip to small positive
             y_fit = np.clip(y, 1e-2, None)
 
-            X = qbs[feature_cols].values.astype(float)
+            X = train_qbs[feature_cols].values.astype(float)
 
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0

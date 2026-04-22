@@ -15,6 +15,9 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
+addopts = "-m \"not slow\""
+cache_dir = "tmp/pytest_cache"
+testpaths = ["tests"]
 markers = [
     "slow: marks tests that hit the real nfl_data_py API (deselect with '-m not slow')",
 ]

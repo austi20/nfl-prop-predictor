@@ -20,6 +20,7 @@ from models.base import StatDistribution
 _WEEKLY_COLS = [
     "player_id", "player_name", "position", "season", "week", "recent_team",
     "receptions", "receiving_yards", "receiving_tds", "targets",
+    "target_share", "air_yards_share", "wopr", "receiving_epa",
 ]
 
 _TARGET_STATS = ["receptions", "receiving_yards", "receiving_tds"]
@@ -58,9 +59,25 @@ def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         df[fname] = grp[col].transform(lambda s: _rolling_mean(s))
         feature_cols.append(fname)
 
-    # target_share_proxy is the rolling mean of targets (already computed above)
-    df["target_share_proxy"] = df["roll_targets"]
-    feature_cols.append("target_share_proxy")
+    df["roll_target_share"] = grp["target_share"].transform(
+        lambda s: _rolling_mean(s)
+    ) if "target_share" in df.columns else 0.0
+    feature_cols.append("roll_target_share")
+
+    df["roll_air_yards_share"] = grp["air_yards_share"].transform(
+        lambda s: _rolling_mean(s)
+    ) if "air_yards_share" in df.columns else 0.0
+    feature_cols.append("roll_air_yards_share")
+
+    df["roll_wopr"] = grp["wopr"].transform(
+        lambda s: _rolling_mean(s)
+    ) if "wopr" in df.columns else 0.0
+    feature_cols.append("roll_wopr")
+
+    df["roll_receiving_epa"] = grp["receiving_epa"].transform(
+        lambda s: _rolling_mean(s)
+    ) if "receiving_epa" in df.columns else 0.0
+    feature_cols.append("roll_receiving_epa")
 
     df["is_home"] = _safe_col(df, "is_home", 0.5)
     feature_cols.append("is_home")
@@ -91,10 +108,14 @@ class WRTEModel:
     # Fit
     # ------------------------------------------------------------------
 
-    def fit(self, years: list[int]) -> None:
-        from data.nflverse_loader import load_weekly
+    def fit(self, years: list[int], weekly: pd.DataFrame | None = None) -> None:
+        if weekly is None:
+            from data.nflverse_loader import load_weekly
 
-        weekly = load_weekly(years)
+            weekly = load_weekly(years)
+        else:
+            weekly = weekly.copy()
+
         receivers = weekly[weekly["position"].isin(["WR", "TE"])].copy()
 
         # Ensure required columns exist (fill missing with 0)
@@ -103,19 +124,21 @@ class WRTEModel:
                 receivers[col] = 0.0
 
         receivers, feature_cols = _build_features(receivers)
+        train_receivers = receivers[receivers["season"].isin(years)].copy()
         self._feature_cols = feature_cols
 
         # Drop rows with NaN in features or targets
         receivers = receivers.dropna(subset=feature_cols + _TARGET_STATS)
+        train_receivers = train_receivers.dropna(subset=feature_cols + _TARGET_STATS)
 
         # Store player rolling stats for predict()
         self._player_stats = receivers.copy()
 
         for stat in _TARGET_STATS:
-            y = receivers[stat].values.astype(float)
+            y = train_receivers[stat].values.astype(float)
             y_fit = np.clip(y, 1e-2, None)
 
-            X = receivers[feature_cols].values.astype(float)
+            X = train_receivers[feature_cols].values.astype(float)
 
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0

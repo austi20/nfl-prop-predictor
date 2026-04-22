@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -122,14 +121,13 @@ def test_calibrator_scalar_input():
     assert 0.0 <= result <= 1.0
 
 
-def test_calibrator_save_load():
+def test_calibrator_save_load(tmp_path):
     raw, outcomes = _fake_calibration_data()
     cal = PropCalibrator(method="isotonic").fit(raw, outcomes)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "calibrator.joblib"
-        cal.save(path)
-        loaded = PropCalibrator.load(path)
+    path = tmp_path / "calibrator.joblib"
+    cal.save(path)
+    loaded = PropCalibrator.load(path)
 
     inp = np.array([0.3, 0.5, 0.7])
     np.testing.assert_allclose(cal.calibrate(inp), loaded.calibrate(inp), rtol=1e-6)
@@ -155,12 +153,11 @@ def test_reliability_diagram_returns_stats():
     assert stats["ece"] >= 0.0
 
 
-def test_reliability_diagram_saves_file():
+def test_reliability_diagram_saves_file(tmp_path):
     raw, outcomes = _fake_calibration_data(n=300)
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "reliability.png"
-        reliability_diagram(raw, outcomes, n_bins=10, save_path=path)
-        assert path.exists()
+    path = tmp_path / "reliability.png"
+    reliability_diagram(raw, outcomes, n_bins=10, save_path=path)
+    assert path.exists()
 
 
 # ---------------------------------------------------------------------------

@@ -184,6 +184,9 @@ def reliability_diagram(
 def _plot_reliability(
     r: np.ndarray, y: np.ndarray, n_bins: int, save_path: Path
 ) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
     import matplotlib.pyplot as plt
 
     edges = np.linspace(0.0, 1.0, n_bins + 1)

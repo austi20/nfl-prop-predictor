@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from urllib.error import HTTPError
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -106,6 +107,53 @@ class TestLoadWeekly:
             load_weekly(_SMALL_YEARS)
             load_weekly(_SMALL_YEARS, force_refresh=True)
         assert mock.call_count == 2
+
+    def test_falls_back_to_direct_release_on_404(self, tmp_cache):
+        with patch(
+            "nfl_data_py.import_weekly_data",
+            side_effect=HTTPError("https://example.com", 404, "Not Found", None, None),
+        ), patch(
+            "pandas.read_parquet",
+            return_value=self._fake.copy(),
+        ) as mock_read:
+            df = load_weekly([2025], force_refresh=True)
+
+        _check(df, ["player_id", "season", "week"])
+        mock_read.assert_called_once()
+
+    def test_falls_back_to_direct_release_on_generic_fetch_error(self, tmp_cache):
+        with patch(
+            "nfl_data_py.import_weekly_data",
+            side_effect=ConnectionResetError("connection reset"),
+        ), patch(
+            "pandas.read_parquet",
+            return_value=self._fake.copy(),
+        ) as mock_read:
+            df = load_weekly([2025], force_refresh=True)
+
+        _check(df, ["player_id", "season", "week"])
+        mock_read.assert_called_once()
+
+    def test_normalizes_direct_release_column_names(self, tmp_cache):
+        direct = pd.DataFrame({
+            "player_id": ["P1"],
+            "season": [2025],
+            "week": [1],
+            "team": ["KC"],
+            "passing_interceptions": [1.0],
+            "sacks_suffered": [2.0],
+            "sack_yards_lost": [14.0],
+        })
+        with patch(
+            "nfl_data_py.import_weekly_data",
+            side_effect=HTTPError("https://example.com", 404, "Not Found", None, None),
+        ), patch("pandas.read_parquet", return_value=direct):
+            df = load_weekly([2025], force_refresh=True)
+
+        assert "recent_team" in df.columns
+        assert "interceptions" in df.columns
+        assert "sacks" in df.columns
+        assert "sack_yards" in df.columns
 
 
 class TestLoadPbp:

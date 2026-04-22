@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+from urllib.error import HTTPError
 from pathlib import Path
 from typing import Literal
 
@@ -46,6 +47,10 @@ def is_dome(team_abbr: str) -> bool:
 
 _CACHE_DIR = Path(__file__).parent.parent / "cache"
 _CACHE_MAX_AGE_SECONDS = 24 * 60 * 60  # 24 hours
+_NFLVERSE_STATS_PLAYER_RELEASE = (
+    "https://github.com/nflverse/nflverse-data/releases/download/stats_player/"
+    "stats_player_week_{year}.parquet"
+)
 
 
 def _year_tag(years: list[int]) -> str:
@@ -80,6 +85,30 @@ def _load_or_fetch(
     return df
 
 
+def _fetch_weekly_direct(years: list[int]) -> pd.DataFrame:
+    frames = [
+        pd.read_parquet(
+            _NFLVERSE_STATS_PLAYER_RELEASE.format(year=year),
+            engine="pyarrow",
+        )
+        for year in years
+    ]
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def _normalize_weekly_columns(df: pd.DataFrame) -> pd.DataFrame:
+    rename_map: dict[str, str] = {}
+    if "passing_interceptions" in df.columns and "interceptions" not in df.columns:
+        rename_map["passing_interceptions"] = "interceptions"
+    if "sacks_suffered" in df.columns and "sacks" not in df.columns:
+        rename_map["sacks_suffered"] = "sacks"
+    if "sack_yards_lost" in df.columns and "sack_yards" not in df.columns:
+        rename_map["sack_yards_lost"] = "sack_yards"
+    if "team" in df.columns and "recent_team" not in df.columns:
+        rename_map["team"] = "recent_team"
+    return df.rename(columns=rename_map) if rename_map else df
+
+
 # ---------------------------------------------------------------------------
 # Public loaders
 # ---------------------------------------------------------------------------
@@ -87,7 +116,21 @@ def _load_or_fetch(
 
 def load_weekly(years: list[int] = TRAIN_YEARS, force_refresh: bool = False) -> pd.DataFrame:
     path = _cache_path("weekly", years)
-    return _load_or_fetch(path, lambda: nfl.import_weekly_data(years), force_refresh)
+
+    def _fetch() -> pd.DataFrame:
+        try:
+            return nfl.import_weekly_data(years)
+        except Exception as exc:
+            if isinstance(exc, HTTPError) and exc.code != 404:
+                raise
+            return _fetch_weekly_direct(years)
+
+    df = _load_or_fetch(path, _fetch, force_refresh)
+    normalized = _normalize_weekly_columns(df)
+    if set(normalized.columns) != set(df.columns):
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        normalized.to_parquet(path, engine="pyarrow", index=False)
+    return normalized
 
 
 def load_pbp(years: list[int] = TRAIN_YEARS, force_refresh: bool = False) -> pd.DataFrame:

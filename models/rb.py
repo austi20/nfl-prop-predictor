@@ -20,7 +20,7 @@ from models.base import StatDistribution
 # Columns we want from weekly data
 _WEEKLY_COLS = [
     "player_id", "player_name", "position", "season", "week", "recent_team",
-    "rushing_yards", "carries", "rushing_tds",
+    "rushing_yards", "carries", "rushing_tds", "rushing_epa",
 ]
 
 _TARGET_STATS = ["rushing_yards", "carries", "rushing_tds"]
@@ -60,6 +60,11 @@ def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         df[fname] = grp[col].transform(lambda s: _rolling_mean(s))
         feature_cols.append(fname)
 
+    df["roll_rushing_epa"] = grp["rushing_epa"].transform(
+        lambda s: _rolling_mean(s)
+    ) if "rushing_epa" in df.columns else 0.0
+    feature_cols.append("roll_rushing_epa")
+
     df["is_home"] = _safe_col(df, "is_home", 0.5)
     feature_cols.append("is_home")
 
@@ -91,10 +96,14 @@ class RBModel:
     # Fit
     # ------------------------------------------------------------------
 
-    def fit(self, years: list[int]) -> None:
-        from data.nflverse_loader import load_weekly
+    def fit(self, years: list[int], weekly: pd.DataFrame | None = None) -> None:
+        if weekly is None:
+            from data.nflverse_loader import load_weekly
 
-        weekly = load_weekly(years)
+            weekly = load_weekly(years)
+        else:
+            weekly = weekly.copy()
+
         rbs = weekly[weekly["position"] == "RB"].copy()
 
         # Ensure required columns exist (fill missing with 0)
@@ -103,20 +112,22 @@ class RBModel:
                 rbs[col] = 0.0
 
         rbs, feature_cols = _build_features(rbs)
+        train_rbs = rbs[rbs["season"].isin(years)].copy()
         self._feature_cols = feature_cols
 
         # Drop rows with no data yet
         rbs = rbs.dropna(subset=feature_cols + _TARGET_STATS)
+        train_rbs = train_rbs.dropna(subset=feature_cols + _TARGET_STATS)
 
         # Store player rolling stats for predict()
         self._player_stats = rbs.copy()
 
         for stat in _TARGET_STATS:
-            y = rbs[stat].values.astype(float)
+            y = train_rbs[stat].values.astype(float)
             # Tweedie/Poisson require strictly positive target
             y_fit = np.clip(y, 1e-2, None)
 
-            X = rbs[feature_cols].values.astype(float)
+            X = train_rbs[feature_cols].values.astype(float)
 
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0
