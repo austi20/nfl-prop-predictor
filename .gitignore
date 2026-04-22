@@ -1,0 +1,11 @@
+cache/
+*.parquet
+*.pkl
+*.joblib
+__pycache__/
+*.py[cod]
+.env
+*.egg-info/
+dist/
+build/
+.DS_Store
