@@ -1,0 +1,137 @@
+{
+  "season_label": "2024",
+  "context": {
+    "replay_years": [
+      2024
+    ],
+    "weeks": [],
+    "stats": [],
+    "books": [],
+    "calibrator_path": ""
+  },
+  "policy": {
+    "min_edge": 0.05,
+    "stake": 1.0,
+    "singles_evaluated_separately_from_parlays": true,
+    "same_game_penalty": 0.97,
+    "same_team_penalty": 0.985,
+    "max_picks_per_week": null,
+    "max_picks_per_player": null,
+    "max_picks_per_game": null
+  },
+  "validation": {
+    "input_rows": 8,
+    "rows_after_filters": 8,
+    "rows_priced": 8,
+    "selected_rows": 8,
+    "applied_filters": {
+      "replay_years": [
+        2024
+      ]
+    },
+    "unsupported_stats_seen": [],
+    "skipped_rows": {
+      "unsupported_stat": 0,
+      "missing_odds": 0,
+      "missing_actual_outcome": 0,
+      "no_selection_edge_threshold": 0,
+      "max_picks_per_week": 0,
+      "max_picks_per_player": 0,
+      "max_picks_per_game": 0
+    }
+  },
+  "singles": {
+    "n_bets": 8.0,
+    "wins": 7.0,
+    "losses": 1.0,
+    "pushes": 0.0,
+    "staked_units": 8.0,
+    "profit_units": 3.6247156247156247,
+    "roi": 0.4530894530894531,
+    "win_rate": 0.875
+  },
+  "parlays": {
+    "n_parlays": 10.0,
+    "wins": 5.0,
+    "losses": 5.0,
+    "pushes": 0.0,
+    "staked_units": 10.0,
+    "profit_units": 4.655534322200988,
+    "roi": 0.4655534322200988,
+    "win_rate": 0.5,
+    "avg_expected_value_units": 1.6681756210241179
+  },
+  "baselines": {
+    "current_policy_singles": {
+      "n_bets": 8.0,
+      "wins": 7.0,
+      "losses": 1.0,
+      "pushes": 0.0,
+      "staked_units": 8.0,
+      "profit_units": 3.6247156247156247,
+      "roi": 0.4530894530894531,
+      "win_rate": 0.875
+    },
+    "no_threshold_singles": {
+      "n_bets": 8.0,
+      "wins": 7.0,
+      "losses": 1.0,
+      "pushes": 0.0,
+      "staked_units": 8.0,
+      "profit_units": 3.6247156247156247,
+      "roi": 0.4530894530894531,
+      "win_rate": 0.875
+    },
+    "top_edge_only_singles": {
+      "n_bets": 1.0,
+      "wins": 0.0,
+      "losses": 1.0,
+      "pushes": 0.0,
+      "staked_units": 1.0,
+      "profit_units": -1.0,
+      "roi": -1.0,
+      "win_rate": 0.0
+    },
+    "singles_plus_top_parlay_per_week": {
+      "n_bets": 9.0,
+      "wins": 7.0,
+      "losses": 2.0,
+      "pushes": 0.0,
+      "staked_units": 9.0,
+      "profit_units": 2.6247156247156247,
+      "roi": 0.29163506941284717,
+      "win_rate": 0.7777777777777778
+    }
+  },
+  "leaders": {
+    "stats": {
+      "best": {
+        "stat": "passing_yards",
+        "profit_units": 0.9090909090909091,
+        "roi": 0.9090909090909091,
+        "n_bets": 1.0
+      },
+      "worst": {
+        "stat": "receptions",
+        "profit_units": -1.0,
+        "roi": -1.0,
+        "n_bets": 1.0
+      }
+    },
+    "books": {
+      "best": {
+        "book": "demo_book",
+        "profit_units": 3.6247156247156247,
+        "roi": 0.4530894530894531,
+        "n_bets": 8.0
+      },
+      "worst": {
+        "book": "demo_book",
+        "profit_units": 3.6247156247156247,
+        "roi": 0.4530894530894531,
+        "n_bets": 8.0
+      }
+    }
+  },
+  "interpretation": "Result looks noisy because the replay sample is still small. Treat it as a pipeline verification run more than a strategy verdict."
+}

@@ -1,0 +1,9 @@
+player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_team,game_id
+00-0033873,2024,10,passing_yards,290.5,demo_book,-110,-110,KC,DEN,2024_10_KC_DEN
+00-0033873,2024,10,passing_tds,0.5,demo_book,-180,140,KC,DEN,2024_10_KC_DEN
+00-0039075,2024,10,receiving_yards,104.5,demo_book,110,-135,LA,MIA,2024_10_LA_MIA
+00-0039075,2024,10,receptions,5.5,demo_book,-160,130,LA,MIA,2024_10_LA_MIA
+00-0036223,2024,10,rushing_yards,126.5,demo_book,135,-165,IND,BUF,2024_10_IND_BUF
+00-0036223,2024,10,carries,22.5,demo_book,125,-150,IND,BUF,2024_10_IND_BUF
+00-0038542,2024,10,rushing_yards,128.5,demo_book,150,-185,ATL,NO,2024_10_ATL_NO
+00-0037238,2024,10,receiving_yards,104.5,demo_book,135,-165,ATL,NO,2024_10_ATL_NO

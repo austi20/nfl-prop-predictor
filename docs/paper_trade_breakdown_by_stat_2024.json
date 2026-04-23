@@ -1,0 +1,68 @@
+[
+  {
+    "stat": "receiving_yards",
+    "n_bets": 2.0,
+    "wins": 2.0,
+    "losses": 0.0,
+    "pushes": 0.0,
+    "staked_units": 2.0,
+    "profit_units": 1.3468013468013469,
+    "roi": 0.6734006734006734,
+    "win_rate": 1.0
+  },
+  {
+    "stat": "rushing_yards",
+    "n_bets": 2.0,
+    "wins": 2.0,
+    "losses": 0.0,
+    "pushes": 0.0,
+    "staked_units": 2.0,
+    "profit_units": 1.1466011466011468,
+    "roi": 0.5733005733005734,
+    "win_rate": 1.0
+  },
+  {
+    "stat": "passing_yards",
+    "n_bets": 1.0,
+    "wins": 1.0,
+    "losses": 0.0,
+    "pushes": 0.0,
+    "staked_units": 1.0,
+    "profit_units": 0.9090909090909091,
+    "roi": 0.9090909090909091,
+    "win_rate": 1.0
+  },
+  {
+    "stat": "carries",
+    "n_bets": 1.0,
+    "wins": 1.0,
+    "losses": 0.0,
+    "pushes": 0.0,
+    "staked_units": 1.0,
+    "profit_units": 0.6666666666666666,
+    "roi": 0.6666666666666666,
+    "win_rate": 1.0
+  },
+  {
+    "stat": "passing_tds",
+    "n_bets": 1.0,
+    "wins": 1.0,
+    "losses": 0.0,
+    "pushes": 0.0,
+    "staked_units": 1.0,
+    "profit_units": 0.5555555555555556,
+    "roi": 0.5555555555555556,
+    "win_rate": 1.0
+  },
+  {
+    "stat": "receptions",
+    "n_bets": 1.0,
+    "wins": 0.0,
+    "losses": 1.0,
+    "pushes": 0.0,
+    "staked_units": 1.0,
+    "profit_units": -1.0,
+    "roi": -1.0,
+    "win_rate": 0.0
+  }
+]
