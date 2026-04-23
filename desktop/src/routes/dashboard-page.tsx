@@ -1,5 +1,5 @@
 import { Activity, BadgeDollarSign, LayoutPanelTop, ShieldCheck } from 'lucide-react'
-import { useLoaderData } from 'react-router-dom'
+import { Link, useLoaderData } from 'react-router-dom'
 
 import { PlayerCard } from '../components/player-card'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -161,7 +161,13 @@ export function DashboardPage() {
             </div>
             <div className="grid gap-4">
               {slate.top_picks.map((pick) => (
-                <PlayerCard key={`${pick.player_id}-${pick.stat}-${pick.line}`} pick={pick} />
+                <Link
+                  key={`${pick.player_id}-${pick.stat}-${pick.line}`}
+                  to={`/player/${encodeURIComponent(pick.player_id)}`}
+                  className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                >
+                  <PlayerCard pick={pick} />
+                </Link>
               ))}
             </div>
           </div>

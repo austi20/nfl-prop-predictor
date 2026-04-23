@@ -1,4 +1,4 @@
-import type { SlateResponse } from './types'
+import type { Pick, PlayerDetailResponse, ParlayBuildResponse, SlateResponse } from './types'
 import { resolveApiBaseUrl } from './runtime'
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -19,4 +19,57 @@ async function request<T>(path: string, init?: RequestInit) {
 
 export async function getSlate() {
   return request<SlateResponse>('/api/slate')
+}
+
+export async function getPlayer(playerId: string) {
+  return request<PlayerDetailResponse>(`/api/players/${encodeURIComponent(playerId)}`)
+}
+
+export async function buildParlays(picks: Pick[], legs = 2, stake = 1.0) {
+  return request<ParlayBuildResponse>('/api/parlays/build', {
+    method: 'POST',
+    body: JSON.stringify({ picks, legs, stake }),
+  })
+}
+
+export async function streamAnalyst(
+  question: string,
+  context: { player_id?: string; stat?: string; line?: number },
+  onToken: (token: string) => void,
+  onToolCall: (call: Record<string, unknown>) => void,
+  signal: AbortSignal,
+) {
+  const baseUrl = await resolveApiBaseUrl()
+  const response = await fetch(`${baseUrl}/api/analyst/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, ...context }),
+    signal,
+  })
+
+  if (!response.ok || !response.body) {
+    throw new Error(`Analyst stream failed: ${response.status}`)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const lines = buf.split('\n')
+    buf = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue
+      try {
+        const evt = JSON.parse(line.slice(5).trim())
+        if (evt.token) onToken(evt.token)
+        if (evt.tool_call) onToolCall(evt.tool_call)
+      } catch {
+        // partial JSON line, ignore
+      }
+    }
+  }
 }

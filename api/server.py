@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.routes.analyst import router as analyst_router
 from api.routes.health import router as health_router
 from api.routes.parlays import router as parlays_router
 from api.routes.players import router as players_router
@@ -29,6 +30,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(players_router, prefix=app_settings.api_prefix)
     app.include_router(props_router, prefix=app_settings.api_prefix)
     app.include_router(parlays_router, prefix=app_settings.api_prefix)
+    app.include_router(analyst_router, prefix=app_settings.api_prefix)
     return app
 
 

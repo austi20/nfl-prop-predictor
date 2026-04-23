@@ -4,6 +4,8 @@ import { DistChart } from './dist-chart'
 import { EdgeBadge } from './edge-badge'
 import { InjuryPill } from './injury-pill'
 import { WeatherBadge } from './weather-badge'
+
+// weather/injury data will be populated in v0.5c when the analyst tools wire through
 import { Card, CardContent } from './ui/card'
 
 type PlayerCardProps = {
@@ -39,8 +41,8 @@ export function PlayerCard({ pick }: PlayerCardProps) {
             </div>
             <ConfidenceBar probability={pick.selected_prob} />
             <div className="flex flex-wrap gap-2">
-              <WeatherBadge />
-              <InjuryPill />
+              <WeatherBadge weather={null} />
+              <InjuryPill status={null} />
             </div>
           </div>
         </div>

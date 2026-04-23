@@ -116,6 +116,32 @@ export type ParlayRow = {
   books: string
 }
 
+export type PlayerGameLog = {
+  season: number
+  week: number
+  recent_team: string
+  opponent_team: string
+  stats: Record<string, number>
+}
+
+export type PlayerDetailResponse = {
+  player_id: string
+  player_name: string
+  position: string
+  recent_team: string
+  latest_season: number | null
+  latest_week: number | null
+  supported_stats: string[]
+  recent_games: PlayerGameLog[]
+  replay_picks: Pick[]
+}
+
+export type ParlayBuildResponse = {
+  policy: ReplayPolicy
+  parlays: ParlayRow[]
+  summary: ParlaySummary
+}
+
 export type FilterMetadata = {
   available_seasons: number[]
   available_weeks: number[]

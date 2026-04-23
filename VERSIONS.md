@@ -5,6 +5,25 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.5.0 - 2026-04-23
+
+**Step 5 full desktop app: all pages, analyst SSE, .msi installer.**
+
+- Built sidecar binary (`nfl-prop-api-x86_64-pc-windows-msvc.exe`, 11 MB) via PyInstaller
+- Added nav bar to `App.tsx` with Dashboard and Parlay Builder links
+- Added `desktop/src/routes/player-detail-page.tsx`: game log table, top projection DistChart, replay picks list, analyst panel toggle; click-through from dashboard PlayerCards
+- Added `desktop/src/routes/parlay-builder-page.tsx`: pick cart, legs/stake controls, POST to `/api/parlays/build`, result display with ROI and EV
+- Added `desktop/src/components/analyst-panel.tsx`: SSE streaming from `/api/analyst/stream`, tool-call collapsible chips, abort controller, animated cursor
+- Added `api/routes/analyst.py`: async SSE endpoint forwarding tokens from llama.cpp `/v1/chat/completions`; graceful error if LLM not reachable
+- Filled `WeatherBadge` (temp/wind/rain icons, aria-label) and `InjuryPill` (Q/D/O/IR/PUP color-coded, tooltip) components
+- Installed all Radix UI primitives + recharts + tanstack/react-table + tanstack/react-query + framer-motion + date-fns + react-hook-form + zod + sonner + Playwright + axe-core (342 packages)
+- Added `sse-starlette>=3.3.4` to Python deps
+- Built `.msi` installer: `NFL Prop Predictor_0.5.0_x64_en-US.msi` (14 MB, target was <50 MB)
+
+**Verification:** TypeScript 0 errors; `95 passed, 4 deselected` via `uv run pytest -q`; .msi 14 MB
+
+---
+
 ## v0.4.7 - 2026-04-22
 
 **Step 4 closeout: artifact contract frozen and Step 5 handoff documented.**
