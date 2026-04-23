@@ -12,7 +12,21 @@ New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 
 Push-Location $repoRoot
 try {
-    uv run pyinstaller `
+    $venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
+    if (Test-Path $venvPython) {
+        $runner = @($venvPython, "-m", "PyInstaller")
+    }
+    else {
+        $uvCommand = Get-Command uv -ErrorAction SilentlyContinue
+        if ($uvCommand) {
+            $runner = @("uv", "run", "pyinstaller")
+        }
+        else {
+            $runner = @("python", "-m", "uv", "run", "pyinstaller")
+        }
+    }
+
+    & $runner[0] $runner[1..($runner.Length - 1)] `
         --onefile `
         --name nfl-prop-api `
         --distpath $distDir `

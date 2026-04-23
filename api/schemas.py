@@ -144,6 +144,39 @@ class DistributionSummary(BaseModel):
     dist_type: str
 
 
+class FantasyComponent(BaseModel):
+    stat: str
+    mean: float
+    weight: float
+    projected_points: float
+    adjustment_multiplier: float = 1.0
+    dist_type: str = ""
+
+
+class FantasyContextFactor(BaseModel):
+    name: str
+    label: str
+    multiplier: float = 1.0
+    applied: bool = False
+    affected_stats: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
+class FantasySummary(BaseModel):
+    projected_points: float
+    median_points: float
+    p10_points: float
+    p90_points: float
+    boom_probability: float
+    bust_probability: float
+    boom_cutoff: float
+    bust_cutoff: float
+    scoring_mode: Literal["full_ppr", "half_ppr"] = "full_ppr"
+    components: list[FantasyComponent] = Field(default_factory=list)
+    context_factors: list[FantasyContextFactor] = Field(default_factory=list)
+    omitted_stats: list[str] = Field(default_factory=list)
+
+
 class NormalizedPick(BaseModel):
     player_id: str
     player_name: str = ""
@@ -170,6 +203,7 @@ class NormalizedPick(BaseModel):
     over: SidePrice | None = None
     under: SidePrice | None = None
     distribution: DistributionSummary | None = None
+    fantasy: FantasySummary | None = None
 
 
 class ParlayRow(BaseModel):
@@ -261,6 +295,28 @@ class PropEvaluationResponse(BaseModel):
     selected_side: str
     selected_edge: float
     policy: ReplayPolicy
+
+
+class FantasyPredictionRequest(BaseModel):
+    player_id: str
+    season: int
+    week: int
+    position: str = ""
+    opponent_team: str = ""
+    recent_team: str = ""
+    game_id: str = ""
+    scoring_mode: Literal["full_ppr", "half_ppr"] = "full_ppr"
+
+
+class FantasyPredictionResponse(FantasySummary):
+    player_id: str
+    player_name: str = ""
+    position: str = ""
+    season: int
+    week: int
+    recent_team: str = ""
+    opponent_team: str = ""
+    game_id: str = ""
 
 
 class ParlayBuildRequest(BaseModel):

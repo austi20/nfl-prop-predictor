@@ -5,6 +5,22 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.5.1 - 2026-04-23
+
+**Step 5 fantasy projection layer and desktop sidecar startup fix.**
+
+- Added a Full PPR fantasy predictor that reuses the existing prop/stat model distributions, emits projected points plus deterministic boom/bust probabilities, and keeps `half_ppr` available through the same scoring interface
+- Added `/api/fantasy/predict` plus fantasy summary fields on `/api/slate` top picks, including component scoring, context factors, neutral injury/weather fallbacks, and omitted-stat reporting
+- Updated dashboard player cards to show fantasy projection, boom %, bust %, and P10/P90 range while preserving the existing prop edge display
+- Confirmed the app continues to use replay artifacts and `docs/synthetic_replay_props.csv`; no Odds API setup is required for the current synthetic analysis workflow
+- Fixed the packed PyInstaller sidecar by importing the FastAPI app directly instead of relying on a dynamic `uvicorn` import string that omitted the local `api` package
+- Updated the sidecar build script to prefer the repo `.venv` PyInstaller when available, and ignored local `.venv`, Tauri `target`, and generated schema folders
+- Added route error/loading fallback pages so API startup and sidecar readiness failures show a clearer desktop message
+
+**Verification:** `101 passed, 4 deselected` via `.\.venv\Scripts\python.exe -m pytest`; focused fantasy/API tests `12 passed`; `npm.cmd run build` passed; rebuilt sidecar served `/api/health` and `/api/slate` from replay artifacts.
+
+---
+
 ## v0.5.0 - 2026-04-23
 
 **Step 5 full desktop app: all pages, analyst SSE, .msi installer.**

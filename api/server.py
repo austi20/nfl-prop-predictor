@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.analyst import router as analyst_router
+from api.routes.fantasy import router as fantasy_router
 from api.routes.health import router as health_router
 from api.routes.parlays import router as parlays_router
 from api.routes.players import router as players_router
@@ -17,10 +18,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app = FastAPI(title=app_settings.app_name)
     app.state.settings = app_settings
 
+    # `*` is incompatible with `allow_credentials=True` in the CORS spec; browsers reject
+    # the response, which surfaces as the frontend "Failed to fetch" for cross-origin calls.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -29,6 +32,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(slate_router, prefix=app_settings.api_prefix)
     app.include_router(players_router, prefix=app_settings.api_prefix)
     app.include_router(props_router, prefix=app_settings.api_prefix)
+    app.include_router(fantasy_router, prefix=app_settings.api_prefix)
     app.include_router(parlays_router, prefix=app_settings.api_prefix)
     app.include_router(analyst_router, prefix=app_settings.api_prefix)
     return app

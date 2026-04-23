@@ -1,4 +1,4 @@
-import type { Pick, PlayerDetailResponse, ParlayBuildResponse, SlateResponse } from './types'
+import type { FantasyPredictionResponse, Pick, PlayerDetailResponse, ParlayBuildResponse, SlateResponse } from './types'
 import { resolveApiBaseUrl } from './runtime'
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -29,6 +29,22 @@ export async function buildParlays(picks: Pick[], legs = 2, stake = 1.0) {
   return request<ParlayBuildResponse>('/api/parlays/build', {
     method: 'POST',
     body: JSON.stringify({ picks, legs, stake }),
+  })
+}
+
+export async function predictFantasy(payload: {
+  player_id: string
+  season: number
+  week: number
+  position?: string
+  opponent_team?: string
+  recent_team?: string
+  game_id?: string
+  scoring_mode?: 'full_ppr' | 'half_ppr'
+}) {
+  return request<FantasyPredictionResponse>('/api/fantasy/predict', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   })
 }
 

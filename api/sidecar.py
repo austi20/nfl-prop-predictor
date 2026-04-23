@@ -4,6 +4,8 @@ import argparse
 
 import uvicorn
 
+from api.server import app
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the NFL Prop Predictor FastAPI sidecar")
@@ -13,7 +15,7 @@ def main() -> None:
     args = parser.parse_args()
 
     uvicorn.run(
-        "api.server:app",
+        app,
         host=args.host,
         port=args.port,
         log_level=args.log_level,

@@ -17,6 +17,7 @@ from api.schemas import (
     SlateResponse,
 )
 from api.settings import AppSettings
+from api.services.fantasy_service import build_fantasy_summary
 from data.nflverse_loader import load_weekly
 from eval.replay_pipeline import run_replay, save_replay_report
 
@@ -101,6 +102,30 @@ def _normalize_parlays(parlays: pd.DataFrame) -> list[ParlayRow]:
     if parlays.empty:
         return []
     return [ParlayRow.model_validate(record) for record in parlays.to_dict("records")]
+
+
+def _attach_fantasy_summaries(
+    settings: AppSettings,
+    picks: list[NormalizedPick],
+) -> list[NormalizedPick]:
+    enriched: list[NormalizedPick] = []
+    for pick in picks:
+        try:
+            fantasy = build_fantasy_summary(
+                settings,
+                player_id=pick.player_id,
+                season=pick.season,
+                week=pick.week,
+                position=pick.position,
+                recent_team=pick.recent_team,
+                opponent_team=pick.opponent_team,
+                game_id=pick.game_id,
+                scoring_mode="full_ppr",
+            )
+            enriched.append(pick.model_copy(update={"fantasy": fantasy}))
+        except ValueError:
+            enriched.append(pick)
+    return enriched
 
 
 def _summary_files(settings: AppSettings) -> list[Path]:
@@ -242,6 +267,7 @@ def build_slate_response(settings: AppSettings) -> SlateResponse:
         if name in {"week", "stat", "book"}
     }
     top_picks = sorted(summary.picks, key=lambda pick: pick.selected_edge, reverse=True)[:8]
+    top_picks = _attach_fantasy_summaries(settings, top_picks)
     top_parlays = sorted(summary.parlay_rows, key=lambda row: row.expected_value_units, reverse=True)[:5]
     return SlateResponse.model_validate(
         {

@@ -72,6 +72,39 @@ export type DistributionSummary = {
   dist_type: string
 }
 
+export type FantasyComponent = {
+  stat: string
+  mean: number
+  weight: number
+  projected_points: number
+  adjustment_multiplier: number
+  dist_type: string
+}
+
+export type FantasyContextFactor = {
+  name: string
+  label: string
+  multiplier: number
+  applied: boolean
+  affected_stats: string[]
+  reason: string
+}
+
+export type FantasySummary = {
+  projected_points: number
+  median_points: number
+  p10_points: number
+  p90_points: number
+  boom_probability: number
+  bust_probability: number
+  boom_cutoff: number
+  bust_cutoff: number
+  scoring_mode: 'full_ppr' | 'half_ppr'
+  components: FantasyComponent[]
+  context_factors: FantasyContextFactor[]
+  omitted_stats: string[]
+}
+
 export type Pick = {
   player_id: string
   player_name: string
@@ -98,6 +131,7 @@ export type Pick = {
   over?: SidePrice | null
   under?: SidePrice | null
   distribution?: DistributionSummary | null
+  fantasy?: FantasySummary | null
 }
 
 export type ParlayRow = {
@@ -140,6 +174,17 @@ export type ParlayBuildResponse = {
   policy: ReplayPolicy
   parlays: ParlayRow[]
   summary: ParlaySummary
+}
+
+export type FantasyPredictionResponse = FantasySummary & {
+  player_id: string
+  player_name: string
+  position: string
+  season: number
+  week: number
+  recent_team: string
+  opponent_team: string
+  game_id: string
 }
 
 export type FilterMetadata = {

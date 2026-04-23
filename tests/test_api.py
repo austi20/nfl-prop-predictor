@@ -48,6 +48,7 @@ def test_slate_endpoint_returns_replay_backed_sections():
     assert payload["top_picks"]
     assert payload["top_parlays"]
     assert "week" in payload["breakdowns"]
+    assert any(pick.get("fantasy") for pick in payload["top_picks"])
 
 
 def test_replay_summary_endpoint_returns_picks_and_breakdowns():
@@ -95,6 +96,31 @@ def test_prop_evaluation_endpoint_returns_normalized_pick():
     assert payload["pick"]["distribution"]["dist_type"]
     assert payload["pick"]["over"]["side"] == "over"
     assert payload["selected_side"] in {"over", "under"}
+
+
+def test_fantasy_prediction_endpoint_returns_projection_context():
+    client = _client()
+    response = client.post(
+        "/api/fantasy/predict",
+        json={
+            "player_id": "00-0033873",
+            "season": 2024,
+            "week": 10,
+            "position": "QB",
+            "opponent_team": "DEN",
+            "recent_team": "KC",
+            "game_id": "2024_10_KC_DEN",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player_id"] == "00-0033873"
+    assert payload["scoring_mode"] == "full_ppr"
+    assert payload["projected_points"] >= 0.0
+    assert 0.0 <= payload["boom_probability"] <= 1.0
+    assert 0.0 <= payload["bust_probability"] <= 1.0
+    assert payload["components"]
+    assert payload["context_factors"]
 
 
 def test_parlay_build_endpoint_reuses_pick_shape():
