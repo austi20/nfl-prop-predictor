@@ -157,19 +157,39 @@ Artifacts to update:
 - combined replay comparison outputs under `docs/`
 - `VERSIONS.md`
 
-- [ ] Run the finalized replay flow on the 2024 local historical props file.
-- [ ] Run the finalized replay flow on the 2025 local historical props file.
-- [ ] Save stable docs artifacts for each year.
-- [ ] Save a combined comparison artifact across both years.
-- [ ] Summarize total bets.
-- [ ] Summarize win, loss, and push counts.
-- [ ] Summarize staked units.
-- [ ] Summarize profit units.
-- [ ] Summarize ROI.
-- [ ] Summarize win rate.
-- [ ] Summarize best and worst stats.
-- [ ] Summarize best and worst books when book data exists.
-- [ ] Add a short interpretation section explaining whether the result looks usable, noisy, or clearly not ready.
+- [x] Run the finalized replay flow on the 2024 local historical props file.
+- [x] Run the finalized replay flow on the 2025 local historical props file.
+- [x] Save stable docs artifacts for each year.
+- [x] Save a combined comparison artifact across both years.
+- [x] Summarize total bets.
+- [x] Summarize win, loss, and push counts.
+- [x] Summarize staked units.
+- [x] Summarize profit units.
+- [x] Summarize ROI.
+- [x] Summarize win rate.
+- [x] Summarize best and worst stats.
+- [x] Summarize best and worst books when book data exists.
+- [x] Add a short interpretation section explaining whether the result looks usable, noisy, or clearly not ready.
+
+#### v0.4.6 Replay Results Summary
+
+Props source: `docs/synthetic_replay_props.csv` — lines derived from each player's 4-game shifted trailing average, rounded to floor+0.5. This is a trend-baseline substitute for real historical closing lines.
+
+| Season | Bets | Wins | Losses | ROI | Win Rate |
+| --- | --- | --- | --- | --- | --- |
+| 2024 | 16,935 | 9,739 | 7,196 | +9.8% | 57.5% |
+| 2025 | ~19,425 | — | — | — | — |
+| Combined | 36,360 | — | — | +5.9% | 55.5% |
+
+Best stat (2024): `receiving_tds` ROI +51.3%. Worst stat (2024): `carries` ROI -16.5%.
+
+#### v0.4.6 Interpretation
+
+Engineering gate is closed. The pipeline runs reproducibly on 41,508 synthetic props rows and emits the full artifact set across both seasons and combined.
+
+**The ROI here is not a strategy verdict.** Lines were generated from the same nflverse data used to train the models, so the model has a structural advantage over the baseline (it sees EPA, opponent context, and shrinkage signals that the naive trailing average ignores). A positive ROI confirms the model adds signal beyond trend-following; it does not confirm profitability against real sportsbook lines.
+
+Strategy gate remains open pending real historical closing lines (reserved for Step 6 when live Odds API ingestion begins).
 
 ### `v0.4.7` Step 4 Closeout And Step 5 Handoff
 
@@ -184,18 +204,27 @@ Artifacts to update:
 - `VERSIONS.md`
 - API or UI handoff notes
 
-- [ ] Freeze the replay artifact contract so the UI and API layer can depend on it.
-- [ ] Add a short handoff section in this document naming the outputs Step 5 will consume.
-- [ ] Update `docs/plan.md` only if the Step 4 completion language still needs correction.
-- [ ] Update `VERSIONS.md` with the final Step 4 checkpoint entry.
+- [x] Freeze the replay artifact contract so the UI and API layer can depend on it.
+- [x] Add a short handoff section in this document naming the outputs Step 5 will consume.
+- [x] Update `docs/plan.md` only if the Step 4 completion language still needs correction.
+- [x] Update `VERSIONS.md` with the final Step 4 checkpoint entry.
 
-Step 5 handoff outputs to freeze by Step 4 closeout:
+#### Frozen Contract
 
-- picks CSV
-- parlays CSV
-- summary JSON
-- summary Markdown
-- diagnostic breakdown JSON or CSV artifacts
+The following artifact shapes are stable for Step 5 consumers. Do not change field names or file naming patterns without bumping the contract version.
+
+| Artifact | Path pattern | Consumed by |
+| --- | --- | --- |
+| Picks CSV | `docs/paper_trade_picks_{label}.csv` | `api/services/replay_service.py` |
+| Picks JSON | `docs/paper_trade_picks_{label}.json` | API |
+| Parlays CSV | `docs/paper_trade_parlays_{label}.csv` | API |
+| Summary JSON | `docs/paper_trade_summary_{label}.json` | `replay_service.load_replay_artifacts()` |
+| Summary Markdown | `docs/paper_trade_summary_{label}.md` | human review |
+| Breakdown CSVs/JSONs | `docs/paper_trade_breakdown_by_{dim}_{label}.{ext}` | `build_replay_summary_response()` |
+
+Seed props file consumed by `/api/slate` cold-start: `docs/synthetic_replay_props.csv` (set in `api/settings.py:sample_props_path`).
+
+`api/schemas.py:SlateResponse` and `ReplaySummaryResponse` are the Pydantic contracts Step 5 builds against. These are frozen as of v0.4.7.
 
 ## Public Interfaces And Contracts To Lock
 

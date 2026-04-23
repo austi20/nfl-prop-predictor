@@ -1,0 +1,24 @@
+[
+  {
+    "selected_side": "under",
+    "n_bets": 20479.0,
+    "wins": 13864.0,
+    "losses": 6615.0,
+    "pushes": 0.0,
+    "staked_units": 20479.0,
+    "profit_units": 5988.636363636364,
+    "roi": 0.29242816366211066,
+    "win_rate": 0.6769861809658675
+  },
+  {
+    "selected_side": "over",
+    "n_bets": 15881.0,
+    "wins": 6309.0,
+    "losses": 9572.0,
+    "pushes": 0.0,
+    "staked_units": 15881.0,
+    "profit_units": -3836.545454545455,
+    "roi": -0.24158084846958347,
+    "win_rate": 0.39726717461117056
+  }
+]

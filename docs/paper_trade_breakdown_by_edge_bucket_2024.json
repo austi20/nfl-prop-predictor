@@ -1,24 +1,35 @@
 [
   {
     "edge_bucket": "0.15+",
-    "n_bets": 7.0,
-    "wins": 6.0,
-    "losses": 1.0,
+    "n_bets": 13644.0,
+    "wins": 8024.0,
+    "losses": 5620.0,
     "pushes": 0.0,
-    "staked_units": 7.0,
-    "profit_units": 3.069160069160069,
-    "roi": 0.4384514384514384,
-    "win_rate": 0.8571428571428571
+    "staked_units": 13644.0,
+    "profit_units": 1674.5454545454545,
+    "roi": 0.12273127048852642,
+    "win_rate": 0.5880973321606567
   },
   {
     "edge_bucket": "0.05-0.10",
-    "n_bets": 1.0,
-    "wins": 1.0,
-    "losses": 0.0,
+    "n_bets": 1623.0,
+    "wins": 850.0,
+    "losses": 773.0,
     "pushes": 0.0,
-    "staked_units": 1.0,
-    "profit_units": 0.5555555555555556,
-    "roi": 0.5555555555555556,
-    "win_rate": 1.0
+    "staked_units": 1623.0,
+    "profit_units": -0.2727272727272627,
+    "roi": -0.00016803898504452416,
+    "win_rate": 0.5237215033887862
+  },
+  {
+    "edge_bucket": "0.10-0.15",
+    "n_bets": 1668.0,
+    "wins": 865.0,
+    "losses": 803.0,
+    "pushes": 0.0,
+    "staked_units": 1668.0,
+    "profit_units": -16.636363636363612,
+    "roi": -0.009973839110529743,
+    "win_rate": 0.5185851318944844
   }
 ]

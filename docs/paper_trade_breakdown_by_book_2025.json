@@ -1,0 +1,13 @@
+[
+  {
+    "book": "synthetic",
+    "n_bets": 18407.0,
+    "wins": 10175.0,
+    "losses": 8232.0,
+    "pushes": 0.0,
+    "staked_units": 18407.0,
+    "profit_units": 1018.0,
+    "roi": 0.055305046992991796,
+    "win_rate": 0.5527788341391862
+  }
+]

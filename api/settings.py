@@ -24,7 +24,7 @@ class AppSettings(BaseSettings):
     docs_dir: Path = Field(default_factory=lambda: Path("docs"))
     cache_dir: Path = Field(default_factory=lambda: Path("cache"))
     model_dir: Path = Field(default_factory=lambda: Path("models"))
-    sample_props_path: Path = Field(default_factory=lambda: Path("docs") / "sample_replay_props_2024.csv")
+    sample_props_path: Path = Field(default_factory=lambda: Path("docs") / "synthetic_replay_props.csv")
 
     default_train_years: tuple[int, ...] = tuple(TRAIN_YEARS[:-1])
     default_replay_years: tuple[int, ...] = (2024,)

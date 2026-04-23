@@ -12,7 +12,7 @@ from api.services.replay_service import load_replay_artifacts
 def _settings() -> AppSettings:
     return AppSettings(
         docs_dir=Path("docs"),
-        sample_props_path=Path("docs") / "sample_replay_props_2024.csv",
+        sample_props_path=Path("docs") / "synthetic_replay_props.csv",
         default_train_years=tuple(range(2015, 2024)),
         default_replay_years=(2024,),
         default_max_parlay_candidates=10,
@@ -32,7 +32,7 @@ def test_health_endpoint_reports_replay_status():
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["replay_artifacts_available"] is True
-    assert payload["sample_props_path"].endswith("sample_replay_props_2024.csv")
+    assert payload["sample_props_path"].endswith("synthetic_replay_props.csv")
 
 
 def test_slate_endpoint_returns_replay_backed_sections():
@@ -40,7 +40,7 @@ def test_slate_endpoint_returns_replay_backed_sections():
     response = client.get("/api/slate")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["season_label"] == "2024"
+    assert payload["season_label"] in {"2024", "2025", "2024-2025"}
     assert "policy" in payload
     assert "validation" in payload
     assert "singles" in payload

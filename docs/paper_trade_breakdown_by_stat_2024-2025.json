@@ -1,0 +1,112 @@
+[
+  {
+    "stat": "receiving_tds",
+    "n_bets": 4106.0,
+    "wins": 3271.0,
+    "losses": 835.0,
+    "pushes": 0.0,
+    "staked_units": 4106.0,
+    "profit_units": 2138.636363636363,
+    "roi": 0.5208563964043749,
+    "win_rate": 0.7966390647832441
+  },
+  {
+    "stat": "rushing_tds",
+    "n_bets": 2014.0,
+    "wins": 1547.0,
+    "losses": 467.0,
+    "pushes": 0.0,
+    "staked_units": 2014.0,
+    "profit_units": 939.3636363636363,
+    "roi": 0.4664168998826397,
+    "win_rate": 0.7681231380337636
+  },
+  {
+    "stat": "interceptions",
+    "n_bets": 1030.0,
+    "wins": 676.0,
+    "losses": 354.0,
+    "pushes": 0.0,
+    "staked_units": 1030.0,
+    "profit_units": 260.54545454545456,
+    "roi": 0.2529567519858782,
+    "win_rate": 0.6563106796116505
+  },
+  {
+    "stat": "passing_tds",
+    "n_bets": 1203.0,
+    "wins": 746.0,
+    "losses": 457.0,
+    "pushes": 0.0,
+    "staked_units": 1203.0,
+    "profit_units": 221.1818181818182,
+    "roi": 0.1838585354794831,
+    "win_rate": 0.6201163757273483
+  },
+  {
+    "stat": "receiving_yards",
+    "n_bets": 7765.0,
+    "wins": 4182.0,
+    "losses": 3583.0,
+    "pushes": 0.0,
+    "staked_units": 7765.0,
+    "profit_units": 218.8181818181818,
+    "roi": 0.02818006204999122,
+    "win_rate": 0.5385705086928525
+  },
+  {
+    "stat": "completions",
+    "n_bets": 958.0,
+    "wins": 572.0,
+    "losses": 386.0,
+    "pushes": 0.0,
+    "staked_units": 958.0,
+    "profit_units": 134.0,
+    "roi": 0.13987473903966596,
+    "win_rate": 0.5970772442588727
+  },
+  {
+    "stat": "passing_yards",
+    "n_bets": 966.0,
+    "wins": 570.0,
+    "losses": 396.0,
+    "pushes": 0.0,
+    "staked_units": 966.0,
+    "profit_units": 122.18181818181819,
+    "roi": 0.1264822134387352,
+    "win_rate": 0.5900621118012422
+  },
+  {
+    "stat": "receptions",
+    "n_bets": 8078.0,
+    "wins": 4264.0,
+    "losses": 3814.0,
+    "pushes": 0.0,
+    "staked_units": 8078.0,
+    "profit_units": 62.36363636363639,
+    "roi": 0.007720182763510323,
+    "win_rate": 0.5278534290666006
+  },
+  {
+    "stat": "rushing_yards",
+    "n_bets": 4707.0,
+    "wins": 2052.0,
+    "losses": 2655.0,
+    "pushes": 0.0,
+    "staked_units": 4707.0,
+    "profit_units": -789.5454545454545,
+    "roi": -0.16773857118025376,
+    "win_rate": 0.4359464627151052
+  },
+  {
+    "stat": "carries",
+    "n_bets": 5533.0,
+    "wins": 2293.0,
+    "losses": 3240.0,
+    "pushes": 0.0,
+    "staked_units": 5533.0,
+    "profit_units": -1155.4545454545455,
+    "roi": -0.20882966662832922,
+    "win_rate": 0.41442255557563706
+  }
+]

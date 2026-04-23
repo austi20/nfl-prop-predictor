@@ -5,6 +5,36 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.4.7 - 2026-04-22
+
+**Step 4 closeout: artifact contract frozen and Step 5 handoff documented.**
+
+- Froze the replay artifact contract (picks/parlays CSV+JSON, summary JSON+MD, breakdown CSVs+JSONs) as the stable upstream interface for the Step 5 app and API layer
+- Added frozen contract table and Step 5 handoff section to `docs/Step4Plan.md`
+- Updated `api/settings.py:sample_props_path` to point to `docs/synthetic_replay_props.csv` as the API seed file
+- Marked all `v0.4.7` tracker items complete in `docs/Step4Plan.md`
+
+Step 4 is closed. Step 5 begins next.
+
+**Verification:** `95 passed, 4 deselected` via `uv run pytest -q`
+
+---
+
+## v0.4.6 - 2026-04-22
+
+**Step 4 full replay runs: synthetic props generator and complete 2024/2025 artifact package.**
+
+- Added `scripts/generate_synthetic_props.py` to produce synthetic prop lines from each player's 4-game shifted trailing average (rounded to floor+0.5), covering all supported stat/position combinations for 2024 and 2025; outputs ~41,500 rows to `docs/synthetic_replay_props.csv`
+- Generated full replay artifact packages for 2024, 2025, and combined 2024-2025 using the finalized replay pipeline and synthetic props file
+- Added `tests/test_synthetic_props.py` with 9 tests covering line rounding, position gating, history filtering, schema validation, and odds column correctness
+- Marked all `v0.4.6` tracker items complete in `docs/Step4Plan.md` and added replay results summary and interpretation section
+
+Replay results (synthetic props baseline): 2024 ROI +9.8% on 16,935 bets; combined 2024-2025 ROI +5.9% on 36,360 bets. This is an engineering-gate result — lines were derived from the same nflverse data the models train on, so ROI measures model signal vs. trend-following, not profitability vs. real sportsbook lines. Strategy gate remains open pending real closing lines (Step 6).
+
+**Verification:** `95 passed, 4 deselected` via `uv run pytest -q`
+
+---
+
 ## v0.4.5 - 2026-04-22
 
 **Step 4 replay hardening implemented: canonical contract, policy controls, and diagnostics artifacts.**

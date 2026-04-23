@@ -20,10 +20,10 @@
     "max_picks_per_game": null
   },
   "validation": {
-    "input_rows": 8,
-    "rows_after_filters": 8,
-    "rows_priced": 8,
-    "selected_rows": 8,
+    "input_rows": 41508,
+    "rows_after_filters": 20561,
+    "rows_priced": 19433,
+    "selected_rows": 16935,
     "applied_filters": {
       "replay_years": [
         2024
@@ -33,105 +33,105 @@
     "skipped_rows": {
       "unsupported_stat": 0,
       "missing_odds": 0,
-      "missing_actual_outcome": 0,
-      "no_selection_edge_threshold": 0,
+      "missing_actual_outcome": 1128,
+      "no_selection_edge_threshold": 2498,
       "max_picks_per_week": 0,
       "max_picks_per_player": 0,
       "max_picks_per_game": 0
     }
   },
   "singles": {
-    "n_bets": 8.0,
-    "wins": 7.0,
-    "losses": 1.0,
+    "n_bets": 16935.0,
+    "wins": 9739.0,
+    "losses": 7196.0,
     "pushes": 0.0,
-    "staked_units": 8.0,
-    "profit_units": 3.6247156247156247,
-    "roi": 0.4530894530894531,
-    "win_rate": 0.875
+    "staked_units": 16935.0,
+    "profit_units": 1657.6363636363635,
+    "roi": 0.09788227715597068,
+    "win_rate": 0.5750811927959847
   },
   "parlays": {
-    "n_parlays": 10.0,
-    "wins": 5.0,
-    "losses": 5.0,
+    "n_parlays": 20.0,
+    "wins": 7.0,
+    "losses": 13.0,
     "pushes": 0.0,
-    "staked_units": 10.0,
-    "profit_units": 4.655534322200988,
-    "roi": 0.4655534322200988,
-    "win_rate": 0.5,
-    "avg_expected_value_units": 1.6681756210241179
+    "staked_units": 20.0,
+    "profit_units": 5.51239669421488,
+    "roi": 0.275619834710744,
+    "win_rate": 0.35,
+    "avg_expected_value_units": 2.644596224044656
   },
   "baselines": {
     "current_policy_singles": {
-      "n_bets": 8.0,
-      "wins": 7.0,
-      "losses": 1.0,
+      "n_bets": 16935.0,
+      "wins": 9739.0,
+      "losses": 7196.0,
       "pushes": 0.0,
-      "staked_units": 8.0,
-      "profit_units": 3.6247156247156247,
-      "roi": 0.4530894530894531,
-      "win_rate": 0.875
+      "staked_units": 16935.0,
+      "profit_units": 1657.6363636363635,
+      "roi": 0.09788227715597068,
+      "win_rate": 0.5750811927959847
     },
     "no_threshold_singles": {
-      "n_bets": 8.0,
-      "wins": 7.0,
-      "losses": 1.0,
+      "n_bets": 18705.0,
+      "wins": 10597.0,
+      "losses": 8108.0,
       "pushes": 0.0,
-      "staked_units": 8.0,
-      "profit_units": 3.6247156247156247,
-      "roi": 0.4530894530894531,
-      "win_rate": 0.875
+      "staked_units": 18705.0,
+      "profit_units": 1525.6363636363635,
+      "roi": 0.08156302398483632,
+      "win_rate": 0.5665330125634856
     },
     "top_edge_only_singles": {
-      "n_bets": 1.0,
-      "wins": 0.0,
-      "losses": 1.0,
+      "n_bets": 22.0,
+      "wins": 11.0,
+      "losses": 11.0,
       "pushes": 0.0,
-      "staked_units": 1.0,
-      "profit_units": -1.0,
-      "roi": -1.0,
-      "win_rate": 0.0
+      "staked_units": 22.0,
+      "profit_units": -1.0000000000000004,
+      "roi": -0.04545454545454548,
+      "win_rate": 0.5
     },
     "singles_plus_top_parlay_per_week": {
-      "n_bets": 9.0,
-      "wins": 7.0,
-      "losses": 2.0,
+      "n_bets": 16938.0,
+      "wins": 9740.0,
+      "losses": 7198.0,
       "pushes": 0.0,
-      "staked_units": 9.0,
-      "profit_units": 2.6247156247156247,
-      "roi": 0.29163506941284717,
-      "win_rate": 0.7777777777777778
+      "staked_units": 16938.0,
+      "profit_units": 1658.280991735537,
+      "roi": 0.09790299868553178,
+      "win_rate": 0.5750383752509151
     }
   },
   "leaders": {
     "stats": {
       "best": {
-        "stat": "passing_yards",
-        "profit_units": 0.9090909090909091,
-        "roi": 0.9090909090909091,
-        "n_bets": 1.0
+        "stat": "receiving_tds",
+        "profit_units": 1007.4545454545454,
+        "roi": 0.5126995142262317,
+        "n_bets": 1965.0
       },
       "worst": {
-        "stat": "receptions",
-        "profit_units": -1.0,
-        "roi": -1.0,
-        "n_bets": 1.0
+        "stat": "carries",
+        "profit_units": -431.8181818181818,
+        "roi": -0.16532089656132534,
+        "n_bets": 2612.0
       }
     },
     "books": {
       "best": {
-        "book": "demo_book",
-        "profit_units": 3.6247156247156247,
-        "roi": 0.4530894530894531,
-        "n_bets": 8.0
+        "book": "synthetic",
+        "profit_units": 1657.6363636363635,
+        "roi": 0.09788227715597068,
+        "n_bets": 16935.0
       },
       "worst": {
-        "book": "demo_book",
-        "profit_units": 3.6247156247156247,
-        "roi": 0.4530894530894531,
-        "n_bets": 8.0
+        "book": "synthetic",
+        "profit_units": 1657.6363636363635,
+        "roi": 0.09788227715597068,
+        "n_bets": 16935.0
       }
     }
   },
-  "interpretation": "Result looks noisy because the replay sample is still small. Treat it as a pipeline verification run more than a strategy verdict."
+  "interpretation": "Result looks usable enough to keep moving, with positive replay economics after vig on this slice. It still deserves stress checks across seasons, books, and edge buckets before relying on it."
 }
