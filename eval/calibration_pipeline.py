@@ -37,6 +37,18 @@ from models.qb import QBModel
 from models.rb import RBModel
 from models.wr_te import WRTEModel
 
+BASE_PROP_COLUMNS = ("player_id", "season", "week", "stat", "line")
+REPLAY_REQUIRED_PROP_COLUMNS = ("over_odds", "under_odds")
+OPTIONAL_PROP_COLUMNS = (
+    "book",
+    "game_id",
+    "recent_team",
+    "opponent_team",
+    "opp_team",
+    "market_source",
+    "pulled_at",
+)
+
 
 @dataclass(frozen=True)
 class StatSpec:
@@ -73,7 +85,38 @@ def _brier_score(raw_probs: np.ndarray, outcomes: np.ndarray) -> float:
     return float(np.mean((raw_probs - outcomes) ** 2))
 
 
-def _load_props_file(path: Path) -> pd.DataFrame:
+def _normalize_props_schema(df: pd.DataFrame) -> pd.DataFrame:
+    props = df.copy()
+    props.columns = [str(col) for col in props.columns]
+    props["stat"] = props["stat"].astype(str).str.strip()
+
+    if "opp_team" not in props.columns:
+        props["opp_team"] = pd.NA
+    if "opponent_team" not in props.columns:
+        props["opponent_team"] = pd.NA
+
+    props["opponent_team"] = props["opponent_team"].where(
+        props["opponent_team"].notna(),
+        props["opp_team"],
+    )
+    props["opp_team"] = props["opponent_team"]
+
+    for col in OPTIONAL_PROP_COLUMNS:
+        if col not in props.columns:
+            props[col] = pd.NA
+
+    return props
+
+
+def _duplicate_subset(props: pd.DataFrame) -> list[str]:
+    keys = ["player_id", "season", "week", "stat", "line"]
+    for optional_col in ("book", "game_id", "market_source"):
+        if optional_col in props.columns:
+            keys.append(optional_col)
+    return keys
+
+
+def load_props_file(path: Path, *, require_odds: bool = False) -> pd.DataFrame:
     path = Path(path)
     suffix = path.suffix.lower()
     if suffix == ".csv":
@@ -85,11 +128,21 @@ def _load_props_file(path: Path) -> pd.DataFrame:
     else:
         raise ValueError(f"Unsupported props file type: {suffix}")
 
-    required = {"player_id", "season", "week", "stat", "line"}
+    required = set(BASE_PROP_COLUMNS)
+    if require_odds:
+        required.update(REPLAY_REQUIRED_PROP_COLUMNS)
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Missing required prop columns: {sorted(missing)}")
-    return df.copy()
+
+    props = _normalize_props_schema(df)
+    duplicate_subset = _duplicate_subset(props)
+    duplicates = props[props.duplicated(subset=duplicate_subset, keep=False)]
+    if not duplicates.empty:
+        sample = duplicates[duplicate_subset].head(5).to_dict("records")
+        raise ValueError(f"Duplicate prop rows found for keys {duplicate_subset}: {sample}")
+
+    return props
 
 
 def _fit_models(
@@ -110,14 +163,17 @@ def build_calibration_rows(
     train_years: list[int] | None = None,
     holdout_years: list[int] | None = None,
     weekly: pd.DataFrame | None = None,
-) -> pd.DataFrame:
+    *,
+    strict_stats: bool = True,
+    require_odds: bool = False,
+    return_metadata: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]]:
     train_years = list(TRAIN_YEARS if train_years is None else train_years)
     holdout_years = list(HOLDOUT_YEARS if holdout_years is None else holdout_years)
 
-    props = props_df.copy()
-    props["stat"] = props["stat"].astype(str)
+    props = _normalize_props_schema(props_df)
     unsupported = sorted(set(props["stat"]) - set(STAT_SPECS))
-    if unsupported:
+    if unsupported and strict_stats:
         raise ValueError(f"Unsupported prop stats: {unsupported}")
 
     if weekly is None:
@@ -131,12 +187,30 @@ def build_calibration_rows(
 
     models = _fit_models(train_years, holdout_years, weekly)
     holdout_props = props[props["season"].isin(holdout_years)].copy()
+    metadata: dict[str, Any] = {
+        "input_rows": int(len(holdout_props)),
+        "output_rows": 0,
+        "skipped_rows": {
+            "unsupported_stat": 0,
+            "missing_odds": 0,
+            "missing_actual_outcome": 0,
+        },
+        "unsupported_stats": unsupported,
+    }
 
     rows: list[dict[str, Any]] = []
     for _, row in holdout_props.iterrows():
-        spec = STAT_SPECS[str(row["stat"])]
+        stat = str(row["stat"])
+        if stat not in STAT_SPECS:
+            metadata["skipped_rows"]["unsupported_stat"] += 1
+            continue
+        if require_odds and (pd.isna(row.get("over_odds")) or pd.isna(row.get("under_odds"))):
+            metadata["skipped_rows"]["missing_odds"] += 1
+            continue
+
+        spec = STAT_SPECS[stat]
         model = models[spec.model_name]
-        opp_team = str(row["opp_team"]) if "opp_team" in row and pd.notna(row["opp_team"]) else ""
+        opp_team = str(row["opponent_team"]) if pd.notna(row.get("opponent_team")) else ""
         preds = model.predict(
             player_id=str(row["player_id"]),
             week=int(row["week"]),
@@ -151,6 +225,7 @@ def build_calibration_rows(
             & (weekly_outcomes["week"] == int(row["week"]))
         ]
         if actual_match.empty:
+            metadata["skipped_rows"]["missing_actual_outcome"] += 1
             continue
 
         actual_value = float(actual_match.iloc[0][spec.actual_column])
@@ -167,9 +242,16 @@ def build_calibration_rows(
             "book": str(row["book"]) if "book" in row and pd.notna(row["book"]) else "",
             "over_odds": float(row["over_odds"]) if "over_odds" in row and pd.notna(row["over_odds"]) else np.nan,
             "under_odds": float(row["under_odds"]) if "under_odds" in row and pd.notna(row["under_odds"]) else np.nan,
+            "game_id": str(row["game_id"]) if "game_id" in row and pd.notna(row["game_id"]) else "",
+            "recent_team": str(row["recent_team"]) if "recent_team" in row and pd.notna(row["recent_team"]) else "",
+            "opponent_team": str(row["opponent_team"]) if "opponent_team" in row and pd.notna(row["opponent_team"]) else opp_team,
         })
 
-    return pd.DataFrame(rows)
+    calibration_rows = pd.DataFrame(rows)
+    metadata["output_rows"] = int(len(calibration_rows))
+    if return_metadata:
+        return calibration_rows, metadata
+    return calibration_rows
 
 
 def fit_calibrators(
@@ -277,7 +359,7 @@ def run_calibration(
     holdout_years = list(HOLDOUT_YEARS if holdout_years is None else holdout_years)
     season_label = "-".join(str(year) for year in holdout_years)
 
-    props_df = _load_props_file(Path(props_path))
+    props_df = load_props_file(Path(props_path))
     rows = build_calibration_rows(
         props_df=props_df,
         train_years=train_years,

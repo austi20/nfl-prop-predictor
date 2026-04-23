@@ -4,12 +4,14 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 import joblib
 import numpy as np
+import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 
@@ -244,4 +246,201 @@ def price_prop(
         "book_implied_prob": book_implied,
         "edge": e,
         "fair_american": float(fair_am),
+    }
+
+
+def price_two_sided_prop(
+    raw_prob_over: float,
+    over_odds: int,
+    under_odds: int,
+    calibrator: PropCalibrator | None = None,
+) -> dict[str, dict[str, float | str]]:
+    raw_over = float(np.clip(raw_prob_over, 0.0, 1.0))
+    if calibrator is None:
+        cal_over = raw_over
+    else:
+        cal_over = float(calibrator.calibrate(raw_over))
+    cal_under = float(np.clip(1.0 - cal_over, 0.0, 1.0))
+    raw_under = float(np.clip(1.0 - raw_over, 0.0, 1.0))
+
+    over = {
+        "side": "over",
+        "raw_prob": raw_over,
+        "calibrated_prob": cal_over,
+        "book_odds": float(over_odds),
+        "book_implied_prob": implied_prob(over_odds),
+        "edge": edge(cal_over, implied_prob(over_odds)),
+        "fair_american": float(fair_price_to_american(np.clip(cal_over, 1e-6, 1.0 - 1e-6))),
+    }
+    under = {
+        "side": "under",
+        "raw_prob": raw_under,
+        "calibrated_prob": cal_under,
+        "book_odds": float(under_odds),
+        "book_implied_prob": implied_prob(under_odds),
+        "edge": edge(cal_under, implied_prob(under_odds)),
+        "fair_american": float(fair_price_to_american(np.clip(cal_under, 1e-6, 1.0 - 1e-6))),
+    }
+    return {"over": over, "under": under}
+
+
+def american_profit(stake: float, american_odds: int) -> float:
+    if american_odds < 0:
+        return stake * (100.0 / abs(float(american_odds)))
+    return stake * (float(american_odds) / 100.0)
+
+
+def settle_pick(actual_value: float, line: float, side: str) -> str:
+    if actual_value == line:
+        return "push"
+    if side == "over":
+        return "win" if actual_value > line else "loss"
+    return "win" if actual_value < line else "loss"
+
+
+def build_paper_trade_picks(
+    priced_rows: pd.DataFrame,
+    calibrator: PropCalibrator | None = None,
+    min_edge: float = 0.05,
+    stake: float = 1.0,
+    max_picks_per_week: int | None = None,
+    max_picks_per_player: int | None = None,
+    max_picks_per_game: int | None = None,
+    return_metadata: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]]:
+    candidate_rows: list[dict[str, Any]] = []
+    metadata: dict[str, Any] = {
+        "input_rows": int(len(priced_rows)),
+        "selected_rows": 0,
+        "skipped_rows": {
+            "missing_odds": 0,
+            "edge_threshold": 0,
+            "max_picks_per_week": 0,
+            "max_picks_per_player": 0,
+            "max_picks_per_game": 0,
+        },
+    }
+
+    for _, row in priced_rows.iterrows():
+        if pd.isna(row.get("over_odds")) or pd.isna(row.get("under_odds")):
+            metadata["skipped_rows"]["missing_odds"] += 1
+            continue
+        market = price_two_sided_prop(
+            raw_prob_over=float(row["raw_prob"]),
+            over_odds=int(row["over_odds"]),
+            under_odds=int(row["under_odds"]),
+            calibrator=calibrator,
+        )
+        best_side = max(market.values(), key=lambda item: float(item["edge"]))
+        if float(best_side["edge"]) < min_edge:
+            metadata["skipped_rows"]["edge_threshold"] += 1
+            continue
+
+        result = settle_pick(
+            actual_value=float(row["actual_value"]),
+            line=float(row["line"]),
+            side=str(best_side["side"]),
+        )
+        profit = 0.0
+        if result == "win":
+            profit = american_profit(stake, int(best_side["book_odds"]))
+        elif result == "loss":
+            profit = -stake
+
+        candidate_rows.append({
+            "player_id": str(row["player_id"]),
+            "season": int(row["season"]),
+            "week": int(row["week"]),
+            "stat": str(row["stat"]),
+            "line": float(row["line"]),
+            "actual_value": float(row["actual_value"]),
+            "book": str(row["book"]) if pd.notna(row.get("book")) else "",
+            "selected_side": str(best_side["side"]),
+            "selected_odds": int(best_side["book_odds"]),
+            "selected_book_implied_prob": float(best_side["book_implied_prob"]),
+            "selected_fair_american": float(best_side["fair_american"]),
+            "selected_raw_prob": float(best_side["raw_prob"]),
+            "selected_prob": float(best_side["calibrated_prob"]),
+            "selected_edge": float(best_side["edge"]),
+            "result": result,
+            "stake_units": float(stake),
+            "profit_units": float(profit),
+            "game_id": str(row["game_id"]) if pd.notna(row.get("game_id")) else "",
+            "recent_team": str(row["recent_team"]) if pd.notna(row.get("recent_team")) else "",
+            "opponent_team": str(row["opponent_team"]) if pd.notna(row.get("opponent_team")) else "",
+        })
+
+    if not candidate_rows:
+        empty = pd.DataFrame(candidate_rows)
+        if return_metadata:
+            return empty, metadata
+        return empty
+
+    candidates = pd.DataFrame(candidate_rows).sort_values(
+        ["season", "week", "selected_edge", "player_id", "stat", "line"],
+        ascending=[True, True, False, True, True, True],
+    )
+
+    selected_rows: list[dict[str, Any]] = []
+    week_counts: defaultdict[tuple[int, int], int] = defaultdict(int)
+    player_counts: defaultdict[tuple[int, int, str], int] = defaultdict(int)
+    game_counts: defaultdict[tuple[int, int, str], int] = defaultdict(int)
+
+    for row in candidates.to_dict("records"):
+        week_key = (int(row["season"]), int(row["week"]))
+        player_key = (int(row["season"]), int(row["week"]), str(row["player_id"]))
+        game_id = str(row.get("game_id", ""))
+        game_key = (int(row["season"]), int(row["week"]), game_id)
+
+        if max_picks_per_week is not None and week_counts[week_key] >= max_picks_per_week:
+            metadata["skipped_rows"]["max_picks_per_week"] += 1
+            continue
+        if max_picks_per_player is not None and player_counts[player_key] >= max_picks_per_player:
+            metadata["skipped_rows"]["max_picks_per_player"] += 1
+            continue
+        if game_id and max_picks_per_game is not None and game_counts[game_key] >= max_picks_per_game:
+            metadata["skipped_rows"]["max_picks_per_game"] += 1
+            continue
+
+        week_counts[week_key] += 1
+        player_counts[player_key] += 1
+        if game_id:
+            game_counts[game_key] += 1
+        selected_rows.append(row)
+
+    picks = pd.DataFrame(selected_rows)
+    metadata["selected_rows"] = int(len(picks))
+    if return_metadata:
+        return picks, metadata
+    return picks
+
+
+def summarize_paper_trade(picks: pd.DataFrame) -> dict[str, float]:
+    if picks.empty:
+        return {
+            "n_bets": 0.0,
+            "wins": 0.0,
+            "losses": 0.0,
+            "pushes": 0.0,
+            "staked_units": 0.0,
+            "profit_units": 0.0,
+            "roi": 0.0,
+            "win_rate": 0.0,
+        }
+
+    wins = float((picks["result"] == "win").sum())
+    losses = float((picks["result"] == "loss").sum())
+    pushes = float((picks["result"] == "push").sum())
+    staked = float(picks["stake_units"].sum())
+    profit = float(picks["profit_units"].sum())
+    graded = wins + losses
+    return {
+        "n_bets": float(len(picks)),
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "staked_units": staked,
+        "profit_units": profit,
+        "roi": (profit / staked) if staked > 0 else 0.0,
+        "win_rate": (wins / graded) if graded > 0 else 0.0,
     }

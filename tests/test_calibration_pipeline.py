@@ -7,6 +7,7 @@ import pandas as pd
 
 from eval.calibration_pipeline import (
     build_calibration_rows,
+    load_props_file,
     run_calibration,
 )
 
@@ -113,6 +114,114 @@ def test_build_calibration_rows_returns_probabilities_and_outcomes():
     assert len(rows) == len(props)
     assert rows["raw_prob"].between(0.0, 1.0).all()
     assert rows["outcome"].isin([0.0, 1.0]).all()
+
+
+def test_load_props_file_rejects_missing_required_columns(tmp_path):
+    props = pd.DataFrame([
+        {
+            "player_id": "qb1",
+            "season": 2024,
+            "week": 1,
+            "line": 250.5,
+        }
+    ])
+    path = tmp_path / "bad_props.csv"
+    props.to_csv(path, index=False)
+
+    try:
+        load_props_file(path)
+    except ValueError as exc:
+        assert "Missing required prop columns" in str(exc)
+    else:
+        raise AssertionError("Expected missing required columns to raise")
+
+
+def test_load_props_file_normalizes_opponent_fields(tmp_path):
+    props = pd.DataFrame([
+        {
+            "player_id": "qb1",
+            "season": 2024,
+            "week": 1,
+            "stat": "passing_yards",
+            "line": 250.5,
+            "opp_team": "LAC",
+            "over_odds": -110,
+            "under_odds": -110,
+        }
+    ])
+    path = tmp_path / "props.csv"
+    props.to_csv(path, index=False)
+
+    loaded = load_props_file(path, require_odds=True)
+
+    assert "opponent_team" in loaded.columns
+    assert loaded.loc[0, "opponent_team"] == "LAC"
+    assert loaded.loc[0, "opp_team"] == "LAC"
+
+
+def test_build_calibration_rows_reports_skipped_rows():
+    weekly = _make_fake_weekly()
+    props = pd.DataFrame([
+        {
+            "player_id": "qb1",
+            "season": 2024,
+            "week": 1,
+            "stat": "passing_yards",
+            "line": 236.5,
+            "opp_team": "LAC",
+            "book": "testbook",
+            "over_odds": -110,
+            "under_odds": -110,
+        },
+        {
+            "player_id": "qb1",
+            "season": 2024,
+            "week": 2,
+            "stat": "made_up_stat",
+            "line": 1.5,
+            "opp_team": "LAC",
+            "book": "testbook",
+            "over_odds": -110,
+            "under_odds": -110,
+        },
+        {
+            "player_id": "rb1",
+            "season": 2024,
+            "week": 3,
+            "stat": "rushing_yards",
+            "line": 68.5,
+            "opp_team": "LAC",
+            "book": "testbook",
+            "over_odds": None,
+            "under_odds": -110,
+        },
+        {
+            "player_id": "wr1",
+            "season": 2024,
+            "week": 99,
+            "stat": "receiving_yards",
+            "line": 67.5,
+            "opp_team": "LAC",
+            "book": "testbook",
+            "over_odds": -110,
+            "under_odds": -110,
+        },
+    ])
+
+    rows, metadata = build_calibration_rows(
+        props_df=props,
+        train_years=[2022, 2023],
+        holdout_years=[2024],
+        weekly=weekly,
+        strict_stats=False,
+        require_odds=True,
+        return_metadata=True,
+    )
+
+    assert len(rows) == 1
+    assert metadata["skipped_rows"]["unsupported_stat"] == 1
+    assert metadata["skipped_rows"]["missing_odds"] == 1
+    assert metadata["skipped_rows"]["missing_actual_outcome"] == 1
 
 
 def test_run_calibration_writes_artifacts(tmp_path):

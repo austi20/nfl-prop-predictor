@@ -55,11 +55,13 @@ The good news: the free NFL data ecosystem (nflverse) is *better* than BallDontL
 ### Recommendation
 Train + backtest: **nfl_data_py only**. Live/inference add **The Odds API** (props) + **Open-Meteo** (weather) + **BALLDONTLIE** (redundancy). Total free-tier cost: $0 for MVP.
 
-## Architecture (mirrors NBA app)
+## Architecture
 
 ```
 +------------------------------------------------+
-|  Desktop UI (same framework as NBA app)        |
+|  Desktop UI (Tauri 2.0 + React + shadcn/ui)    |
+|     <-- localhost REST -->                     |
+|  FastAPI sidecar (bundled Python .exe)         |
 +------------------------------------------------+
 |  Prediction Service                            |
 |   - per-position models (QB/RB/WR/TE/K/DEF)    |
@@ -112,7 +114,7 @@ Position-specific regression + distributional output (we need distributions, not
 
 All wrapped in a 500k-sim Monte Carlo at the game level so correlated props (QB pass yds + his WR1 rec yds) share the same simulated paths - this is what enables correlation-aware parlays.
 
-Training: 1999-2025 play-by-play, walk-forward CV by season. Backtest prop edges against The Odds API historical endpoint (if the free tier covers it) or against closing-line archives.
+Training: 1999-2025 play-by-play, walk-forward CV by season. Replay paper-trade edges against local historical prop files first, with live-season Odds API ingestion reserved for later live execution.
 
 Shrinkage: Empirical Bayes per position toward position-group prior - this handles the small-sample NFL problem.
 
@@ -172,35 +174,51 @@ Use dead-time productively:
 
 ---
 
-### Step 4 - Wire Odds API historical to replay 2024-2025 seasons as paper-trading.
+### Step 4 - Harden local historical props replay for 2024-2025 paper-trading.
 
-> Files: `data/odds_client.py`, `eval/prop_pricer.py`, `eval/parlay_builder.py`
+> Files: `eval/replay_pipeline.py`, `eval/prop_pricer.py`, `eval/parlay_builder.py`, `docs/Step4Plan.md`
 >
-> Done when: paper-trade replay runs end-to-end on a full 2024 week slate, ROI positive after vig.
+> Done when: local historical props replay runs end-to-end for 2024-2025 with stable artifacts under `docs/`, and the selected replay policy reaches non-negative to positive ROI after vig on the tracked evaluation set.
 
 ---
 ### CHECKPOINT v0.4 - Push to GitHub
 **Tag:** `v0.4`
-**Push when:** Paper-trading replay pipeline complete. 2024-2025 replay results documented in `docs/`. Update `VERSIONS.md` before pushing.
+**Push when:** Local replay pipeline contract is stable, 2024-2025 replay artifacts are documented in `docs/`, and Step 4 closeout language is reflected in `VERSIONS.md` before pushing.
 
 ---
 
-### Step 5 - Port UI + LLM analyst from NBA app. Swap NBA stat widgets for NFL stat widgets.
+### Step 5 - Build Tauri/React/shadcn desktop UI from scratch + wire FastAPI sidecar + LLM analyst panel. Split into 5a/5b/5c for incremental checkpoints.
 
-> Files: `llm/tools_nfl.py`, `ui/nfl_dashboard.*`, `data/weather.py`
->
-> Done when: dashboard renders a full Sunday slate with projections, LLM analyst narrative references correct injuries/weather.
+**Stack:** Tauri 2.0 + React 18 (Vite) + shadcn/ui + Tailwind CSS. FastAPI sidecar bundled via PyInstaller provides localhost REST bridge to Python models. Windows `.msi` target. All tooling MIT/Apache — $0 licensing cost.
+
+**Layout:**
+- `api/` — FastAPI sidecar (`server.py`, `routes/`, `schemas.py`)
+- `desktop/src-tauri/` — Rust shell + `tauri.conf.json` + sidecar binding
+- `desktop/src/` — React app (`routes/`, `components/`, `lib/api.ts`, `styles/globals.css`, Zustand stores)
+- `llm/tools_nfl.py`, `data/weather.py` (unchanged ownership)
+
+**Design system (locked in 5a):** Dark-first slate palette, emerald/rose semantic accents, Inter + JetBrains Mono (tabular numerals), 12/14/16px density scale, 150ms motion, Lucide icons. Custom components: `<EdgeBadge>`, `<ConfidenceBar>`, `<DistChart>`, `<PlayerCard>`, `<InjuryPill>`, `<WeatherBadge>`.
 
 ---
-### CHECKPOINT v0.5 - Push to GitHub
-**Tag:** `v0.5`
-**Push when:** Desktop UI functional end-to-end. LLM analyst wired with all NFL tools. Weather layer integrated. Update `VERSIONS.md` before pushing.
+### CHECKPOINT v0.5a - Push to GitHub
+**Tag:** `v0.5a`
+**Push when:** Tauri shell boots, FastAPI sidecar auto-starts on ephemeral localhost port, one live end-to-end page (weekly slate fetched from `/api/slate`) renders real data, design tokens in `globals.css` locked, `.msi` build succeeds. Update `VERSIONS.md` before pushing.
+
+---
+### CHECKPOINT v0.5b - Push to GitHub
+**Tag:** `v0.5b`
+**Push when:** Slate view, player detail (distribution chart + prop edge table), and parlay builder pages all wired to real Python model output. Visual regression snapshots captured at 1440x900 and 1920x1080. Update `VERSIONS.md` before pushing.
+
+---
+### CHECKPOINT v0.5c - Push to GitHub
+**Tag:** `v0.5c`
+**Push when:** LLM analyst panel streams Qwen3 tokens via SSE with cancellation, weather/injury visualizations shipped, accessibility pass complete (axe-core clean, full keyboard nav), signed-or-unsigned `.msi` under 50 MB installs cleanly on a host with no Python/Node. Update `VERSIONS.md` before pushing.
 
 ---
 
-### Step 6 - Preseason (Aug 2026) - dry-run pipeline on preseason games (noisy data, good smoke test).
+### Step 6 - Preseason (Aug 2026) - add live odds ingestion and dry-run the preseason pipeline.
 
-> Done when: pipeline runs live on preseason slate without errors, stale-data detection works.
+> Done when: The Odds API live feed is normalized into the Step 4 replay shape, the pipeline runs live on a preseason slate without errors, and stale-data detection works.
 
 ---
 ### CHECKPOINT v0.6 - Push to GitHub
@@ -222,22 +240,17 @@ Use dead-time productively:
 
 ## Critical Files to Create (once code is back on this machine)
 
-Pattern-match to the NBA repo's structure. Likely new/renamed:
 - `data/nflverse_loader.py` - wraps nfl_data_py imports, parquet cache
-- `data/odds_client.py` - The Odds API wrapper (likely already exists for NBA, extend)
-- `data/weather.py` - Open-Meteo wrapper (new)
+- `data/odds_client.py` - The Odds API wrapper
+- `data/weather.py` - Open-Meteo wrapper
 - `models/qb.py`, `models/rb.py`, `models/wr_te.py`, `models/kicker.py`
 - `models/game_sim.py` - Monte Carlo engine, game-script simulator
 - `eval/prop_pricer.py` - distribution -> fair price -> edge
-- `eval/parlay_builder.py` - correlation-aware (can reuse NBA structure)
+- `eval/parlay_builder.py` - correlation-aware parlay builder
 - `llm/tools_nfl.py` - tool definitions exposed to Qwen3 analyst
-- `ui/nfl_dashboard.*` - desktop UI mirror of NBA dashboard
-
-Reuse wholesale from NBA app:
-- llama.cpp server launcher + Qwen3 config
-- LLM analyst orchestration / tool-call loop
-- Confidence-rating UI component
-- Parlay-builder UI component
+- `api/server.py`, `api/routes/`, `api/schemas.py` - FastAPI sidecar bridging desktop UI to Python services
+- `desktop/src-tauri/` - Tauri 2.0 shell (Rust), `tauri.conf.json`, sidecar binding to PyInstaller `.exe`
+- `desktop/src/` - React app (routes, components, `lib/api.ts`, Tailwind design tokens, Zustand stores)
 
 ## Verification
 
@@ -249,14 +262,14 @@ Reuse wholesale from NBA app:
 
 ## Resolved Scope Decisions
 
-- **Stack: Python end-to-end** via `nfl_data_py` (with `nflreadpy` as newer alternative). Rationale: faster cache loads via parquet, pandas/numpy/scikit-learn/llama-cpp-python all in one language, matches llama.cpp server integration already proven in NBA app. Nflverse parity between R and Python is ~95%; missing bits (if any) are advanced model columns that we recompute ourselves from raw pbp anyway.
-- **Paper-trading: in scope.** Replay 2024 and 2025 seasons against Odds API historical (or archived closing lines) as a calibration + confidence gate before live mode.
+- **Stack: Python end-to-end** via `nfl_data_py` (with `nflreadpy` as newer alternative). Rationale: faster cache loads via parquet, pandas/numpy/scikit-learn/llama-cpp-python all in one language, matches llama.cpp server integration. Nflverse parity between R and Python is ~95%; missing bits (if any) are advanced model columns that we recompute ourselves from raw pbp anyway.
+- **Paper-trading: in scope.** Replay 2024 and 2025 seasons from local historical props files as the calibration and confidence gate before live mode; The Odds API stays reserved for live-season odds ingestion.
 - **Position scope: QB/RB/WR/TE only.** Kicker and team DEF deferred post-MVP.
+- **Desktop UI stack: Tauri 2.0 + React 18 + shadcn/ui + Tailwind CSS.** FastAPI sidecar (bundled via PyInstaller) provides the Python bridge over localhost REST. Windows `.msi` is the v1.0 target (macOS/Linux deferred). All tooling MIT/Apache — $0 licensing cost. Rationale: native webview keeps installer small (10-40 MB vs Electron's 120-200 MB), shadcn gives copy-paste ownership of components with no vendor lock-in, sidecar pattern mirrors the existing llama.cpp sidecar so architecture stays consistent.
 
 ## Still Open (answer before implementation)
 
 - Did the NBA app use The Odds API or a different odds source? If different, does that source cover NFL props? (Determines whether odds client is reusable.)
-- Desktop UI framework of the NBA app (Electron / Tauri / PyQt / etc.) - confirms UI port path.
 
 ## Sources
 

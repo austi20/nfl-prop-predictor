@@ -5,6 +5,34 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.4.5 - 2026-04-22
+
+**Step 4 replay hardening implemented: canonical contract, policy controls, and diagnostics artifacts.**
+
+- Hardened `eval/calibration_pipeline.py` so local props files normalize `opp_team` into `opponent_team`, validate duplicate rows, support replay-required odds columns, and report skipped unsupported-stat, missing-odds, and missing-outcome rows instead of silently dropping them
+- Expanded `eval/replay_pipeline.py` with stable Step 4 CLI filters (`--replay-years`, `--weeks`, `--stats`, `--books`), configurable pick caps, baseline comparisons, detailed validation metadata, breakdown generation, and richer JSON/Markdown replay summaries
+- Extended `eval/prop_pricer.py` with explicit replay pick-policy enforcement for `min_edge`, stake sizing, max picks per week, max picks per player, and max picks per game, along with skip accounting for threshold and cap rejections
+- Extended `eval/parlay_builder.py` so same-week parlays are grouped by season and week, include settled results and ROI stats, and remain separated from singles reporting while preserving conservative same-game and same-team penalties
+- Added coverage for schema validation, opponent-field normalization, skipped-row accounting, replay filters, calibrator-enabled replay, policy caps, and artifact writing across `tests/test_calibration_pipeline.py`, `tests/test_prop_pricer.py`, and `tests/test_replay_pipeline.py`
+- Updated `docs/Step4Plan.md` to mark the `v0.4.3` through `v0.4.5` implementation items complete and to lock the current default replay policy values
+
+**Verification:** `80 passed, 4 deselected` via `uv run pytest -q`
+
+---
+
+## v0.4.3 - 2026-04-22
+
+**Step 4 planning doc added: local replay-first tracking contract and handoff framework.**
+
+- Added `docs/Step4Plan.md` as the supplementary active tracker for Step 4 execution without replacing `docs/plan.md`
+- Locked Step 4 around a local historical props replay pipeline for 2024-2025, with The Odds API explicitly reserved as the planned live-season odds source
+- Documented Step 4 definition of done, replay schema, CLI and artifact contracts, reporting goals, policy hardening work, and Step 5 through Step 7 handoff expectations
+- Updated `docs/plan.md` so the macro roadmap reflects the local-replay-first Step 4 and live-ingestion Step 6 split
+
+**Current project note:** Step 3 calibration remains an optional upgrade path during Step 4. Replay must run without a calibrator, but may consume one when a saved calibrator exists.
+
+---
+
 ## v0.4.2 - 2026-04-22
 
 **Step 2 accuracy iteration: added context-aware weekly features and revision-delta reporting.**

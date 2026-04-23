@@ -3,10 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from eval.prop_pricer import (
     PropCalibrator,
+    build_paper_trade_picks,
     edge,
     fair_price_to_american,
     implied_prob,
@@ -190,3 +192,98 @@ def test_price_prop_no_calibrator():
     dist = StatDistribution(mean=100.0, std=20.0, dist_type="gamma")
     result = price_prop(dist=dist, line=90.0, book_odds=-110, calibrator=None)
     assert abs(result["calibrated_prob"] - result["raw_prob"]) < 1e-9
+
+
+def test_build_paper_trade_picks_applies_caps_and_reports_skips():
+    priced_rows = pd.DataFrame([
+        {
+            "player_id": "qb1",
+            "season": 2024,
+            "week": 1,
+            "stat": "passing_yards",
+            "line": 250.5,
+            "raw_prob": 0.65,
+            "actual_value": 275.0,
+            "book": "book_a",
+            "over_odds": -110,
+            "under_odds": -110,
+            "game_id": "g1",
+            "recent_team": "KC",
+            "opponent_team": "LAC",
+        },
+        {
+            "player_id": "qb1",
+            "season": 2024,
+            "week": 1,
+            "stat": "completions",
+            "line": 24.5,
+            "raw_prob": 0.64,
+            "actual_value": 28.0,
+            "book": "book_a",
+            "over_odds": -110,
+            "under_odds": -110,
+            "game_id": "g1",
+            "recent_team": "KC",
+            "opponent_team": "LAC",
+        },
+        {
+            "player_id": "rb1",
+            "season": 2024,
+            "week": 1,
+            "stat": "rushing_yards",
+            "line": 68.5,
+            "raw_prob": 0.62,
+            "actual_value": 55.0,
+            "book": "book_b",
+            "over_odds": -110,
+            "under_odds": -110,
+            "game_id": "g1",
+            "recent_team": "KC",
+            "opponent_team": "LAC",
+        },
+        {
+            "player_id": "wr1",
+            "season": 2024,
+            "week": 1,
+            "stat": "receiving_yards",
+            "line": 70.5,
+            "raw_prob": 0.60,
+            "actual_value": 73.0,
+            "book": "book_c",
+            "over_odds": -110,
+            "under_odds": -110,
+            "game_id": "g2",
+            "recent_team": "KC",
+            "opponent_team": "DEN",
+        },
+        {
+            "player_id": "te1",
+            "season": 2024,
+            "week": 1,
+            "stat": "receiving_tds",
+            "line": 0.5,
+            "raw_prob": 0.53,
+            "actual_value": 1.0,
+            "book": "book_d",
+            "over_odds": -110,
+            "under_odds": -110,
+            "game_id": "g3",
+            "recent_team": "KC",
+            "opponent_team": "DEN",
+        },
+    ])
+
+    picks, metadata = build_paper_trade_picks(
+        priced_rows,
+        min_edge=0.05,
+        stake=1.0,
+        max_picks_per_week=2,
+        max_picks_per_player=1,
+        max_picks_per_game=1,
+        return_metadata=True,
+    )
+
+    assert len(picks) == 2
+    assert metadata["skipped_rows"]["max_picks_per_player"] == 1
+    assert metadata["skipped_rows"]["max_picks_per_game"] == 1
+    assert metadata["skipped_rows"]["edge_threshold"] == 1
