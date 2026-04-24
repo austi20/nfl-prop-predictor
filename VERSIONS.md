@@ -5,6 +5,19 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.6c - 2026-04-24
+
+**Telemetry + frontend test baseline.**
+
+- C1: FastAPI exception handlers (HTTP, validation, generic) emit `{success, data, error:{code,message,request_id}}` envelope; frontend `request()` unwraps error envelope for richer messages; fixed silent error swallow in `streamAnalyst` catch block
+- C2: `app-store.ts` expanded with theme, minEdgeDefault, defaultStatFilter, simpleMode; zustand `persist` middleware with `localStorage` key `nfl-prop-workstation:prefs`; apiBaseUrl excluded from persistence
+- C3: OpenTelemetry wired - `api/telemetry.py` with custom `_JsonlSpanExporter` writing to `docs/telemetry/spans-<date>.jsonl`; `FastAPIInstrumentor` auto-traces all routes; `opentelemetry-api/sdk/instrumentation-fastapi` added to deps
+- C4: `vitest`, `@testing-library/react/jest-dom/user-event`, `jsdom` installed; `vitest.config.ts` + `src/test/setup.ts`; 3 test files (dashboard, parlay-builder, analyst-panel) — 11 tests, all passing; `"test"` script in package.json
+
+**Verification:** `102 passed, 4 deselected` Python; `cd desktop && npm test` → 11 passed; `npm run build` clean.
+
+---
+
 ## v0.6b - 2026-04-24
 
 **Beginner UX + honest placeholders.**

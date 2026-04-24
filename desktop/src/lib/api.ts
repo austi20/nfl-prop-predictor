@@ -11,7 +11,16 @@ async function request<T>(path: string, init?: RequestInit) {
   })
 
   if (!response.ok) {
-    throw new Error(`Request failed for ${path}: ${response.status}`)
+    try {
+      const body = await response.json()
+      const message: string = body?.error?.message ?? `Request failed for ${path}: ${response.status}`
+      const code: string = body?.error?.code ?? String(response.status)
+      const err = Object.assign(new Error(message), { code })
+      throw err
+    } catch (e) {
+      if (e instanceof SyntaxError) throw new Error(`Request failed for ${path}: ${response.status}`)
+      throw e
+    }
   }
 
   return (await response.json()) as T
@@ -84,8 +93,8 @@ export async function streamAnalyst(
         if (evt.event === 'error') throw new Error((evt.error as string) || 'Stream error')
         if (evt.token) onToken(evt.token as string)
         if (evt.event === 'tool_call') onToolCall({ name: evt.name, args: evt.args })
-      } catch {
-        // partial JSON line, ignore
+      } catch (e) {
+        if (!(e instanceof SyntaxError)) throw e
       }
     }
   }
