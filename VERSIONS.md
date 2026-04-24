@@ -5,6 +5,20 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.6a - 2026-04-24
+
+**Workstation leaks fixed.**
+
+- Replaced Vite-template `<title>desktop</title>` with `NFL Prop Workstation`; rewrote `desktop/README.md` with dev/build/route docs
+- Tightened Tauri CSP from `null` to a real policy (loopback `connect-src`, no `unsafe-inline` on scripts, Tailwind `unsafe-inline` on styles)
+- Scoped CORS origins from wildcard to `["http://tauri.localhost", "tauri://localhost", "http://localhost:1420"]`
+- Aligned analyst SSE contract: backend emits `tool_call` events for llama.cpp tool-call deltas; frontend surfaces server-side `error` events by throwing in `streamAnalyst`; new `tests/test_analyst_stream.py`
+- Wired `@tanstack/react-query` (was installed, unused): `QueryClientProvider` in `main.tsx`; all three route pages converted from `useLoaderData` to `useQuery`; deleted `dashboard-loader.ts` and `player-detail-loader.ts`; removed `loader:` and `hydrateFallbackElement:` from router
+
+**Verification:** `101 passed, 4 deselected` Python suite + `test_analyst_stream` passing; `npm run build` clean (0 TS errors).
+
+---
+
 ## v0.5.1 - 2026-04-23
 
 **Step 5 fantasy projection layer and desktop sidecar startup fix.**

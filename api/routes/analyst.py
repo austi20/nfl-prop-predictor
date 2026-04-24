@@ -68,6 +68,12 @@ async def _stream_llm(base_url: str, request: AnalystRequest) -> AsyncIterator[s
                         token = delta.get("content") or ""
                         if token:
                             yield f'data: {json.dumps({"event": "token", "token": token})}\n\n'
+                        for tc in delta.get("tool_calls") or []:
+                            fn = tc.get("function") or {}
+                            name = fn.get("name")
+                            args = fn.get("arguments") or ""
+                            if name:
+                                yield f'data: {json.dumps({"event": "tool_call", "name": name, "args": args})}\n\n'
                     except (json.JSONDecodeError, KeyError, IndexError):
                         continue
 

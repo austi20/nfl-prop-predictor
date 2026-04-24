@@ -1,9 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { Activity, BadgeDollarSign, LayoutPanelTop, ShieldCheck } from 'lucide-react'
-import { Link, useLoaderData } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import { PlayerCard } from '../components/player-card'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import type { BreakdownRow, SlateResponse } from '../lib/types'
+import { getSlate } from '../lib/api'
+import type { BreakdownRow } from '../lib/types'
 
 function metric(value: number, suffix = '') {
   return `${value >= 0 ? '+' : ''}${value.toFixed(3)}${suffix}`
@@ -60,7 +62,15 @@ function BreakdownTable({
 }
 
 export function DashboardPage() {
-  const slate = useLoaderData() as SlateResponse
+  const { data: slate, isLoading } = useQuery({ queryKey: ['slate'], queryFn: getSlate })
+
+  if (isLoading || !slate) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-400">
+        Loading slate...
+      </div>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(244,63,94,0.18),transparent_26%),linear-gradient(180deg,#07111b_0%,#0c1724_100%)] text-slate-50">

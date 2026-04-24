@@ -81,8 +81,9 @@ export async function streamAnalyst(
       if (!line.startsWith('data:')) continue
       try {
         const evt = JSON.parse(line.slice(5).trim())
-        if (evt.token) onToken(evt.token)
-        if (evt.tool_call) onToolCall(evt.tool_call)
+        if (evt.event === 'error') throw new Error((evt.error as string) || 'Stream error')
+        if (evt.token) onToken(evt.token as string)
+        if (evt.event === 'tool_call') onToolCall({ name: evt.name, args: evt.args })
       } catch {
         // partial JSON line, ignore
       }

@@ -1,11 +1,13 @@
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useLoaderData } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 
 import { AnalystPanel } from '../components/analyst-panel'
 import { DistChart } from '../components/dist-chart'
 import { EdgeBadge } from '../components/edge-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { getPlayer } from '../lib/api'
 import type { Pick, PlayerDetailResponse } from '../lib/types'
 
 function resultColor(result: string | null | undefined) {
@@ -70,8 +72,22 @@ function PickRow({ pick }: { pick: Pick }) {
 }
 
 export function PlayerDetailPage() {
-  const player = useLoaderData() as PlayerDetailResponse
+  const { playerId } = useParams<{ playerId: string }>()
+  const { data: player, isLoading } = useQuery({
+    queryKey: ['player', playerId],
+    queryFn: () => getPlayer(playerId!),
+    enabled: !!playerId,
+  })
   const [analystOpen, setAnalystOpen] = useState(false)
+
+  if (isLoading || !player) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-400">
+        Loading player...
+      </div>
+    )
+  }
+
   const topPick = player.replay_picks[0]
 
   return (

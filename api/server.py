@@ -22,7 +22,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     # the response, which surfaces as the frontend "Failed to fetch" for cross-origin calls.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["http://tauri.localhost", "tauri://localhost", "http://localhost:1420"],
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],

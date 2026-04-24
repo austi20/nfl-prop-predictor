@@ -1,11 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { useLoaderData } from 'react-router-dom'
 
 import { EdgeBadge } from '../components/edge-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { buildParlays } from '../lib/api'
-import type { ParlayBuildResponse, ParlayRow, Pick, SlateResponse } from '../lib/types'
+import { buildParlays, getSlate } from '../lib/api'
+import type { ParlayBuildResponse, ParlayRow, Pick } from '../lib/types'
 
 function fmt(n: number, sign = false) {
   return `${sign && n >= 0 ? '+' : ''}${n.toFixed(3)}`
@@ -34,13 +34,21 @@ function ParlayResultRow({ row }: { row: ParlayRow }) {
 }
 
 export function ParlayBuilderPage() {
-  const slate = useLoaderData() as SlateResponse
+  const { data: slate, isLoading } = useQuery({ queryKey: ['slate'], queryFn: getSlate })
   const [cart, setCart] = useState<Pick[]>([])
   const [legs, setLegs] = useState(2)
   const [stake, setStake] = useState(1.0)
   const [result, setResult] = useState<ParlayBuildResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  if (isLoading || !slate) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-400">
+        Loading builder...
+      </div>
+    )
+  }
 
   const picks = slate.top_picks ?? []
 
