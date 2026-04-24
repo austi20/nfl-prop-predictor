@@ -35,6 +35,13 @@ class AppSettings(BaseSettings):
     default_parlay_legs: int = 2
     default_max_parlay_candidates: int = 10
 
+    risk_max_notional_per_order: float = 100.0
+    risk_max_open_notional_per_market: float = 500.0
+    risk_daily_loss_cap: float = 200.0
+    risk_min_edge: float = 0.03
+    risk_reject_cooldown_n: int = 3
+    risk_reject_cooldown_seconds: float = 60.0
+
     default_calibrator_path: str = ""
     llama_cpp_base_url: str = "http://127.0.0.1:8080"
     weather_source: str = "open-meteo"

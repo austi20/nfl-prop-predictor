@@ -35,6 +35,7 @@ class ExecutionIntent:
     side: Literal["yes", "no"]
     limit_price: float
     size: float
+    edge: float
     client_order_id: str
     expires_at: datetime
 

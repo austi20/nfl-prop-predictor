@@ -5,6 +5,58 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8a-scaffold - 2026-04-24
+
+**Kalshi scaffold: module shape, secret vault, RSA-PSS signing, KalshiMapper stub, venue selector UI.**
+
+- F1: `api/trading/kalshi/{__init__,client,adapter,ws}.py` — Kalshi module fully shaped; all network methods raise `NotImplementedError("Kalshi scaffold — activate in-season")`; class wiring, type signatures, and `client_order_id` handling in place
+- F1: `api/trading/kalshi/signing.py` — real RSA-PSS signing (`sign_request`); tested against a generated test keypair without network access
+- F2: `api/trading/secrets.py` — `keyring` wrapper: `store/load/delete` under `nfl-prop-workstation` service; venue-namespaced keys
+- F2: `api/routes/secrets.py` — `POST /api/secrets/kalshi` stores access key + PEM; gated by startup-printed confirmation token; registered in server.py
+- F2: `pyproject.toml` — added `cryptography>=42`, `keyring>=25`
+- F3: `tests/trading/test_kalshi_signing.py` — 4 tests: base64 length, PSS round-trip verify, payload isolation, bytes PEM
+- F2: `tests/trading/test_secrets.py` — 5 tests: round-trip, missing→None, delete, delete-noop, venue isolation
+- F4: `api/trading/mapper.py` — `KalshiMapper` added; `map_signal` returns `None` and logs `mapping_skipped` audit event
+- F5: `desktop/src/routes/execution-page.tsx` — venue selector dropdown in banner: "Paper" (active) / "Kalshi (Demo) — Coming preseason" (disabled)
+- F6: `docs/TradingOps.md` — paper vs demo vs live, secret-vault usage, kill-switch semantics, Kalshi activation checklist, compliance disclaimer
+
+**Verification:** 47 Python trading tests passing; 16 frontend tests passing; `npm run build` clean.
+
+---
+
+## v0.7b-scaffold - 2026-04-24
+
+**Paper trading surface: fake adapter, execution service, API routes, execution UI page.**
+
+- E1: `api/trading/paper_adapter.py` - `FakePaperAdapter` (all adapter protocols); immediate fill at limit price; rejects invalid price/size; `KillSwitch` trip/reset; logs warning on first use
+- E2: `api/services/execution_service.py` - `ExecutionService` orchestrates pick→mapper→risk→router→ledger; in-memory event log; `submit_picks`, `cancel`, `get_portfolio`, `get_events`, `trip_kill_switch`
+- E2: `api/routes/execution.py` - 6 routes: `POST /paper/submit`, `POST /paper/cancel`, `POST /kill`, `GET /portfolio`, `GET /events`, `GET /events/stream` (SSE tail)
+- E2: `api/server.py` - execution service wired at startup; `StaticRiskEngine` uses `NFL_APP_RISK_*` env settings
+- E3: `desktop/src/routes/execution-page.tsx` - 3-panel layout: pick queue + per-pick Submit, orders + Cancel, portfolio P&L + live SSE event tail
+- E3: `desktop/src/App.tsx` + `router.tsx` - "Execution (Paper)" nav link and `/execution` route
+- E3: `desktop/src/lib/api.ts` + `types.ts` - `submitPicks`, `cancelIntent`, `killSwitch`, `getPortfolio`, `getExecutionEvents`, `streamExecutionEvents`; `IntentStatus`, `Portfolio`, `ExecutionEvent` types
+- E4: Kill switch big red button in banner, wired to `POST /kill`; flips all open intents to canceled; disables after trip
+- E5: `desktop/src/routes/__tests__/execution-page.test.tsx` - 5 tests: banner visible, pick renders, submit shows intent, cancel flips status, kill switch disables
+
+**Verification:** 38 Python trading tests passing; 16 frontend tests passing (4 files); `npm run build` clean.
+
+---
+
+## v0.7a - 2026-04-24
+
+**Trading domain types, audit log, adapter protocols, risk engine, ledger, pricing.**
+
+- D1: `api/trading/types.py` - frozen dataclasses: Signal, MarketRef, ExecutionIntent (with `edge` field), RiskDecision, OrderEvent, Position, PortfolioState
+- D2: `api/trading/adapters.py` - Protocol classes: MarketDiscoveryAdapter, SignalMapper, RiskEngine, OrderRouter, MarketDataStream, OrderStatusTracker, PortfolioLedger, KillSwitch
+- D2: `api/trading/audit.py` - `log_event()` appending JSONL for every order-lifecycle event
+- D3: `api/trading/risk.py` - `StaticRiskEngine` with 5 caps (max notional/order, max open notional/market, daily loss cap, min edge, reject cooldown); trips kill-switch after N rejects in M seconds; configured via `NFL_APP_RISK_*` env prefix in `api/settings.py`
+- D4: `api/trading/ledger.py` - `InMemoryPortfolioLedger` applies fills/partials to Position map; weighted avg price; persists snapshot to `docs/audit/portfolio-<session>.json`
+- D5: `api/trading/pricing.py` - `american_to_prob()` and `prob_to_clob_price()` utilities; `api/trading/mapper.py` - `PickToIntentMapper` (Signal + MarketRef → ExecutionIntent)
+
+**Verification:** 30 new trading tests all passing (`tests/trading/`); existing suite unaffected.
+
+---
+
 ## v0.6c - 2026-04-24
 
 **Telemetry + frontend test baseline.**

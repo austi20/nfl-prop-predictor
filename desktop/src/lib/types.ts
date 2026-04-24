@@ -195,6 +195,36 @@ export type FilterMetadata = {
   applied_filters: Record<string, unknown>
 }
 
+export type IntentStatus = {
+  status: string
+  intent_id: string
+  pick_id: string
+  market_id: string
+  side: string
+  limit_price: number
+  size: number
+  edge: number
+}
+
+export type Portfolio = {
+  cash_balance: number
+  realized_pnl: number
+  unrealized_pnl: number
+  positions: Array<{ market_id: string; size: number; avg_price: number; unrealized_pnl: number }>
+}
+
+export type ExecutionEvent = {
+  kind: string
+  ts: string
+  intent_id?: string
+  event_type?: string
+  pick_id?: string
+  market_id?: string
+  reason?: string
+  price?: number
+  size?: number
+}
+
 export type SlateResponse = {
   season_label: string
   policy: ReplayPolicy

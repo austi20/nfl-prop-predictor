@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.routes.analyst import router as analyst_router
+from api.routes.execution import router as execution_router
+from api.routes.secrets import router as secrets_router
 from api.telemetry import setup_telemetry
 from api.routes.fantasy import router as fantasy_router
 from api.routes.health import router as health_router
@@ -16,7 +18,12 @@ from api.routes.parlays import router as parlays_router
 from api.routes.players import router as players_router
 from api.routes.props import router as props_router
 from api.routes.slate import router as slate_router
+from api.services.execution_service import ExecutionService
 from api.settings import AppSettings, get_settings
+from api.trading.ledger import InMemoryPortfolioLedger
+from api.trading.mapper import PickToIntentMapper
+from api.trading.paper_adapter import FakePaperAdapter
+from api.trading.risk import StaticRiskEngine
 
 
 def _error_body(code: str, message: str) -> dict:
@@ -63,6 +70,23 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             content=_error_body("internal_error", str(exc)),
         )
 
+    risk = StaticRiskEngine(
+        max_notional_per_order=app_settings.risk_max_notional_per_order,
+        max_open_notional_per_market=app_settings.risk_max_open_notional_per_market,
+        daily_loss_cap=app_settings.risk_daily_loss_cap,
+        min_edge=app_settings.risk_min_edge,
+        reject_cooldown_n=app_settings.risk_reject_cooldown_n,
+        reject_cooldown_seconds=app_settings.risk_reject_cooldown_seconds,
+    )
+    ledger = InMemoryPortfolioLedger(audit_dir=app_settings.docs_dir / "audit")
+    app.state.execution_service = ExecutionService(
+        adapter=FakePaperAdapter(),
+        ledger=ledger,
+        mapper=PickToIntentMapper(),
+        risk=risk,
+        audit_dir=app_settings.docs_dir / "audit",
+    )
+
     app.include_router(health_router, prefix=app_settings.api_prefix)
     app.include_router(slate_router, prefix=app_settings.api_prefix)
     app.include_router(players_router, prefix=app_settings.api_prefix)
@@ -70,6 +94,8 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(fantasy_router, prefix=app_settings.api_prefix)
     app.include_router(parlays_router, prefix=app_settings.api_prefix)
     app.include_router(analyst_router, prefix=app_settings.api_prefix)
+    app.include_router(execution_router, prefix=app_settings.api_prefix)
+    app.include_router(secrets_router, prefix=app_settings.api_prefix)
 
     setup_telemetry(app, app_settings.docs_dir / "telemetry")
     return app

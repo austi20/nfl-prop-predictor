@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 
 import App from './App'
 import { DashboardPage } from './routes/dashboard-page'
+import { ExecutionPage } from './routes/execution-page'
 import { PlayerDetailPage } from './routes/player-detail-page'
 import { ParlayBuilderPage } from './routes/parlay-builder-page'
 import { RouteError } from './routes/route-error'
@@ -23,6 +24,10 @@ export const router = createBrowserRouter([
       {
         path: 'parlays',
         element: <ParlayBuilderPage />,
+      },
+      {
+        path: 'execution',
+        element: <ExecutionPage />,
       },
     ],
   },

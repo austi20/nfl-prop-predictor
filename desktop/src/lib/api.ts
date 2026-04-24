@@ -1,4 +1,4 @@
-import type { FantasyPredictionResponse, Pick, PlayerDetailResponse, ParlayBuildResponse, SlateResponse } from './types'
+import type { ExecutionEvent, FantasyPredictionResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, SlateResponse } from './types'
 import { resolveApiBaseUrl } from './runtime'
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -55,6 +55,65 @@ export async function predictFantasy(payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export async function submitPicks(picks: Pick[]) {
+  return request<IntentStatus[]>('/api/execution/paper/submit', {
+    method: 'POST',
+    body: JSON.stringify({ picks }),
+  })
+}
+
+export async function cancelIntent(intentId: string) {
+  return request<{ status: string; intent_id: string }>('/api/execution/paper/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ intent_id: intentId }),
+  })
+}
+
+export async function killSwitch(reason = 'user_initiated') {
+  return request<{ killed: number; reason: string }>('/api/execution/kill', {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function getPortfolio() {
+  return request<Portfolio>('/api/execution/portfolio').then((r) => (r as any).data as Portfolio)
+}
+
+export async function getExecutionEvents(since = 0) {
+  return request<{ success: boolean; data: ExecutionEvent[] }>(`/api/execution/events?since=${since}`).then(
+    (r) => (r as any).data as ExecutionEvent[],
+  )
+}
+
+export async function streamExecutionEvents(
+  onEvent: (event: ExecutionEvent) => void,
+  signal: AbortSignal,
+) {
+  const baseUrl = await resolveApiBaseUrl()
+  const response = await fetch(`${baseUrl}/api/execution/events/stream`, { signal })
+  if (!response.ok || !response.body) return
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const lines = buf.split('\n')
+    buf = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue
+      try {
+        onEvent(JSON.parse(line.slice(5).trim()) as ExecutionEvent)
+      } catch {
+        // skip malformed frames
+      }
+    }
+  }
 }
 
 export async function streamAnalyst(

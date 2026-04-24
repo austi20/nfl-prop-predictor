@@ -23,6 +23,14 @@ export default function App() {
           >
             Parlay Builder
           </NavLink>
+          <NavLink
+            to="/execution"
+            className={({ isActive }) =>
+              `text-sm font-medium transition-colors ${isActive ? 'text-slate-50' : 'text-slate-400 hover:text-slate-200'}`
+            }
+          >
+            Execution (Paper)
+          </NavLink>
         </div>
       </nav>
       <main className="flex-1">
