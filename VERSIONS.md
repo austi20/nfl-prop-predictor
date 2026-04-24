@@ -5,6 +5,22 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.6b - 2026-04-24
+
+**Beginner UX + honest placeholders.**
+
+- Removed "step 5 v0.5a" and "Step 4 replay artifacts" dev-facing strings from dashboard; replaced with `{slate.season_label}` label and plain-English copy
+- Filters card upgraded from read-only display to real controls: position multi-select, min-edge range slider, stat multi-select; state local, filtering client-side against React Query cache
+- `WeatherBadge`: null renders "No current feed" instead of "Weather N/A"
+- `InjuryPill`: null renders "Status unknown" instead of "Active"
+- Analyst panel: 3 starter chips appear when input is empty ("Explain this pick in plain English", etc.); player-detail now passes `stat` and `line` context from top pick
+- New `GlossaryTooltip` component (CVA, ~45 lines): hover definition tooltips on Singles ROI, Profit Units, Parlay EV KPI labels; 8-term dictionary in same file
+- B6: `@axe-core/playwright` installed; `playwright.config.ts` + `desktop/tests/a11y.spec.ts` added asserting zero `wcag22aa` violations on all 3 routes with mocked API
+
+**Verification:** `npm run build` clean; Python suite unchanged.
+
+---
+
 ## v0.6a - 2026-04-24
 
 **Workstation leaks fixed.**

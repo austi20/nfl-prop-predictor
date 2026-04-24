@@ -157,7 +157,7 @@ export function PlayerDetailPage() {
 
       {analystOpen && (
         <AnalystPanel
-          context={{ player_id: player.player_id }}
+          context={{ player_id: player.player_id, stat: topPick?.stat, line: topPick?.line }}
           onClose={() => setAnalystOpen(false)}
         />
       )}

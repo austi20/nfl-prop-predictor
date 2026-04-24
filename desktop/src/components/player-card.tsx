@@ -5,7 +5,6 @@ import { EdgeBadge } from './edge-badge'
 import { InjuryPill } from './injury-pill'
 import { WeatherBadge } from './weather-badge'
 
-// weather/injury data will be populated in v0.5c when the analyst tools wire through
 import { Card, CardContent } from './ui/card'
 
 type PlayerCardProps = {

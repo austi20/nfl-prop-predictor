@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Activity, BadgeDollarSign, LayoutPanelTop, ShieldCheck } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { GlossaryTooltip } from '../components/glossary-tooltip'
 import { PlayerCard } from '../components/player-card'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { getSlate } from '../lib/api'
@@ -64,6 +66,29 @@ function BreakdownTable({
 export function DashboardPage() {
   const { data: slate, isLoading } = useQuery({ queryKey: ['slate'], queryFn: getSlate })
 
+  const availablePositions = useMemo(
+    () => [...new Set((slate?.top_picks ?? []).map((p) => p.position).filter(Boolean))].sort(),
+    [slate?.top_picks],
+  )
+  const availableStats = slate?.filter_metadata.available_stats ?? []
+
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([])
+  const [minEdge, setMinEdge] = useState(0)
+  const [selectedStats, setSelectedStats] = useState<string[]>([])
+
+  const filteredPicks = useMemo(() => {
+    return (slate?.top_picks ?? []).filter((pick) => {
+      if (selectedPositions.length > 0 && !selectedPositions.includes(pick.position)) return false
+      if (pick.selected_edge < minEdge) return false
+      if (selectedStats.length > 0 && !selectedStats.includes(pick.stat)) return false
+      return true
+    })
+  }, [slate?.top_picks, selectedPositions, minEdge, selectedStats])
+
+  function toggleItem(list: string[], item: string, setter: (v: string[]) => void) {
+    setter(list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
+  }
+
   if (isLoading || !slate) {
     return (
       <div className="flex min-h-screen items-center justify-center text-slate-400">
@@ -81,15 +106,13 @@ export function DashboardPage() {
               <div className="absolute inset-y-0 right-0 hidden w-80 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.16),transparent_55%)] lg:block" />
               <div className="relative max-w-3xl">
                 <div className="font-mono text-[11px] uppercase tracking-[0.26em] text-emerald-200/90">
-                  replay-backed slate • step 5 v0.5a
+                  {slate.season_label}
                 </div>
                 <h1 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                  NFL Prop Predictor
+                  NFL Prop Workstation
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                  The desktop layer stays thin here: this page is rendered directly from
-                  <code className="mx-1 rounded bg-white/10 px-1.5 py-0.5 text-[0.85em]">/api/slate</code>
-                  using Step 4 replay artifacts and the current pricing contract.
+                  Props priced against 2018-2024 replay history. Edge is the gap between our model and the book's implied probability.
                 </p>
                 <p className="mt-4 max-w-2xl text-sm text-slate-400">{slate.interpretation}</p>
               </div>
@@ -99,21 +122,58 @@ export function DashboardPage() {
             <CardHeader>
               <CardTitle>Filters</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <div>
-                <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">Season</div>
-                <div className="mt-2 text-lg text-slate-100">{slate.season_label}</div>
+                <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">Position</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {availablePositions.map((pos) => (
+                    <button
+                      key={pos}
+                      onClick={() => toggleItem(selectedPositions, pos, setSelectedPositions)}
+                      aria-pressed={selectedPositions.includes(pos)}
+                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                        selectedPositions.includes(pos)
+                          ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
+                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {pos}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                  <span>Min edge</span>
+                  <span className="text-slate-300">{minEdge > 0 ? `+${(minEdge * 100).toFixed(0)}%` : 'Any'}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={0.3}
+                  step={0.01}
+                  value={minEdge}
+                  onChange={(e) => setMinEdge(Number(e.target.value))}
+                  aria-label="Minimum edge filter"
+                  className="mt-2 w-full accent-emerald-400"
+                />
               </div>
               <div>
                 <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">Stats</div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {slate.filter_metadata.available_stats.map((stat) => (
-                    <span
+                  {availableStats.map((stat) => (
+                    <button
                       key={stat}
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200"
+                      onClick={() => toggleItem(selectedStats, stat, setSelectedStats)}
+                      aria-pressed={selectedStats.includes(stat)}
+                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                        selectedStats.includes(stat)
+                          ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
+                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                      }`}
                     >
                       {stat.replaceAll('_', ' ')}
-                    </span>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -124,31 +184,35 @@ export function DashboardPage() {
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {
+              id: 'singles-roi',
               icon: ShieldCheck,
-              label: 'Singles ROI',
+              label: <GlossaryTooltip term="roi">Singles ROI</GlossaryTooltip>,
               value: `${(slate.singles.roi * 100).toFixed(1)}%`,
               detail: `${slate.singles.wins}-${slate.singles.losses} graded`,
             },
             {
+              id: 'profit-units',
               icon: BadgeDollarSign,
-              label: 'Profit Units',
+              label: <GlossaryTooltip term="edge">Profit Units</GlossaryTooltip>,
               value: metric(slate.singles.profit_units, 'u'),
               detail: `${slate.singles.n_bets.toFixed(0)} tracked picks`,
             },
             {
+              id: 'parlay-ev',
               icon: LayoutPanelTop,
-              label: 'Parlay EV',
+              label: <GlossaryTooltip term="ev">Parlay EV</GlossaryTooltip>,
               value: metric(slate.parlays.avg_expected_value_units, 'u'),
               detail: `${slate.parlays.n_parlays.toFixed(0)} candidate parlays`,
             },
             {
+              id: 'rows-priced',
               icon: Activity,
               label: 'Rows Priced',
               value: slate.validation.rows_priced.toString(),
               detail: `${slate.validation.selected_rows} selected`,
             },
           ].map((item) => (
-            <Card key={item.label}>
+            <Card key={item.id}>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <item.icon className="h-5 w-5 text-emerald-300" />
@@ -167,10 +231,10 @@ export function DashboardPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-lg font-semibold text-white">Top Picks</h2>
-              <p className="text-sm text-slate-400">Replay-backed cards with the existing Step 4 pricing fields.</p>
+              <p className="text-sm text-slate-400">Showing {filteredPicks.length} picks. Use the filters to narrow by position, stat, or edge.</p>
             </div>
             <div className="grid gap-4">
-              {slate.top_picks.map((pick) => (
+              {filteredPicks.map((pick) => (
                 <Link
                   key={`${pick.player_id}-${pick.stat}-${pick.line}`}
                   to={`/player/${encodeURIComponent(pick.player_id)}`}

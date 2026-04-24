@@ -85,6 +85,24 @@ export function AnalystPanel({ context = {}, onClose }: Props) {
         )}
       </div>
 
+      {!question && !streaming && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {[
+            'Explain this pick in plain English',
+            'Why over instead of under?',
+            'What would change this recommendation?',
+          ].map((prompt) => (
+            <button
+              key={prompt}
+              onClick={() => setQuestion(prompt)}
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 hover:bg-white/10 hover:text-slate-200 transition-colors"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex gap-2">
         <input
           type="text"
