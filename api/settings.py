@@ -45,6 +45,7 @@ class AppSettings(BaseSettings):
     default_calibrator_path: str = ""
     llama_cpp_base_url: str = "http://127.0.0.1:8080"
     weather_source: str = "open-meteo"
+    use_live_forecast: bool = False
 
 
 @lru_cache(maxsize=1)

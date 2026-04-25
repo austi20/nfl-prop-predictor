@@ -5,6 +5,21 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8b - 2026-04-25
+
+**Historical weather backfill + loader integration (Phase G2+G3).**
+
+- G2: `scripts/backfill_weather.py` — Open-Meteo Archive backfill for NFL games 2018–2025; indoor skip (fixed dome + retractable); unit conversions (°C→°F, km/h→mph, mm→in); 3× exponential backoff on 5xx; 429/403 clean stop; idempotent; writes `cache/weather_archive.parquet`
+- G2: `tests/test_weather_backfill.py` — 24 tests covering indoor skip, outdoor unit conversion, idempotency, 5xx retry, 429/403 stop
+- G3: `data/weather.py` — `load_archive(seasons)` reads cache parquet (empty-safe, stable schema); `load_forecast(game_id)` stubbed, gated on `use_live_forecast` flag
+- G3: `data/nflverse_loader.py` — `load_weekly_with_weather(years)` left-joins player stats to weather archive by `game_id`; unmatched games get `indoor=True` and null numeric weather columns
+- G3: `api/settings.py` — `use_live_forecast: bool = False` added
+- G3: `tests/test_weather_loader.py` — 5 tests covering archive miss, season filter, forecast stub (flag on + off), join correctness, empty-archive schema stability
+
+**Verification:** 201 Python tests passing, 5 deselected (slow/integration marks).
+
+---
+
 ## v0.8a-scaffold - 2026-04-24
 
 **Kalshi scaffold: module shape, secret vault, RSA-PSS signing, KalshiMapper stub, venue selector UI.**

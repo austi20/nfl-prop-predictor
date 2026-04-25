@@ -180,3 +180,27 @@ def load_snap_counts(years: list[int] = TRAIN_YEARS, force_refresh: bool = False
 def load_qbr(years: list[int] = TRAIN_YEARS, force_refresh: bool = False) -> pd.DataFrame:
     path = _cache_path("qbr", years)
     return _load_or_fetch(path, lambda: nfl.import_qbr(years), force_refresh)
+
+
+def load_weekly_with_weather(
+    years: list[int] = TRAIN_YEARS,
+    force_refresh: bool = False,
+) -> pd.DataFrame:
+    """Weekly player stats left-joined with weather archive by game_id.
+
+    Non-outdoor games have indoor=True and null numeric weather columns.
+    Models' existing fillna(0.0) in _build_features handles the nulls.
+    """
+    # Deferred import to avoid circular imports at module level.
+    from data.weather import load_archive
+
+    stats = load_weekly(years, force_refresh)
+    weather = load_archive(years)
+
+    if weather.empty:
+        return stats
+
+    weather_cols = ["game_id", "temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code", "indoor"]
+    weather_slim = weather[weather_cols]
+
+    return stats.merge(weather_slim, on="game_id", how="left")
