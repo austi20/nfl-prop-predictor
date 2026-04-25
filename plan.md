@@ -1,290 +1,28 @@
-# Plan: Post-Step-5 Hardening → Trading Framework (stub) → Model Training + Historical Weather
-
-## Context
-
-Step 5 shipped at v0.5.1. The Tauri app installs from .msi, sidecar boots on an ephemeral port, dashboard/player-detail/parlay-builder routes render, analyst SSE streams tokens. The shell is coherent but visibly pre-enterprise: Vite-template README/title leak through, CSP is disabled, CORS is wildcard, weather/injury badges render `null`, React Query is installed but unused, analyst frontend listens for a `tool_call` event the backend never emits.
-
-Today is 2026-04-23. NFL season kicks off ~Sept 2026. That's a ~4.5-month offseason window where the highest-leverage work isn't exchange plumbing — it's **model training on expanded history**. The repo's differentiator is the position models, shrinkage calibration, and replay pipeline, not the venue connectors. Kalshi demo and Polymarket can't do a useful end-to-end validation until live NFL markets exist.
-
-Reprioritized plan:
-1. **Harden the workstation (v0.6a+b+c)** — fix the pre-enterprise leaks, wire React Query, align SSE contract, replace placeholder UX, WCAG 2.2 AA sweep. Full implementation. No season dependency.
-2. **Trading domain model (v0.7a)** — full implementation: venue-agnostic `Signal`, `MarketRef`, `ExecutionIntent`, `RiskDecision`, `OrderEvent`, `PortfolioState`, audit log, risk engine, ledger, mapper, pricing. Pure code.
-3. **Paper trading + Kalshi SCAFFOLD (v0.7b-scaffold, v0.8a-scaffold)** — real UI surface, real routes, real audit trail, real kill switch, real secret vault, real signing test. Adapters and network calls are fakes/stubs until season opens. Shape committed so later swap-in is mechanical.
-4. **Model training + historical weather (v0.8b+c+d)** — backfill Open-Meteo archive weather for every game 2018–2025, add weather features to the three position GLMs, expand replay scope, sweep shrinkage `k` (currently hardcoded 8), recalibrate probability outputs. This is where the offseason time goes.
-
-Polymarket (global V2 + US) and live-money automation remain **out of scope**, gated behind a future v0.9 phase after the season validates the scaffolding.
-
-Outcome: repo exits this work with a production-shaped local workstation, a full trading domain committed as code, exchange integrations scaffolded for in-season completion, and a materially stronger model trained on 8 seasons × real weather.
-
----
-
-## Phase A — v0.6a: Workstation Leaks Fixed
-
-Small, visible fixes. Each one is ≤1 file.
-
-### A1. Replace the Vite template leaks
-
-**Modify:**
-- `desktop/index.html` — change `<title>desktop</title>` to `<title>NFL Prop Workstation</title>`.
-- `desktop/README.md` — rewrite to a short "what this is, how to run dev, how to build" doc matching the repo's main README tone. ~40 lines max.
-
-### A2. Tighten Tauri CSP
-
-**Modify:** `desktop/src-tauri/tauri.conf.json` — set `app.security.csp` to a real policy:
-```
-"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; img-src 'self' data:"
-```
-Loopback `connect-src` is needed because the sidecar port is ephemeral. `unsafe-inline` on `style-src` is required by Tailwind 4's generated styles; no `unsafe-inline` on scripts.
-
-**Verify:** `npm run tauri dev`; dashboard still loads; devtools Console is clean of CSP violations.
-
-### A3. Scope CORS on the sidecar
-
-**Modify:** `api/server.py` — replace wildcard origins with `["http://tauri.localhost", "tauri://localhost", "http://localhost:1420"]`. Keep `allow_credentials=False`.
-
-**Verify:** `uv run pytest -q tests/test_api_*` passes; Tauri dev window loads `/api/slate` without CORS errors.
-
-### A4. Align the analyst SSE contract
-
-**Modify:**
-- `api/routes/analyst.py` — when the llama.cpp response contains a tool-call delta, emit an SSE frame with `event: tool_call` and payload `{name, args}`. Pass through existing `token`/`error`/`complete` unchanged.
-- `desktop/src/components/analyst-panel.tsx` — handle the `error` event from the server payload (currently only surfaces fetch-level failures); render tool-call chips collapsibly.
-
-**Test:** `tests/test_analyst_stream.py` — one case mocks the llama.cpp client yielding a tool-call delta and asserts the SSE output contains the `tool_call` frame.
-
-### A5. Wire React Query for route data
-
-`@tanstack/react-query@^5.100.1` is installed but unused.
-
-**Modify:**
-- `desktop/src/main.tsx` — wrap the router in `QueryClientProvider` with a shared client.
-- `desktop/src/routes/dashboard-page.tsx`, `player-detail-page.tsx`, `parlay-builder-page.tsx` — convert to `useQuery({ queryKey, queryFn: () => api.getX() })`. Delete the `*-loader.ts` files.
-- `desktop/src/router.tsx` — drop `loader:` properties.
-
-Keep API functions in `desktop/src/lib/api.ts` — hooks wrap them, don't replace them.
-
-**Verify:** `npm run build` succeeds; all pages render; stale-click on a player card returns instantly from cache.
-
-**Git checkpoint:** update `VERSIONS.md` with v0.6a entry; tag `v0.6a`.
-
----
-
-## Phase B — v0.6b: Beginner UX + Honest Placeholders
-
-The dashboard is analyst-grade. Beginners bounce off it. No redesign; just relabel, fill in, add guidance.
-
-### B1. Replace dev-facing language
-
-**Modify:** `desktop/src/routes/dashboard-page.tsx` — any "Step N" / replay phase IDs / internal version strings become plain English.
-
-### B2. Make the Filters card actually filter
-
-**Modify:** `desktop/src/routes/dashboard-page.tsx` — read-only Filters block becomes real controls: position multi-select, min edge slider, stat multi-select. State is local (`useState`); filtering runs client-side against the React Query cache. Safe defaults: all positions on, min edge 0, all stats on.
-
-### B3. Honest placeholders
-
-**Modify:** `desktop/src/components/player-card.tsx` — `weather === null` renders `"No current feed"` (muted pill), not `"Weather N/A"`. `injury === null` renders `"Status unknown"`, not `"Active"`.
-
-**Defer wiring** of live weather/injury data to Phase I (Phase G's historical-weather backfill + Phase I's live wiring handles both the training feature and the UI surface in one pass). Ship the UI with honest null states now.
-
-### B4. Analyst starter prompts
-
-**Modify:** `desktop/src/components/analyst-panel.tsx` — empty input shows 3 starter chips: "Explain this pick in plain English", "Why over instead of under?", "What would change this recommendation?". Click → fills the input.
-
-**Modify:** `desktop/src/routes/player-detail-page.tsx` — pass the current pick's `stat` + `line` into the analyst panel as props (the API already accepts them).
-
-### B5. Glossary tooltips
-
-**New file:** `desktop/src/components/glossary-tooltip.tsx` — CVA-styled tooltip, definition dictionary in the same file, ~60 lines. Terms: edge, ROI, EV, implied probability, fair odds, vig, boom/bust, shrinkage. Used on dashboard KPI labels and the parlay summary card.
-
-### B6. WCAG 2.2 AA sweep
-
-Install `@axe-core/playwright` as a devDependency. Add `desktop/tests/a11y.spec.ts` asserting zero axe violations at `wcag22aa` on each route.
-
-**Verify:** `npx playwright test desktop/tests/a11y.spec.ts` → zero violations on dashboard, player detail, parlay builder.
-
-**Brain checkpoint:** save a feedback note about "honest placeholders over confident-looking `null`s" — it should apply to future UI work.
-**Git checkpoint:** update `VERSIONS.md` with v0.6b entry; tag `v0.6b`.
-
----
-
-## Phase C — v0.6c: Telemetry + Frontend Test Baseline
-
-### C1. Structured error envelopes
-
-**Modify:** `api/server.py` — add a FastAPI `exception_handler` that wraps responses in `{success, data, error: {code, message, request_id}}`. Existing handlers stay; this intercepts only uncaught exceptions and HTTPExceptions.
-
-**Modify:** `desktop/src/lib/api.ts` — fetch wrapper unwraps the envelope; surfaces `error.message` + `error.code` to callers. React Query handles retry.
-
-### C2. Persisted operator settings
-
-**Modify:** `desktop/src/store/app-store.ts` — use `zustand/middleware`'s `persist` with `localStorage`. Key: `nfl-prop-workstation:prefs`. Slice: theme, min-edge default, default stat filter, simple-vs-pro mode.
-
-### C3. OpenTelemetry traces
-
-**Modify:** `api/server.py` + `pyproject.toml` — add `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-instrumentation-fastapi`. Tracer writes spans to `docs/telemetry/spans-<date>.jsonl`. No external OTLP endpoint.
-
-**New file:** `api/telemetry.py` — ~40 lines of setup. One span per request; child span per model evaluation; one span per analyst streaming session with token count.
-
-### C4. Frontend test baseline
-
-Python layer has ~80 tests; React layer has effectively none.
-
-- **Install:** `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event` as devDeps.
-- **New files:**
-  - `desktop/vitest.config.ts`
-  - `desktop/src/test/setup.ts`
-  - `desktop/src/routes/__tests__/dashboard-page.test.tsx` — mocked `/api/slate`, filter controls update visible rows.
-  - `desktop/src/routes/__tests__/parlay-builder-page.test.tsx` — cart add/remove, Build click posts to mocked endpoint.
-  - `desktop/src/components/__tests__/analyst-panel.test.tsx` — SSE token rendering, abort, tool_call chip.
-- **Modify:** `desktop/package.json` — `"test": "vitest run"`, `"test:watch": "vitest"`.
-
-**Verify:** `cd desktop && npm test` — all pass.
-
-**Brain checkpoint:** save a project note logging v0.6 close — boundary between "replay analytics client" and "trading-capable workstation."
-**Git checkpoint:** update `VERSIONS.md` with v0.6c entry; tag `v0.6c`.
-
----
-
-## Phase D — v0.7a: Generic Execution Domain (full implementation)
-
-Venue-agnostic middle layer. Pure code, no season dependency.
-
-### D1. Domain types
-
-**New files in `api/trading/`:**
-- `types.py` — frozen dataclasses/pydantic models:
-  - `Signal`(`pick_id`, `player_id`, `stat`, `line`, `selected_side`, `modeled_prob`, `edge`, `created_at`)
-  - `MarketRef`(`venue`, `market_id`, `ticker`, `tick_size`, `min_size`, `yes_token`, `no_token`)
-  - `ExecutionIntent`(`signal_id`, `market_ref`, `side`, `limit_price`, `size`, `client_order_id`, `expires_at`)
-  - `RiskDecision`(`intent_id`, `approved`, `reason`, `caps_snapshot`)
-  - `OrderEvent`(`intent_id`, `event_type: submitted|acked|filled|partial|canceled|rejected`, `venue_order_id`, `price`, `size`, `ts`)
-  - `PortfolioState`(`cash_balance`, `positions: dict[market_id, Position]`, `realized_pnl`, `unrealized_pnl`)
-- `audit.py` — append-only JSONL writer at `docs/audit/events-<date>.jsonl`. Single `log_event(kind, payload)`. Write-forward, no reads.
-
-### D2. Adapter Protocols
-
-**New file:** `api/trading/adapters.py` — `typing.Protocol` classes: `MarketDiscoveryAdapter`, `SignalMapper`, `RiskEngine`, `OrderRouter`, `MarketDataStream`, `OrderStatusTracker`, `PortfolioLedger`, `KillSwitch`. Duck-typed over ABCs so tests pass lightweight fakes.
-
-### D3. Risk engine
-
-**New file:** `api/trading/risk.py` — `StaticRiskEngine` implementing `RiskEngine`. Caps: max notional per order, max open notional per market, daily loss cap, cooldown after N rejects in M seconds, min edge to route. Configured via `api/settings.py` with `NFL_APP_RISK_*` prefix.
-
-**Test:** `tests/trading/test_risk.py` — one case per cap; kill-switch trips after 3 rejects in 60s.
-
-### D4. Portfolio ledger
-
-**New file:** `api/trading/ledger.py` — `InMemoryPortfolioLedger` applies `OrderEvent`s in sequence. `filled` updates cash + position; `canceled` releases reservation. Snapshots to `docs/audit/portfolio-<session>.json` on every change.
-
-**Test:** `tests/trading/test_ledger.py` — buy→fill, partial fill, cancel, position math.
-
-### D5. Pricing + mapper
-
-**New file:** `api/trading/pricing.py` — American odds → CLOB price in `[0, 1]` with a clear docstring. One conversion function both Kalshi and Polymarket-style venues use.
-
-**New file:** `api/trading/mapper.py` — `PickToIntentMapper` takes a Pick + pre-built `markets: list[MarketRef]` and emits an `ExecutionIntent` if a match exists. Discovery is deferred to per-venue adapters.
-
-**Test:** `tests/trading/test_pricing.py` — American −110 ≈ 0.524, +120 ≈ 0.455, boundary cases.
-
-**Brain checkpoint:** project note summarizing the trading domain boundary — what's in `api/trading/` vs `api/services/`.
-**Git checkpoint:** update `VERSIONS.md` with v0.7a entry; tag `v0.7a`.
-
----
-
-## Phase E — v0.7b-scaffold: Paper Trading Surface (fake adapter)
-
-Real UI surface, real routes, real audit, real kill switch. **Paper adapter is a trivial fake** — upgraded later in-season without touching callers.
-
-### E1. Fake paper adapter
-
-**New file:** `api/trading/paper_adapter.py` — `FakePaperAdapter` implements all adapter Protocols. Submission immediately emits `submitted` then `filled` at the limit price for every valid intent. `rejected` only if price is outside `[0, 1]` or size ≤ 0. No order-book simulation, no jitter, no synthetic market seed file. ~80 lines. Logs a warning on first use: "fake paper adapter active — fills are not realistic."
-
-**Test:** `tests/trading/test_paper_adapter.py` — submit→fill, rejected-price, cancel.
-
-### E2. Execution service + routes (full)
-
-**New file:** `api/services/execution_service.py` — orchestrates: pick → mapper → risk → router → ledger, writes audit events. Exposes `submit_pick(pick_id)`, `cancel(intent_id)`, `get_portfolio()`, `get_events(since?)`, `trip_kill_switch(reason)`.
-
-**New file:** `api/routes/execution.py`:
-- `POST /api/execution/paper/submit` — body `{pick_ids: [...]}`
-- `POST /api/execution/paper/cancel` — body `{intent_id}`
-- `POST /api/execution/kill` — body `{reason}`
-- `GET /api/execution/portfolio`
-- `GET /api/execution/events`
-- `GET /api/execution/events/stream` — SSE tail
-
-**Modify:** `api/server.py` — register router.
-
-### E3. Execution route (full UI surface)
-
-**New file:** `desktop/src/routes/execution-page.tsx` — three panels:
-- Left: pick queue from `/api/slate`, each with Submit.
-- Middle: open intents + orders, with Cancel.
-- Right: portfolio (cash, positions, realized/unrealized P&L) + audit event tail via SSE.
-
-Persistent top banner: **"Paper mode — no real money"**. Green.
-
-**Modify:**
-- `desktop/src/App.tsx` — add nav link "Execution (Paper)".
-- `desktop/src/router.tsx` — add `/execution` route.
-- `desktop/src/lib/api.ts` — add `executionApi.submitPicks`, `cancel`, `getPortfolio`, `kill`, `eventsStream`.
-
-### E4. Kill switch UI (full)
-
-Big red button on the Execution page wired to `POST /api/execution/kill`. Tripping also cancels all open intents via `cancel_all()` on the adapter.
-
-**Test:** Playwright e2e — submit 3 picks → kill → all flip to `canceled` in audit tail.
-
-### E5. Frontend tests
-
-`desktop/src/routes/__tests__/execution-page.test.tsx` — submit, cancel, kill-switch, banner always visible.
-
-**Git checkpoint:** update `VERSIONS.md` with v0.7b-scaffold entry; tag `v0.7b-scaffold`.
-
----
-
-## Phase F — v0.8a-scaffold: Kalshi Framework (no live calls)
-
-Venue plumbing shape committed. No real Kalshi network calls. UI reflects "Coming in-season."
-
-### F1. Kalshi module scaffold
-
-**New files:**
-- `api/trading/kalshi/__init__.py`
-- `api/trading/kalshi/client.py` — `KalshiClient` class with method signatures matching the real client's future shape: `list_markets`, `place_order(intent)`, `cancel_order(venue_order_id)`, `get_order(venue_order_id)`, `get_balance`. All network-touching methods raise `NotImplementedError("Kalshi scaffold — activate in-season")`. Signing helper is **real** (F3).
-- `api/trading/kalshi/adapter.py` — `KalshiAdapter` implementing Protocols from D2 by delegating to `KalshiClient`. Because the client raises, the adapter raises too — but class wiring, type signatures, and `client_order_id` handling are in place.
-- `api/trading/kalshi/ws.py` — WebSocket listener stub. Class defined, auth-header construction present and tested, but `connect()` raises `NotImplementedError`.
-
-### F2. Secret vault (full)
-
-**New file:** `api/trading/secrets.py` — `keyring` wrapper: `store(venue, key_name, value)`, `load(venue, key_name)`, `delete(venue, key_name)`. Full implementation — the vault is useful before any venue goes live and costs nothing.
-
-**New route:** `api/routes/secrets.py` — `POST /api/secrets/kalshi` stores access key + private key PEM. Requires a local-only confirmation token printed to the sidecar log at startup. Does not return values back.
-
-**Modify:** `pyproject.toml` — add `keyring` dep.
-
-**Test:** `tests/trading/test_secrets.py` — store→load round-trip using a pytest keyring backend.
-
-### F3. RSA-PSS signing (full, testable without network)
-
-**New file:** `api/trading/kalshi/signing.py` — `sign_request(private_key_pem, timestamp_ms, method, path) -> str` returning base64 PSS signature over `f"{timestamp_ms}{method}{path}"`.
-
-**Test:** `tests/trading/test_kalshi_signing.py` — generates a test RSA keypair, signs a known request, verifies with the public key using `cryptography.hazmat.primitives.asymmetric.padding.PSS`. Proves the signing algorithm independently of any Kalshi account.
-
-### F4. Kalshi mapper stub
-
-**Modify:** `api/trading/mapper.py` — add `KalshiMapper`. `map_signal(signal, markets)` returns `None` and logs audit event `{kind: "mapping_skipped", venue: "kalshi", reason: "scaffold"}`. Real ticker-matching logic goes here in-season.
-
-### F5. Execution page: venue selector (disabled)
-
-**Modify:** `desktop/src/routes/execution-page.tsx` — add venue selector dropdown: "Paper" (default) / "Kalshi (Demo) — Coming preseason" (disabled). Disabled tooltip explains why. No code path activates; scaffolding just declares intent.
-
-### F6. Docs
-
-**New file:** `docs/TradingOps.md` — one page. Paper vs demo vs live, how to provision a Kalshi demo account when the time comes, secret-vault usage, kill-switch semantics, audit log location, compliance disclaimers. Kalshi section marked **"Scaffold only — activation pending v0.8a-live"**.
-
-**Brain checkpoint:** feedback note — Kalshi adapter shape is frozen now; in-season activation is swapping `NotImplementedError` for real HTTP calls in `kalshi/client.py`, no callers change.
-**Git checkpoint:** update `VERSIONS.md` with v0.8a-scaffold entry; tag `v0.8a-scaffold`.
+# Plan: Season-Prep — Inference Fidelity, Training, Pricing, Realistic Paper
+
+## Status (as of v0.8b-fgfp-prep, 2026-04-24)
+
+Phases A–F are complete and logged in VERSIONS.md. The workstation is hardened (v0.6a–c), trading domain is live (v0.7a), paper trading + Kalshi scaffold are shipped (v0.7b-scaffold, v0.8a-scaffold).
+
+A 2026-04-24 deep review (`Deep review of the NFL prop predictor repository.pdf`) plus a code-verified Explore audit surfaced five structural gaps the prior plan didn't address. The G/H/I sequence is preserved; three new phases (**G.5**, **J**, **K**) are inserted, and Phase H scope is expanded.
+
+Verified gaps:
+- **Future-game inference row.** `predict()` in `models/qb.py:200-229`, `rb.py:176-210`, `wr_te.py:187-240` accepts `opp_team` but never rebuilds features for it; predictions use the latest historical row. Without fixing this, Phase H training improvements are stranded. → **Phase G.5 (FGFP)**.
+- **Stat-specific distributions.** Predictive std at `qb.py:248`, `rb.py:228`, `wr_te.py:235` is `prior_std * (shrunk_mean / prior_mean)`, not residual-based; QB TDs/INTs use Gamma instead of count-aware models; tails are not validated. → **Phase H expansions H1.5 / H2.5**.
+- **Calibration disjointness.** `eval/calibration_pipeline.py:154-189` and `replay_pipeline.py:278-286` accept `train_years` and `holdout_years` with no assertion they are disjoint. → **Phase H expansion H4.5**.
+- **No-vig pricing & EV selection.** `eval/prop_pricer.py:252-284` calibrates over/under dependently but `build_paper_trade_picks` (line 334) ranks on raw probability edge; no `no_vig` utility exists in `eval/`. → **Phase J**.
+- **Side-aware ledger & realistic fills.** `OrderEvent` has no `side` (`api/trading/types.py:54-61`); `InMemoryPortfolioLedger._apply_fill` (`ledger.py:58-77`) is side-agnostic; `FakePaperAdapter` fills instantly at limit. → **Phase K**.
+
+Remaining (in execution order):
+- **Phase G (v0.8b)** — Open-Meteo Archive weather backfill 2018–2025 + `load_weekly_with_weather` (UNCHANGED)
+- **Phase G.5 (v0.8b-fgfp)** — Future-Game Feature Pipeline (NEW)
+- **Phase H (v0.8c)** — Walk-forward training + stat-specific distributions + L1 + calibration disjointness (EXPANDED)
+- **Phase J (v0.8d-pricing)** — No-vig pricing + decision object + EV-based selection (NEW)
+- **Phase I (v0.8d)** — Wire weather/injury/decision drawer to UI (LIGHT EXPANSION)
+- **Phase K (v0.8e)** — Realistic paper execution + side-aware ledger (NEW)
+- **Season-start (v0.8f)** — Kalshi activation + timestamped quote capture (existing checklist + quote capture)
+
+Polymarket (global V2 + US), historical-props warehouse backfill, real-money execution, and an empirical correlated-parlay model remain **out of scope**, gated behind v0.9 after one paper-trading season.
 
 ---
 
@@ -294,11 +32,28 @@ Open-Meteo's Archive API (ERA5 reanalysis) has hourly data from 1940 to ~5 days 
 
 ### G1. Stadium coordinate table
 
-**New file:** `data/stadium_coords.py` — hand-maintained dict keyed by team abbreviation (and legacy codes where franchises relocated: OAK→LV, SD→LAC, STL→LAR, WAS old name, etc.). Fields: `lat`, `lon`, `altitude_ft`, `is_dome`, `is_retractable`, `tz` (IANA zone). 32 current teams + historical variants. ~60 lines of data.
+**New file:** `data/stadium_coords.py` — hand-maintained dict keyed by team abbreviation (and legacy codes where franchises relocated: OAK→LV, SD→LAC, STL→LAR). Uses a frozen `Stadium` dataclass:
 
-Reuse the existing `DOME_TEAMS` frozenset in `data/nflverse_loader.py:26-37` as the authoritative dome list; extend to retractables and import here.
+```python
+@dataclass(frozen=True)
+class Stadium:
+    lat: float; lon: float; altitude_ft: int
+    is_fixed_dome: bool; is_retractable: bool; tz: str  # IANA
 
-**Test:** `tests/test_stadium_coords.py` — every team in `nflverse_loader.load_schedules(2018..2025).home_team.unique()` has an entry; no missing IANA zones.
+STADIUMS: dict[str, Stadium] = { ... }  # 32 current + OAK/SD/STL legacy keys
+FIXED_DOME_TEAMS  = frozenset(t for t, s in STADIUMS.items() if s.is_fixed_dome)
+RETRACTABLE_TEAMS = frozenset(t for t, s in STADIUMS.items() if s.is_retractable)
+
+def is_indoor(team: str) -> bool:
+    s = STADIUMS[team]
+    return s.is_fixed_dome or s.is_retractable
+```
+
+`DOME_TEAMS` in `data/nflverse_loader.py:26-37` mixes fixed domes and retractables in one frozenset. Keep that alias untouched for back-compat; `stadium_coords.py` is the authoritative split. SoFi (LAR/LAC) is treated as outdoor for weather purposes, matching the existing convention. Treat retractables as indoor for weather-skip — roof decisions on game day are not available in nflverse schedules, so the conservative choice avoids phantom outdoor weather for retractable venues.
+
+**Test:** `tests/test_stadium_coords.py` — every team in `nflverse_loader.load_schedules(2018..2025).home_team.unique()` has an entry; all tz strings pass `zoneinfo.ZoneInfo(tz)` without error; `is_indoor` returns True for known fixed domes and retractables, False for known open-air teams.
+
+**Status:** ✅ shipped (35 entries, 22 tests passing).
 
 ### G2. Weather backfill script
 
@@ -315,28 +70,76 @@ Reuse the existing `DOME_TEAMS` frozenset in `data/nflverse_loader.py:26-37` as 
     &timezone=UTC
   ```
 - Extract the hour closest to kickoff. Respect Open-Meteo's free-tier rate limit (10k/day); throttle with `time.sleep(0.1)` between calls. ~2200 outdoor games × 8 seasons completes in ~5 minutes.
-- Cache output at `data/cache/weather_archive.parquet` with columns: `game_id, season, week, home_team, kickoff_utc, temp_f, wind_mph, wind_dir_deg, precip_in, weather_code, indoor`.
-- Idempotent: re-runs only fetch rows missing from cache.
+- Unit conversions on ingest: `temperature_2m` (°C) → `temp_f` (°F); `wind_speed_10m` (km/h) → `wind_mph` (mph); `precipitation` (mm) → `precip_in` (inches).
+- Error handling: retry 3× with exponential backoff on HTTP 5xx; on 429/403 log the game_id and row count and stop cleanly — never silently skip rows.
+- Cache output at `cache/weather_archive.parquet` (repo-root `cache/` dir, matching `data/nflverse_loader.py` convention) with columns: `game_id, season, week, home_team, kickoff_utc, temp_f, wind_mph, wind_dir_deg, precip_in, weather_code, indoor`.
+- Idempotent: read existing parquet on startup, skip any `game_id` already present.
 
 **CLI:**
 ```
-uv run python scripts/backfill_weather.py --seasons 2018,2019,2020,2021,2022,2023,2024,2025 \
-  --out data/cache/weather_archive.parquet
+uv run python scripts/backfill_weather.py --seasons 2018,2019,2020,2021,2022,2023,2024,2025
 ```
 
-**Test:** `tests/test_weather_backfill.py` — mock Open-Meteo HTTP; assert one dome game and one outdoor game produce correct rows (indoor short-circuits without network).
+**Test:** `tests/test_weather_backfill.py` — use `responses` or `pytest-httpx` to mock Open-Meteo; assertions:
+- Indoor game → `indoor=True`, zero HTTP calls (assert via mock call count)
+- Outdoor game → all 5 weather columns populated with correct units
+- Idempotency: second call with existing parquet makes zero HTTP calls
 
 ### G3. Weather loader integration
 
 **Modify:** `data/weather.py` (currently a 2-line stub) —
-- `load_archive(seasons: list[int]) -> pd.DataFrame` reads the parquet cache.
-- `load_forecast(game_id: str) -> dict | None` hits the Open-Meteo Forecast API for upcoming games only (called in-season by the UI). Out-of-season returns `None`.
-- Both paths share the same output schema.
+- `load_archive(seasons: list[int]) -> pd.DataFrame` reads `cache/weather_archive.parquet`, filters by season.
+- `load_forecast(game_id: str) -> dict | None` hits the Open-Meteo Forecast API for upcoming games; gated on `settings.use_live_forecast` — out-of-season or flag-off returns `None`.
+- Both paths share the same output schema (`temp_f, wind_mph, wind_dir_deg, precip_in, weather_code, indoor`) so callers are path-agnostic.
 
-**Modify:** `data/nflverse_loader.py` — add `load_weekly_with_weather(seasons)` that left-joins the weekly player-stats frame against the weather archive by `game_id`. Non-outdoor games get `indoor=True` and null weather columns. This is the frame the models consume.
+**Modify:** `data/nflverse_loader.py` — add `load_weekly_with_weather(years: list[int], force_refresh: bool = False) -> pd.DataFrame` that left-joins the weekly player-stats frame against `weather.load_archive(years)` by `game_id`. Non-outdoor games have `indoor=True` and null numeric weather columns; models' existing `fillna(0.0)` in `_build_features` handles nulls naturally — no additional coalescing needed. This is the frame Phase H training consumes.
 
 **Brain checkpoint:** project note on weather-backfill cache location and schema so future replays pick it up automatically.
 **Git checkpoint:** update `VERSIONS.md` with v0.8b entry; tag `v0.8b`.
+
+---
+
+## Phase G.5 — v0.8b-fgfp: Future-Game Feature Pipeline (NEW)
+
+The single highest-leverage fix in the entire offseason. Without it, every feature-engineering improvement Phase H discovers is stranded behind a `predict()` that grabs the latest historical row and ignores the upcoming opponent.
+
+### G.5-1. Future-row builder
+
+**New file:** `data/upcoming.py` — `build_upcoming_row(player_id: str, season: int, week: int, *, force_refresh: bool = False) -> dict` returns a single-row feature dict for an unplayed game by joining:
+- **Schedule** (`nflverse_loader.load_schedules`): `game_id`, `home_team`, `away_team`, `is_home`, `kickoff_utc`, `rest_days` (from prior week).
+- **Injuries** (`nflverse_loader.load_injuries`): player's own `report_status` for `(season, week)`; key teammate statuses via roster join (QB out shifts WR/RB usage; primary RB out shifts backup carries; primary WR out shifts secondary target share).
+- **Snap-share / route-share trend** (`nflverse_loader.load_snap_counts`): last-4-game offensive snap %, route-participation %, red-zone snap %.
+- **Opponent defensive context**: rolling 4-game defensive EPA per play and per route from `load_pbp` (already used in training rows — extract into a shared helper `data/team_context.py::rolling_def_epa`).
+- **Weather**: `data.weather.load_forecast(game_id)` if `settings.use_live_forecast`, else `data.weather.load_archive([season])` if game is in the past, else null + `indoor` flag.
+- **Game environment**: implied team total derived from spread/total (when available; null otherwise — the field exists for later when market data lands).
+
+Returns a dict whose keys are a strict superset of the columns `_build_features` produces from a historical row, so it can be fed directly into `predict()`.
+
+### G.5-2. Refactor `predict()` to accept future rows
+
+**Modify:** `models/qb.py`, `models/rb.py`, `models/wr_te.py`:
+- `predict()` gains a `future_row: dict | None = None` kwarg.
+- When `future_row` is supplied, build the feature vector from it directly via a new private `_features_from_dict(row)` helper.
+- When `future_row` is None, fall back to current behavior (latest historical row) — back-compat for existing callers during migration.
+- The deprecated `opp_team: str` arg is kept for one release with a `DeprecationWarning` when used without `future_row`.
+
+**Modify:** `eval/replay_pipeline.py`:
+- For each historical week being scored, call `build_upcoming_row(..., force_refresh=False)` and pass to `predict(future_row=row)`. Use `data.weather.load_archive` (not forecast) so replays use ERA5 truth.
+- Holdout: `tests/test_replay_pipeline.py` regression — replay output for 2024 should not change beyond floating-point tolerance versus pre-FGFP results when weather is held off, because the same opp_team / venue context that was implicit in the latest-row hack is now made explicit. Document any meaningful delta in `docs/ModelingNotes.md`.
+
+### G.5-3. Tests
+
+**New file:** `tests/test_upcoming.py`:
+- Same player vs. weak vs. strong defense produces materially different `feature_vec` and resulting `mean`.
+- Indoor vs. outdoor venue produces different weather fields (null vs. populated).
+- Teammate-injury swap (primary RB out) shifts backup snap-share trend in the row.
+
+**New file:** `tests/test_predict_with_future_row.py`:
+- `predict(player_id="X", future_row=build_upcoming_row("X", 2024, 5))` against opp BUF vs. opp MIA produces visibly different distributions.
+- Without `future_row`, falls back to current behavior (regression locked).
+
+**Brain checkpoint:** project note on `data/upcoming.py` API and the deprecation path for `opp_team`.
+**Git checkpoint:** update `VERSIONS.md` with v0.8b-fgfp entry; tag `v0.8b-fgfp`.
 
 ---
 
@@ -348,34 +151,45 @@ Per-season walk-forward training driven by a **deterministic harness**, not the 
 
 **Why deterministic loop, not LLM-driven:** 1.7B cannot reliably judge statistical quality; LLM-iterated tuning leaks the holdout into training via multiple-comparisons. Loop stops on numeric criteria. LLM writes the notes, never decides.
 
-### H1. Weather features (flag-guarded) + training harness
+### H1. Statsmodels migration + weather features (flag-guarded)
 
-**Modify:** `models/qb_model.py`, `models/rb_model.py`, `models/wr_te_model.py` — `_build_features(df, *, use_weather: bool = True)` adds (for outdoor games only; zero otherwise):
+**Note on filenames:** actual model files are `models/qb.py`, `models/rb.py`, `models/wr_te.py` (not `qb_model.py` etc.). All references below use the real names.
+
+**Note on GLM backend:** current models use sklearn `GammaRegressor`. Phase H requires AIC introspection (for H3 narration), L1 regularization (H2), and family flexibility (H1.5). Statsmodels `GLM.fit_regularized` provides all three; sklearn does not. Migration plan: switch all three models to `statsmodels.formula.api` Gamma GLM at H1 start. Default behavior (l1_alpha=0.0, no weather, legacy family) must produce identical predictions to within floating-point tolerance — verify this before adding weather features. Mixing backends is not acceptable.
+
+**Modify:** `models/qb.py`, `models/rb.py`, `models/wr_te.py` — `_build_features(df, *, use_weather: bool = True)` adds (for outdoor games only; zero for indoor/null):
 - `wind_mph` — affects passing_yards, passing_tds most
 - `precip_in_kickoff_hour` — affects completions, receptions
-- `temp_f_minus_60` — mild effect on passing (centered so dome games hit baseline naturally)
-- `wind_x_pass_attempt_rate` — interaction, QB model only
+- `temp_f_minus_60` — mild effect on passing (centered so dome games hit baseline at 0)
+- `wind_x_pass_attempt_rate` — interaction term, QB model only
 
 Features are additive; GLM fitting stays stable. Shrinkage applies to the player-specific intercept; weather coefficients pool across all players. The `use_weather` flag is what the ablation grid (H2) toggles — no duplicated model classes.
 
-**Test:** `tests/test_model_weather.py` — train QB on 2018–2024 with/without weather; assert AIC delta is within tolerance; deterministic seed.
+**Test:** `tests/test_model_weather.py` — train QB on 2018–2024 with/without weather; assert AIC delta is within tolerance; statsmodels migration produces same predictions as old sklearn baseline to 1e-2; deterministic seed.
 
-**New file:** `scripts/train_loop.py` — walk-forward harness:
-```
-for train_end in [2018, 2019, ..., 2024]:
-    holdout = train_end + 1
-    for config in grid:
-        model = fit(seasons=2018..train_end, **config)
-        metrics = evaluate_on(holdout, model)
-        write_row(train_end, config, metrics)
-    narrate_season(train_end)   # Qwen 1.7B, template-fill
-    brain_append(train_end)
-```
-Deterministic stopping per season: loop stops when `holdout_log_loss` improvement `< 0.001` across the last 3 configs tried, **or** when the grid is exhausted — whichever comes first. No LLM in the stop criterion.
+### H1.5. Stat-specific distribution architecture (NEW)
 
-Outputs per season:
-- `docs/training/season_<YYYY>_results.csv` — one row per (config, position, stat) with log-loss, Brier, calibration slope/intercept, feature-ablation flags, `k`, L1 alpha.
-- `docs/training/reliability_<YYYY>_<position>_<stat>.png` — reliability diagram.
+Replaces one-regressor-per-stat with a small family of stat-aware models. Adds `dist_family` as a new ablation grid axis.
+
+**Count stats** (passing TDs, INTs, completions, attempts, carries, receptions, rec TDs, rush TDs):
+- Default to negative binomial via `statsmodels.GLM(family=NegativeBinomial())`.
+- Fall back to Poisson when fitted dispersion ≈ 1 (within ±0.1).
+- Use a hurdle / zero-inflated variant only if observed zero mass exceeds Poisson expectation by >20%.
+
+**Yardage stats** (passing yards, rushing yards, receiving yards):
+- Keep the Gamma/Tweedie mean estimator from H1 for backward comparison.
+- Add a quantile-regression companion (`statsmodels.QuantReg`) at q ∈ {0.1, 0.25, 0.5, 0.75, 0.9}.
+- The shared `StatDistribution` gains an empirical-quantile lookup branch so callers can ask for `P(X > line)` from quantiles instead of a Gamma tail with hand-scaled std.
+
+**Decomposition models** (high-leverage stats only):
+- Receptions = targets × catch_rate (NegBin × Beta).
+- Rushing yards = carries × ypc (NegBin × Gamma).
+- Passing yards = attempts × ypa (NegBin × Gamma).
+- Compose joint distribution by Monte Carlo (1000 samples) for tail probabilities.
+
+**Grid axis added:** `dist_family ∈ {legacy, count_aware, decomposed}`. Phase H4's Pareto selection picks one per (position, stat) — the family that wins might differ across stats, and that's fine.
+
+**Test:** `tests/test_dist_families.py` — count-aware path produces non-zero probability for `P(TD ≥ 0)` exactly (Poisson/NegBin reach zero); decomposed receptions match a hand-computed example.
 
 ### H2. Ablation grid + L1 regularization path
 
@@ -386,16 +200,27 @@ The "variable weighting" and "leave variables out" part of the idea, done rigoro
 - `use_opponent_epa ∈ {True, False}` (opponent defensive EPA, already available in nflverse)
 - `use_rest_days ∈ {True, False}`
 - `use_home_away ∈ {True, False}`
+- `dist_family ∈ {legacy, count_aware, decomposed}` (new from H1.5)
 - `k ∈ {2, 4, 6, 8, 12, 16}` — shrinkage constant
 - `l1_alpha ∈ {0.0, 0.001, 0.01, 0.1}` — L1 regularization; `0.0` means plain GLM
 
-Full grid = `2^4 × 6 × 4 = 384` configs per season × 7 walk-forward steps = ~2700 fits. Each GLM fits in <1 second on CPU; total ~45 minutes wall-time.
+Full grid = `2^4 × 3 × 6 × 4 = 1152` configs per season × 7 walk-forward steps = ~8000 fits. Each GLM fits in <1 second on CPU; total ~2.5 hours wall-time — still acceptable, especially overnight.
 
 **L1 regularization** replaces hand-tuned "variable weighting." At nonzero `l1_alpha`, coefficients on useless features collapse to zero automatically — this *is* the principled way to answer "which variables should we keep." Ablation flags remain for feature categories you want to force off regardless (e.g., "does weather help on 2019 specifically?").
 
-**Modify:** `models/qb_model.py`, `models/rb_model.py`, `models/wr_te_model.py` — accept `l1_alpha` parameter; when nonzero, fit via `statsmodels.GLM.fit_regularized(alpha=l1_alpha, L1_wt=1.0)` instead of plain `fit()`.
+**Modify:** `models/qb.py`, `models/rb.py`, `models/wr_te.py` — accept `l1_alpha` parameter; when nonzero, fit via `statsmodels.GLM.fit_regularized(alpha=l1_alpha, L1_wt=1.0)` instead of plain `fit()`. (Handled naturally once H1's statsmodels migration is in place.)
 
 **Test:** `tests/test_l1_path.py` — fit a QB model across the alpha grid on 2018–2019; assert the number of nonzero coefficients is monotonically non-increasing as alpha grows.
+
+### H2.5. Residual-based uncertainty (NEW)
+
+Replaces `std = prior_std * (shrunk_mean / max(prior_mean, _MIN_MEAN))` at `qb.py:248`, `rb.py:228`, `wr_te.py:235` — the single biggest tail-pricing risk.
+
+**For `legacy` and `count_aware` paths:** compute the empirical residual std (or, for count families, the model-implied std from the fitted distribution parameters) on the training window. Cache per (position, stat, config) alongside the fitted coefficients.
+
+**For `decomposed` path:** uncertainty falls out of the Monte Carlo composition naturally — no separate std estimate needed.
+
+**Test:** `tests/test_residual_uncertainty.py` — synthetic data with known residual variance; recovered std within 5% of truth; legacy hand-scaled path raises a `DeprecationWarning` when called.
 
 ### H3. Per-season Qwen 1.7B narration (template fill only)
 
@@ -408,6 +233,7 @@ Full grid = `2^4 × 6 × 4 = 384` configs per season × 7 walk-forward steps = ~
 ## Headline metrics (best config)
 - Best k: {{ best_k }}
 - L1 alpha: {{ best_l1_alpha }}
+- Distribution family: {{ best_dist_family }}
 - Feature set: {{ feature_flags }}
 - Log-loss: {{ log_loss }} (Δ vs naive: {{ log_loss_delta }})
 - Brier: {{ brier }}
@@ -420,6 +246,7 @@ Full grid = `2^4 × 6 × 4 = 384` configs per season × 7 walk-forward steps = ~
 - Weather on vs off: {{ weather_delta }}
 - Opponent EPA on vs off: {{ opp_epa_delta }}
 - Rest days on vs off: {{ rest_days_delta }}
+- Distribution family delta (legacy → count_aware → decomposed): {{ dist_family_table }}
 
 ## Qualitative observations
 {{ qwen_freeform_notes }}  <!-- 2-3 sentences MAX, low-stakes commentary -->
@@ -434,38 +261,121 @@ Output: markdown written both to `docs/training/season_<YYYY>_summary.md` and ap
 ### H4. Cross-season synthesis
 
 **New file:** `scripts/synthesize_training.py` — runs after the full walk-forward completes (2018→2024 holdout-on-next). Aggregates all seven `season_<YYYY>_results.csv` files, picks the config that's **Pareto-optimal across seasons** (lowest mean holdout log-loss *and* lowest variance across seasons — penalizes configs that win one year and tank another). Renders:
-- `docs/training/cross_season_summary.md` — ranking table, headline recommendation, per-feature ablation rollup.
+- `docs/training/cross_season_summary.md` — ranking table, headline recommendation, per-feature ablation rollup, per-stat distribution-family choice.
 - `docs/training/cross_season_reliability.png` — overlay of reliability diagrams across seasons for the recommended config.
 
 Then one Qwen 1.7B narration pass fills a final `{{ rollup_notes }}` slot (3–4 sentences, 120 tokens max) summarizing what held up year-over-year.
 
+### H4.5. Calibration disjointness assertion (NEW)
+
+Defends against the silent train/holdout overlap in `eval/calibration_pipeline.py:154-189`.
+
+**Modify:** `eval/calibration_pipeline.py:154` — at the top of `_fit_models`, add:
+```python
+overlap = set(train_years) & set(holdout_years)
+if overlap:
+    raise ValueError(f"train_years and holdout_years overlap: {sorted(overlap)}")
+```
+
+**Modify:** `eval/replay_pipeline.py:278-286` — same assertion before calling `build_calibration_rows`.
+
+**New file:** `eval/calibration_fit.py` (also referenced by H5) enforces a stricter four-window discipline: model-train window ⊥ calibrator-fit window ⊥ policy-tune window ⊥ final-eval window. Final 2025 hold-out-hold-out is reserved and untouched until H5 close.
+
+**Test:** `tests/test_calibration_disjoint.py` — overlapping years raise `ValueError` with the offending years in the message.
+
 ### H5. Human locks in the final config
 
-Review `cross_season_summary.md` + reliability overlay. Pick the `(k, l1_alpha, feature_flags, calibration on/off)` combination. Document the choice and rationale in `docs/ModelingNotes.md`.
-
-**New file:** `eval/calibration_fit.py` — fit isotonic regression per (position, stat) on 2018–2024 predictions vs actuals; apply to the 2025 hold-out-hold-out. Included here (rather than its own phase) because the walk-forward harness already produces the per-season prediction traces it needs.
+Review `cross_season_summary.md` + reliability overlay. Pick the `(k, l1_alpha, dist_family per stat, feature_flags, calibration on/off)` combination. Document the choice and rationale in `docs/ModelingNotes.md`.
 
 **Modify:**
-- `models/qb_model.py`, `models/rb_model.py`, `models/wr_te_model.py` — lock in final default `k`, `l1_alpha`, feature flags.
+- `models/qb.py`, `models/rb.py`, `models/wr_te.py` — lock in final default `k`, `l1_alpha`, `dist_family per stat`, feature flags.
 - `eval/prop_pricer.py` — optional calibration pass gated on `settings.use_calibration`.
 - `api/settings.py` — set final `use_calibration` default based on H4 evidence.
 
 **Test:** `tests/test_calibration.py` — fit on synthetic data with known ground-truth mapping; assert recovery within tolerance.
 
-**Brain checkpoint:** project note capturing the final config, the Pareto rationale from H4, and the headline metric delta vs v0.5.1 baseline. This becomes the durable record of why the model looks the way it does after 2026.
+**Brain checkpoint:** project note capturing the final config, the Pareto rationale from H4, the per-stat distribution family choice, and the headline metric delta vs v0.5.1 baseline. This becomes the durable record of why the model looks the way it does after 2026.
 **Git checkpoint:** update `VERSIONS.md` with v0.8c entry; tag `v0.8c`.
 
 ---
 
-## Phase I — v0.8d: Wire Weather to Live Surface
+## Phase J — v0.8d-pricing: Pricing & Decision Layer (NEW)
 
-Now that the archive path is proven and cached, light up the UI fields left honest-null in Phase B.
+Without no-vig pricing and EV-based selection, the Kalshi paper-trading record is statistically meaningless. This phase must land before pointing the engine at preseason markets.
+
+### J1. No-vig utility
+
+**New file:** `eval/no_vig.py` — `remove_vig_two_sided(over_odds: int, under_odds: int, *, method: Literal["multiplicative", "additive", "shin"] = "multiplicative") -> tuple[float, float]` returning the no-vig over/under probabilities.
+
+- Multiplicative (default): `p_over_no_vig = p_over / (p_over + p_under)`.
+- Additive: subtract half the vig from each side's implied probability.
+- Shin: power-method weighted by inferred favorite-longshot bias (deferred but stubbed).
+
+**Test:** `tests/test_no_vig.py` —
+- -110 / -110 → (0.5, 0.5).
+- -150 / +130 → worked example matches multiplicative formula.
+- Sum of returned probs equals 1.0 to 1e-9.
+
+### J2. Decision object
+
+**Modify:** `eval/prop_pricer.py` — `price_two_sided_prop` returns a frozen dataclass instead of the current dict:
+
+```python
+@dataclass(frozen=True)
+class PropDecision:
+    player_id: str
+    stat: str
+    line: float
+    model_mean: float
+    model_p_over_calibrated: float
+    model_p_under_calibrated: float
+    market_p_over_no_vig: float
+    market_p_under_no_vig: float
+    ev_over: float
+    ev_under: float
+    fair_line: float                # quantile of model dist where P=0.5
+    best_book_over: str | None
+    best_book_under: str | None
+    closing_line: float | None      # filled by Phase K capture; null pre-season
+    top_drivers: tuple[str, ...]    # top 3 features by coef × value, length 3
+    confidence: Literal["high", "med", "low"]   # feature completeness flag
+    recommendation: Literal["over", "under", "no_bet"]
+```
+
+`confidence` is `low` if any required feature is null (e.g., weather forecast unavailable, injury feed stale).
+
+### J3. Selection policy
+
+**Modify:** `eval/replay_pipeline.py`:
+- Replace the `min_edge=0.05` threshold with EV ranking: `expected_roi = ev_over / abs(stake_over)`.
+- `recommendation = "no_bet"` when both `ev_over < min_ev` and `ev_under < min_ev` (default `min_ev = 0.02`).
+- Per-player exposure cap (default 1 prop per player per slate); per-game exposure cap (default 4 props per game).
+- Drop the `_apply_correlation_penalty` heuristic from parlay path; tag it as `# heuristic — not for headline metrics` until Phase L (post-season).
+
+**Test:** `tests/test_decision_object.py` — schema completeness; `no_bet` rate >40% on a real-season replay (sanity); EV ranking changes top-pick versus raw-edge ranking on at least one known case.
+
+### J4. Settings + brain checkpoint
+
+**Modify:** `api/settings.py` — add `use_no_vig: bool = True`, `min_ev: float = 0.02`, `max_props_per_player: int = 1`, `max_props_per_game: int = 4`, `correlation_penalty_enabled: bool = False`.
+
+**Modify:** `api/schemas.py` — Pick schema gains optional decision-object fields.
+
+**Brain checkpoint:** project note describing the decision-object contract.
+**Git checkpoint:** update `VERSIONS.md` with v0.8d-pricing entry; tag `v0.8d-pricing`.
+
+---
+
+## Phase I — v0.8d: Wire Weather to Live Surface + Decision Drawer
+
+Light expansion of the original Phase I. Now that the archive path is proven and Phase J emits decision objects, light up the UI fields left honest-null in Phase B and add a "why this bet" drawer.
 
 ### I1. Attach weather + injury to picks
 
-**Modify:** `api/services/replay_service.py` and `evaluation_service.py` — when building pick payloads, left-join the weather archive frame (loaded once at startup via `data.weather.load_archive(seasons)`). Attach `weather: {temp_f, wind_mph, precip_in, indoor} | null` and `injury_status: "Q"|"D"|"O"|null` to each pick.
+**Modify:** `api/services/replay_service.py` and `evaluation_service.py` — load the weather archive once at sidecar startup via `data.weather.load_archive(seasons)`; left-join by `game_id` when building pick payloads. Attach `weather: {temp_f, wind_mph, precip_in, indoor} | null` and `injury_status: "Q"|"D"|"O"|null` to each pick.
 
-**Modify:** `api/schemas.py` — add optional `weather` and `injury_status` fields on the Pick schema.
+**Modify:** `api/schemas.py` — add optional `weather`, `injury_status`, and the J2 decision-object fields on the Pick schema.
+
+**Frontend schema note:** the existing `WeatherInfo` TS type in `weather-badge.tsx` uses `precip_prob` (forecast semantics). Extend it to also accept `precip_in` (archive quantity) and `indoor: boolean`. Keep `precip_prob` for the forecast path; the badge can render either.
 
 ### I2. Weather + injury badges (real data)
 
@@ -474,54 +384,119 @@ Now that the archive path is proven and cached, light up the UI fields left hone
 - `desktop/src/components/injury-pill.tsx` — Q/D/O color-coded pill from `nflverse_loader.load_injuries()`.
 - `desktop/src/components/player-card.tsx` — pass real props instead of `null`; "No current feed" / "Status unknown" fallbacks stay as guards.
 
-### I3. Forecast path for in-season (dormant)
+### I3. "Why this bet" drawer (NEW)
 
-Leave `data/weather.py:load_forecast()` implemented but note it only exercises once the season starts. One-line note in `docs/ModelingNotes.md` pointing to where the forecast path activates.
+**New component:** `desktop/src/components/decision-drawer.tsx` — opens from the player card; renders:
+- Model mean and a quantile sparkline of the distribution (from H1.5 quantile output).
+- Calibrated over/under probabilities side-by-side with no-vig market probabilities.
+- Expected ROI on each side; the no-bet path explicit when chosen.
+- Top 3 feature drivers (e.g., "wind 22 mph", "opp def EPA −0.18 / play", "snap-share trend +6 pts").
+- Confidence flag with a tooltip listing any null inputs.
+
+This is the answer to the deep review's "make the app feel less like a black box" point.
+
+### I4. Forecast path for in-season (dormant)
+
+Leave `data/weather.py:load_forecast()` implemented but gated on `settings.use_live_forecast` (default `False`). One-line note in `docs/ModelingNotes.md` pointing to where the flag is and what flipping it does. No call paths activate in-season until that flag is set.
 
 **Git checkpoint:** update `VERSIONS.md` with v0.8d entry; tag `v0.8d`.
 
 ---
 
-## Critical Files — Quick Reference
+## Phase K — v0.8e: Realistic Paper Execution (NEW)
+
+The existing `FakePaperAdapter` fills every order at the limit price instantly. P&L from this setup is not predictive. Before Kalshi activation, the ledger must be side-aware and the adapter must include realistic spread/slippage/non-fill behavior.
+
+### K1. Side-aware order events
+
+**Modify:** `api/trading/types.py`:
+- `OrderEvent` gains `side: Literal["yes", "no"]` and `action: Literal["open", "close"]`.
+- New `Trade` record for closes (links open/close events with realized P&L).
+- `PortfolioState.positions` becomes `dict[tuple[MarketRef, Literal["yes","no"]], Position]` instead of `dict[MarketRef, Position]`.
+
+### K2. Side-aware ledger
+
+**Modify:** `api/trading/ledger.py`:
+- `_apply_fill` becomes side-aware:
+  - `(yes, open)` increases yes-side inventory at weighted-avg price.
+  - `(yes, close)` decreases yes-side inventory and books realized P&L = `(close_price - open_avg) * size`.
+  - Mirror for the no-side.
+- New method `mark_to_market(prices: dict[MarketRef, dict[str, float]])` — called on each tick to update unrealized P&L per `(market, side)`.
+- New method `settle(market_ref: MarketRef, outcome: Literal["yes","no"])` — terminal settlement at outcome resolution.
+- `persist()` continues to write JSON.
+
+**Test:** `tests/trading/test_side_aware_ledger.py`:
+- Yes-buy then yes-sell reduces inventory and books realized P&L correctly.
+- No-side and yes-side inventories are tracked independently.
+- Mark-to-market updates unrealized without touching realized.
+- Settle on `yes` outcome: yes positions pay $1 per contract; no positions pay $0.
+
+### K3. Realistic paper adapter
+
+**Modify:** `api/trading/paper_adapter.py` — add `RealisticPaperAdapter` (keep `FakePaperAdapter` for unit tests):
+- Spread injected from a per-stat empirical distribution (default 2¢ on Kalshi-style 0–100 prices).
+- Non-fill probability is a logistic function of `|limit_price - current_mid|` (default: 50% non-fill at 5¢ away from mid).
+- Partial fills probabilistically (default: 30% chance of 50–80% partial when filled).
+- Slippage on market-replay scenarios — fill happens at next-tick mid, not the limit.
+
+**Test:** `tests/trading/test_realistic_paper.py`:
+- Non-fills trigger when limit far from mid.
+- Partials reduce remaining size and re-queue.
+- Across 10k simulated orders, fill rate matches expected distribution within 2σ.
+
+### K4. Exposure-based risk engine
+
+**Modify:** `api/trading/risk.py` — `ExposureRiskEngine` replaces `StaticRiskEngine` (keep static engine as a fallback):
+- Worst-case loss per `(market, side, outstanding orders)` — for yes-buy, max loss is `size × limit_price` (price → 0); for no-buy, max loss is `size × (1 - limit_price)`.
+- Settlement-calendar awareness (don't enter a market <2 hrs to lock; tunable via `settings.entry_buffer_seconds`).
+- Per-side inventory cap (`max_yes_inventory_per_market`, `max_no_inventory_per_market`).
+- Daily loss cap and reject-cooldown carry over from `StaticRiskEngine`.
+
+**Test:** `tests/trading/test_exposure_engine.py`:
+- Settlement calendar blocks late entries.
+- Worst-case loss computed correctly for both sides.
+- Inventory caps enforced.
+
+### K5. Wire `use_realistic_paper` flag
+
+**Modify:** `api/settings.py` — add `use_realistic_paper: bool = True` (default true once tests pass).
+
+**Modify:** `api/services/execution_service.py` — pick adapter class via flag.
+
+**Brain checkpoint:** project note on side-aware ledger semantics and the `RealisticPaperAdapter` parameters.
+**Git checkpoint:** update `VERSIONS.md` with v0.8e entry; tag `v0.8e`.
+
+---
+
+## Critical Files — Quick Reference (Remaining Phases G→K)
 
 **New:**
-- Trading core (full): `api/trading/{types,adapters,risk,ledger,mapper,pricing,audit,secrets,paper_adapter}.py`
-- Kalshi (scaffold): `api/trading/kalshi/{__init__,client,adapter,ws,signing}.py`
-- API routes: `api/routes/{execution,secrets}.py`
-- Services: `api/services/execution_service.py`
-- Telemetry: `api/telemetry.py`
-- Weather: `data/stadium_coords.py`, `scripts/backfill_weather.py`
+- Weather: `data/stadium_coords.py` (✅), `scripts/backfill_weather.py`
+- FGFP: `data/upcoming.py`, `data/team_context.py` (extracted helper)
 - Modeling: `scripts/train_loop.py`, `scripts/narrate_season.py`, `scripts/synthesize_training.py`, `eval/calibration_fit.py`, `llm/templates/season_summary.j2`
-- Desktop: `desktop/src/routes/execution-page.tsx`, `desktop/src/components/glossary-tooltip.tsx`
-- Tests: `tests/trading/test_*.py`, `tests/test_analyst_stream.py`, `tests/test_stadium_coords.py`, `tests/test_weather_backfill.py`, `tests/test_model_weather.py`, `tests/test_l1_path.py`, `tests/test_narrate.py`, `tests/test_calibration.py`, `desktop/src/**/__tests__/*.test.tsx`, `desktop/tests/a11y.spec.ts`
-- Docs: `docs/TradingOps.md`, `docs/ModelingNotes.md`, `docs/calibration/*.png`
+- Pricing: `eval/no_vig.py`
+- Execution: `api/trading/paper_adapter.py::RealisticPaperAdapter` (in same file)
+- Quote capture: `scripts/capture_kalshi_quotes.py` (season-start)
+- Frontend: `desktop/src/components/decision-drawer.tsx`
+- Tests: `tests/test_stadium_coords.py` (✅), `tests/test_weather_backfill.py`, `tests/test_upcoming.py`, `tests/test_predict_with_future_row.py`, `tests/test_model_weather.py`, `tests/test_dist_families.py`, `tests/test_l1_path.py`, `tests/test_residual_uncertainty.py`, `tests/test_narrate.py`, `tests/test_calibration.py`, `tests/test_calibration_disjoint.py`, `tests/test_no_vig.py`, `tests/test_decision_object.py`, `tests/trading/test_side_aware_ledger.py`, `tests/trading/test_realistic_paper.py`, `tests/trading/test_exposure_engine.py`
+- Docs: `docs/ModelingNotes.md`, `docs/training/season_<YYYY>_*.{csv,png,md}`, `docs/training/cross_season_*.{md,png}`
 
-**Modified (small edits):**
-- `desktop/index.html`, `desktop/README.md` — Vite-template leaks
-- `desktop/src-tauri/tauri.conf.json` — CSP
-- `api/server.py` — CORS, exception handler, telemetry init, new routers
-- `api/routes/analyst.py` — emit `tool_call` events
-- `api/schemas.py` — weather/injury on Pick
-- `api/services/replay_service.py`, `evaluation_service.py` — attach weather + injury
-- `api/settings.py` — risk caps, `use_calibration` flag
-- `desktop/src/main.tsx`, `router.tsx`, `App.tsx` — QueryClientProvider, nav, routes
-- `desktop/src/routes/dashboard-page.tsx`, `player-detail-page.tsx`, `parlay-builder-page.tsx` — React Query, filters, analyst context
-- `desktop/src/components/{analyst-panel,player-card,weather-badge,injury-pill}.tsx` — honest placeholders, starter prompts, wired data
-- `desktop/src/lib/api.ts` — envelope unwrap + new endpoints
-- `desktop/src/store/app-store.ts` — persisted prefs
-- `desktop/package.json`, `vitest.config.ts` — test tooling
-- `pyproject.toml` — otel, keyring deps
+**Modified:**
 - `data/weather.py` — real `load_archive` + `load_forecast`
 - `data/nflverse_loader.py` — `load_weekly_with_weather`
-- `models/qb_model.py`, `rb_model.py`, `wr_te_model.py` — weather features + new default `k`
-- `api/trading/mapper.py` — `KalshiMapper` added in F4
-- `eval/prop_pricer.py` — optional calibration pass
-- `VERSIONS.md` — entries for v0.6a/b/c, v0.7a, v0.7b-scaffold, v0.8a-scaffold, v0.8b/c/d
-
-**Read-only (reused):**
-- `eval/replay_pipeline.py`, `eval/calibration_pipeline.py`
-- `api/services/{replay_service,evaluation_service,fantasy_service}.py` (read in Phases D–F; modified in Phase I)
-- `desktop/src-tauri/src/lib.rs` (sidecar spawn; no changes)
+- `models/qb.py`, `models/rb.py`, `models/wr_te.py` — statsmodels migration, weather features, count-aware/decomposed dist families, residual std, `predict(future_row=)`, new default `k`/`l1_alpha`
+- `eval/prop_pricer.py` — decision object output, no-vig integration
+- `eval/replay_pipeline.py` — call `build_upcoming_row`, EV-based selection, exposure caps, no-bet, calibration disjointness assertion
+- `eval/calibration_pipeline.py:154` — disjointness assertion
+- `api/trading/types.py` — `side` + `action` on `OrderEvent`, new `Trade` event, keyed positions dict
+- `api/trading/ledger.py` — side-aware `_apply_fill`, `mark_to_market`, `settle`
+- `api/trading/risk.py` — `ExposureRiskEngine`
+- `api/services/execution_service.py` — adapter selection via flag
+- `api/schemas.py` — weather/injury/decision-object on Pick
+- `api/services/replay_service.py`, `evaluation_service.py` — attach weather + injury
+- `api/settings.py` — `use_calibration`, `use_live_forecast`, `use_no_vig`, `min_ev`, `max_props_per_*`, `correlation_penalty_enabled`, `use_realistic_paper`, `entry_buffer_seconds`, `max_*_inventory_per_market`
+- `desktop/src/components/{weather-badge,injury-pill,player-card}.tsx`, decision drawer
+- `VERSIONS.md` — entries for v0.8b/b-fgfp/c/d-pricing/d/e
 
 ---
 
@@ -531,38 +506,32 @@ Belongs to v0.9+ (post-season-start activation):
 - Polymarket global (CLOB V2) adapter.
 - Polymarket US adapter (separate from global; KYC + Ed25519 signing; regulated DCM).
 - **Kalshi live activation** — real `demo-api.kalshi.co` calls, real WebSocket listener, real mapper-to-ticker logic. Swap happens inside `api/trading/kalshi/client.py` and `ws.py`; no callers change.
-- Real-money execution on any venue.
+- Real-money execution on any venue (gated on one full season of paper-trading with green CLV + green no-vig EV).
 - Cross-venue arbitrage or market-making strategies.
 - Multi-user or remote execution topology.
 - Compliance/KYC/geolocation automation.
+- Empirical correlated-parlay model (kept as research module with explicit "heuristic" labels in UI; revisit after season-1 data).
+- Historical-props warehouse backfill (data not available; capture timestamped Kalshi quotes going forward instead — see Season-Start additions below).
 
 ---
 
 ## Verification
 
-Per phase, in order:
+**G (v0.8b):** `scripts/backfill_weather.py` populates `cache/weather_archive.parquet` with one row per outdoor game for 2018–2025; `uv run python -c "from data.weather import load_archive; print(load_archive([2024]).head())"` returns real temps/winds in imperial units; indoor games (fixed dome + retractable) are flagged `indoor=True` with null numeric fields; all G tests green.
 
-**A (v0.6a):** `uv run pytest -q` passes incl. new `test_analyst_stream.py`; `npm run tauri dev` shows no CSP violations; all pages render via React Query (no duplicate requests on re-mount).
+**G.5 (v0.8b-fgfp):** `pytest tests/test_upcoming.py tests/test_predict_with_future_row.py` green; manually call `predict(player_id="X", future_row=build_upcoming_row("X", 2024, 5))` against opp BUF vs. opp MIA — distributions visibly differ; replay output for 2024 is unchanged beyond floating-point tolerance versus pre-FGFP, OR any meaningful delta is documented in `docs/ModelingNotes.md` with an evidence-based rationale.
 
-**B (v0.6b):** No "Step N" strings on dashboard; filter controls change visible picks live; `null` weather/injury render honestly; analyst shows starter chips + receives `stat`/`line` context; zero axe violations.
+**H (v0.8c):** `scripts/train_loop.py` produces `docs/training/season_<YYYY>_results.csv` for every walk-forward step 2018→2024; reliability diagrams rendered per (season, position, stat); Qwen 1.7B season-summary markdown exists per season both in `docs/training/` and the brain; `cross_season_summary.md` documents final `(k, l1_alpha, dist_family, feature_flags, calibration)` choice with Pareto rationale and headline deltas vs v0.5.1; `pytest tests/test_dist_families.py tests/test_residual_uncertainty.py tests/test_calibration_disjoint.py tests/test_l1_path.py` green; ablation grid CSV shows `dist_family=count_aware` or `decomposed` outperforming `legacy` on holdout log-loss for at least 4 of 7 walk-forward steps; `docs/ModelingNotes.md` records the locked config.
 
-**C (v0.6c):** Forced exception returns envelope schema; theme persists across reload; `docs/telemetry/spans-<date>.jsonl` has spans; `cd desktop && npm test` passes.
+**J (v0.8d-pricing):** `pytest tests/test_no_vig.py tests/test_decision_object.py` green; replay run on a recent season produces decision objects whose `no_bet` rate is >40% (sanity — most props are not edges); EV ranking changes the top-pick versus raw-edge ranking on at least one known case.
 
-**D (v0.7a):** `uv run pytest tests/trading -q` passes; no routes or UI changed yet.
+**I (v0.8d):** A Week-1 outdoor game pick on the dashboard shows real wind/temp/precip; a Week-1 indoor game shows a dome badge; a player with an injury designation from nflverse shows Q/D/O pill; null cases still render "No current feed" / "Status unknown"; the decision drawer renders model mean, distribution sparkline, calibrated probs, no-vig probs, EV per side, top 3 drivers, confidence flag.
 
-**E (v0.7b-scaffold):** Submit 3 picks on Execution page → fills appear; Cancel works; Kill flips all open to `canceled`; paper-mode banner visible on every screenshot; Playwright e2e passes.
-
-**F (v0.8a-scaffold):** `tests/trading/test_kalshi_signing.py` passes (RSA-PSS round-trip with test keypair); `tests/trading/test_secrets.py` passes; UI shows "Kalshi (Demo) — Coming preseason" disabled option with tooltip; no live HTTP calls anywhere.
-
-**G (v0.8b):** `scripts/backfill_weather.py` populates `data/cache/weather_archive.parquet` with one row per outdoor game for 2018–2025; `uv run python -c "from data.weather import load_archive; print(load_archive([2024]).head())"` returns real temps/winds; dome games are flagged `indoor=True` with null numeric fields.
-
-**H (v0.8c):** `scripts/train_loop.py` produces `docs/training/season_<YYYY>_results.csv` for every walk-forward step 2018→2024; reliability diagrams rendered per (season, position, stat); Qwen 1.7B season-summary markdown exists per season both in `docs/training/` and the brain; `cross_season_summary.md` documents final `(k, l1_alpha, feature_flags, calibration)` choice with Pareto rationale and headline deltas vs v0.5.1; `docs/ModelingNotes.md` records the locked config; all tests green.
-
-**I (v0.8d):** A Week-1 outdoor game pick on the dashboard shows real wind/temp/precip; a Week-1 indoor game shows a dome badge; a player with an injury designation from nflverse shows Q/D/O pill; null cases still render "No current feed" / "Status unknown".
+**K (v0.8e):** `pytest tests/trading/test_side_aware_ledger.py tests/trading/test_realistic_paper.py tests/trading/test_exposure_engine.py` green; running a season replay through `RealisticPaperAdapter` produces a non-fill rate >5% and a per-trade P&L distribution that includes losses (not just instant-fill wins); `mark_to_market` and `settle` produce sane unrealized→realized transitions on a synthetic two-tick scenario.
 
 ---
 
-## Season-Start Activation Checklist (post-v0.8d, not in this plan)
+## Season-Start Activation Checklist (post-v0.8e, not in this plan)
 
 When preseason opens (~August 2026), in-season activation is mechanical:
 
@@ -573,5 +542,6 @@ When preseason opens (~August 2026), in-season activation is mechanical:
 5. Flip the venue selector to enabled; change banner to amber "Kalshi demo — mock funds, real venue".
 6. Run `tests/trading/test_kalshi_contract.py` against demo (gated on `KALSHI_DEMO_KEY`).
 7. Exercise weather forecast path on Week-1 upcoming games.
+8. **(NEW)** Start `scripts/capture_kalshi_quotes.py` as a background process the moment NFL preseason markets list. It writes timestamped open/intraday/close quotes to `cache/kalshi_quotes.parquet` keyed by `(market_id, side, timestamp)` so that within 2–3 weeks of regular-season kickoff, the decision object's `closing_line` field can be populated and CLV becomes a real KPI. This is the offseason answer to the deep review's "highest-leverage missing asset" without forcing a backfill of synthetic props.
 
 No file structure changes. No caller changes. That's the point of shipping the scaffolding now.
