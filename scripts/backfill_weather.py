@@ -12,7 +12,8 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
 import requests
@@ -59,7 +60,8 @@ def _load_existing() -> set[str]:
 def _kickoff_utc(gameday: str, gametime: str, tz_name: str) -> datetime:
     """Convert gameday (YYYY-MM-DD) + gametime (HH:MM local) to UTC datetime."""
     local_tz = ZoneInfo(tz_name)
-    hour, minute = int(gametime.split(":")[0]), int(gametime.split(":")[1])
+    parts = gametime.split(":")
+    hour, minute = int(parts[0]), int(parts[1])
     naive = datetime(
         int(gameday[:4]),
         int(gameday[5:7]),
@@ -71,7 +73,7 @@ def _kickoff_utc(gameday: str, gametime: str, tz_name: str) -> datetime:
     return local_dt.astimezone(timezone.utc)
 
 
-def _fetch_weather(lat: float, lon: float, date_str: str) -> dict:
+def _fetch_weather(lat: float, lon: float, date_str: str) -> dict[str, Any]:
     """Call Open-Meteo Archive for one day; return raw JSON. Retries on 5xx."""
     params = {
         "latitude": lat,
@@ -96,13 +98,14 @@ def _fetch_weather(lat: float, lon: float, date_str: str) -> dict:
             backoff *= 2
             continue
         resp.raise_for_status()
-    resp.raise_for_status()  # should not reach here
-    return {}  # unreachable, satisfies type checker
+    raise AssertionError("unreachable: _fetch_weather retry loop logic broken")
 
 
-def _extract_hour(data: dict, kickoff: datetime) -> dict:
+def _extract_hour(data: dict, kickoff: datetime) -> dict[str, float | None]:
     """Pick the hourly slot closest to kickoff UTC and apply unit conversions."""
     times = data["hourly"]["time"]  # list of "YYYY-MM-DDTHH:00" strings
+    if not times:
+        raise ValueError("Open-Meteo returned empty hourly data")
     target_hour = kickoff.replace(minute=0, second=0, microsecond=0)
 
     best_idx = 0
@@ -192,7 +195,7 @@ def process_games(
         stadium = STADIUMS[home_team]
         try:
             ko_utc = _kickoff_utc(str(gameday), str(gametime), stadium.tz)
-        except Exception as exc:
+        except (ValueError, KeyError, ZoneInfoNotFoundError) as exc:
             _LOG.warning("Cannot parse kickoff for %s: %s - skipping", game_id, exc)
             continue
 

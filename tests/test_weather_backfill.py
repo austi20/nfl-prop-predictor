@@ -6,11 +6,12 @@ All HTTP calls are mocked — no real network access.
 from __future__ import annotations
 
 import sys
+from datetime import datetime as dt
+from datetime import timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -67,6 +68,7 @@ class TestIndoorGame:
         games = _make_game("2023_01_NE_LV", "LV")
         with patch("scripts.backfill_weather.requests.get") as mock_get:
             rows = process_games(games, existing_ids=set(), sleep_secs=0)
+            mock_get.assert_not_called()
 
         assert len(rows) == 1
         assert rows[0]["indoor"] is True
@@ -75,6 +77,7 @@ class TestIndoorGame:
         games = _make_game("2023_01_NE_LV", "LV")
         with patch("scripts.backfill_weather.requests.get") as mock_get:
             rows = process_games(games, existing_ids=set(), sleep_secs=0)
+            mock_get.assert_not_called()
 
         row = rows[0]
         for col in ("temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code"):
@@ -236,15 +239,11 @@ class TestKickoffUtc:
 class TestExtractHour:
     def test_picks_closest_hour(self):
         # Kickoff at 17:00 UTC → index 2 in mock data
-        from datetime import timezone
-        from datetime import datetime as dt
         ko = dt(2023, 9, 10, 17, 0, tzinfo=timezone.utc)
         result = _extract_hour(_OPEN_METEO_RESPONSE, ko)
         assert abs(result["temp_f"] - (22.2 * 9 / 5 + 32)) < 0.01
 
     def test_unit_conversions(self):
-        from datetime import timezone
-        from datetime import datetime as dt
         ko = dt(2023, 9, 10, 17, 0, tzinfo=timezone.utc)
         result = _extract_hour(_OPEN_METEO_RESPONSE, ko)
         assert abs(result["wind_mph"] - 20.0 * 0.621371) < 0.001
@@ -267,7 +266,7 @@ class TestRowsToDf:
             "indoor": True,
         }]
         df = _rows_to_df(rows)
-        assert df["indoor"].iloc[0] is True or df["indoor"].iloc[0] == True
+        assert df["indoor"].iloc[0]
         for col in ("temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code"):
             assert pd.isna(df[col].iloc[0]), f"{col} should be NaN"
 
@@ -307,3 +306,50 @@ class TestMissingGametime:
             rows = process_games(games, existing_ids=set(), sleep_secs=0)
         assert rows == []
         mock_get.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Test 5: Retry and stop paths
+# ---------------------------------------------------------------------------
+
+class TestRetryAndStop:
+    def test_5xx_retries_then_succeeds(self):
+        """503 on first attempt, 200 on second - process_games returns one row."""
+        games = _make_game("2023_01_NE_BUF", "BUF", gameday="2023-09-10", gametime="13:00")
+
+        fail_resp = MagicMock()
+        fail_resp.status_code = 503
+
+        ok_resp = MagicMock()
+        ok_resp.status_code = 200
+        ok_resp.json.return_value = _OPEN_METEO_RESPONSE
+
+        with patch(
+            "scripts.backfill_weather.requests.get",
+            side_effect=[fail_resp, ok_resp],
+        ) as mock_get:
+            with patch("scripts.backfill_weather.time.sleep"):
+                rows = process_games(games, existing_ids=set(), sleep_secs=0)
+
+        assert len(rows) == 1
+        assert mock_get.call_count == 2
+
+    def test_429_stops_cleanly(self):
+        """First game succeeds; second triggers RuntimeError (429 path) - no exception raised."""
+        game1 = _make_game("2023_01_NE_BUF", "BUF", gameday="2023-09-10", gametime="13:00")
+        game2 = _make_game("2023_01_NE_KC", "KC", gameday="2023-09-10", gametime="13:00")
+        games = pd.concat([game1, game2], ignore_index=True)
+
+        # First call returns valid data; second raises RuntimeError (simulates 429 stop).
+        call_count = {"n": 0}
+
+        def _fetch_side_effect(lat, lon, date_str):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return _OPEN_METEO_RESPONSE
+            raise RuntimeError("HTTP 429 from Open-Meteo - stopping (rate limit / forbidden)")
+
+        with patch("scripts.backfill_weather._fetch_weather", side_effect=_fetch_side_effect):
+            rows = process_games(games, existing_ids=set(), sleep_secs=0)
+
+        assert len(rows) == 1
