@@ -15,6 +15,7 @@ import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 
+from eval.no_vig import NoVigMethod, remove_vig_two_sided
 from models.base import StatDistribution
 
 # ---------------------------------------------------------------------------
@@ -136,6 +137,57 @@ class PropCalibrator:
         return cal
 
 
+@dataclass(frozen=True)
+class PropDecision:
+    player_id: str = ""
+    stat: str = ""
+    line: float = float("nan")
+    model_mean: float | None = None
+    raw_prob_over: float = 0.0
+    raw_prob_under: float = 0.0
+    model_p_over_calibrated: float = 0.0
+    model_p_under_calibrated: float = 0.0
+    market_p_over_no_vig: float = 0.0
+    market_p_under_no_vig: float = 0.0
+    book_p_over_vigged: float = 0.0
+    book_p_under_vigged: float = 0.0
+    over_odds: int = 0
+    under_odds: int = 0
+    ev_over: float = 0.0
+    ev_under: float = 0.0
+    fair_line: float | None = None
+    top_drivers: tuple[str, ...] = ()
+    confidence: Literal["high", "med", "low"] = "high"
+    recommendation: Literal["over", "under", "no_bet"] = "no_bet"
+
+    def side_payload(self, side: Literal["over", "under"]) -> dict[str, float | str]:
+        if side == "over":
+            calibrated = self.model_p_over_calibrated
+            raw = self.raw_prob_over
+            odds = self.over_odds
+            vigged = self.book_p_over_vigged
+            no_vig = self.market_p_over_no_vig
+            ev = self.ev_over
+        else:
+            calibrated = self.model_p_under_calibrated
+            raw = self.raw_prob_under
+            odds = self.under_odds
+            vigged = self.book_p_under_vigged
+            no_vig = self.market_p_under_no_vig
+            ev = self.ev_under
+        return {
+            "side": side,
+            "raw_prob": raw,
+            "calibrated_prob": calibrated,
+            "book_odds": float(odds),
+            "book_implied_prob": vigged,
+            "market_no_vig_prob": no_vig,
+            "edge": edge(calibrated, no_vig),
+            "fair_american": float(fair_price_to_american(np.clip(calibrated, 1e-6, 1.0 - 1e-6))),
+            "ev": ev,
+        }
+
+
 # ---------------------------------------------------------------------------
 # Reliability (calibration) diagram stats (+ optional figure)
 # ---------------------------------------------------------------------------
@@ -255,6 +307,44 @@ def price_two_sided_prop(
     under_odds: int,
     calibrator: PropCalibrator | None = None,
 ) -> dict[str, dict[str, float | str]]:
+    decision = price_two_sided_prop_decision(
+        raw_prob_over=raw_prob_over,
+        over_odds=over_odds,
+        under_odds=under_odds,
+        calibrator=calibrator,
+        min_ev=0.0,
+    )
+    return {"over": decision.side_payload("over"), "under": decision.side_payload("under")}
+
+
+def _confidence_from_inputs(inputs: dict[str, Any] | None) -> Literal["high", "low"]:
+    if not inputs:
+        return "high"
+    for value in inputs.values():
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            return "low"
+        if pd.isna(value):
+            return "low"
+    return "high"
+
+
+def price_two_sided_prop_decision(
+    raw_prob_over: float,
+    over_odds: int,
+    under_odds: int,
+    calibrator: PropCalibrator | None = None,
+    *,
+    player_id: str = "",
+    stat: str = "",
+    line: float = float("nan"),
+    model_mean: float | None = None,
+    fair_line: float | None = None,
+    top_drivers: tuple[str, ...] = (),
+    inputs: dict[str, Any] | None = None,
+    stake: float = 1.0,
+    min_ev: float = 0.02,
+    no_vig_method: NoVigMethod = "multiplicative",
+) -> PropDecision:
     raw_over = float(np.clip(raw_prob_over, 0.0, 1.0))
     if calibrator is None:
         cal_over = raw_over
@@ -262,26 +352,37 @@ def price_two_sided_prop(
         cal_over = float(calibrator.calibrate(raw_over))
     cal_under = float(np.clip(1.0 - cal_over, 0.0, 1.0))
     raw_under = float(np.clip(1.0 - raw_over, 0.0, 1.0))
+    market_over, market_under = remove_vig_two_sided(over_odds, under_odds, method=no_vig_method)
+    over_profit = american_profit(stake, int(over_odds))
+    under_profit = american_profit(stake, int(under_odds))
+    ev_over = cal_over * over_profit - (1.0 - cal_over) * stake
+    ev_under = cal_under * under_profit - (1.0 - cal_under) * stake
+    best_side: Literal["over", "under"] = "over" if ev_over >= ev_under else "under"
+    best_ev = ev_over if best_side == "over" else ev_under
+    recommendation: Literal["over", "under", "no_bet"] = best_side if best_ev >= min_ev else "no_bet"
 
-    over = {
-        "side": "over",
-        "raw_prob": raw_over,
-        "calibrated_prob": cal_over,
-        "book_odds": float(over_odds),
-        "book_implied_prob": implied_prob(over_odds),
-        "edge": edge(cal_over, implied_prob(over_odds)),
-        "fair_american": float(fair_price_to_american(np.clip(cal_over, 1e-6, 1.0 - 1e-6))),
-    }
-    under = {
-        "side": "under",
-        "raw_prob": raw_under,
-        "calibrated_prob": cal_under,
-        "book_odds": float(under_odds),
-        "book_implied_prob": implied_prob(under_odds),
-        "edge": edge(cal_under, implied_prob(under_odds)),
-        "fair_american": float(fair_price_to_american(np.clip(cal_under, 1e-6, 1.0 - 1e-6))),
-    }
-    return {"over": over, "under": under}
+    return PropDecision(
+        player_id=player_id,
+        stat=stat,
+        line=float(line),
+        model_mean=model_mean,
+        raw_prob_over=raw_over,
+        raw_prob_under=raw_under,
+        model_p_over_calibrated=cal_over,
+        model_p_under_calibrated=cal_under,
+        market_p_over_no_vig=market_over,
+        market_p_under_no_vig=market_under,
+        book_p_over_vigged=implied_prob(over_odds),
+        book_p_under_vigged=implied_prob(under_odds),
+        over_odds=int(over_odds),
+        under_odds=int(under_odds),
+        ev_over=float(ev_over),
+        ev_under=float(ev_under),
+        fair_line=fair_line,
+        top_drivers=top_drivers[:3],
+        confidence=_confidence_from_inputs(inputs),
+        recommendation=recommendation,
+    )
 
 
 def american_profit(stake: float, american_odds: int) -> float:
@@ -301,7 +402,8 @@ def settle_pick(actual_value: float, line: float, side: str) -> str:
 def build_paper_trade_picks(
     priced_rows: pd.DataFrame,
     calibrator: PropCalibrator | None = None,
-    min_edge: float = 0.05,
+    min_edge: float | None = 0.05,
+    min_ev: float | None = None,
     stake: float = 1.0,
     max_picks_per_week: int | None = None,
     max_picks_per_player: int | None = None,
@@ -315,6 +417,7 @@ def build_paper_trade_picks(
         "skipped_rows": {
             "missing_odds": 0,
             "edge_threshold": 0,
+            "no_bet": 0,
             "max_picks_per_week": 0,
             "max_picks_per_player": 0,
             "max_picks_per_game": 0,
@@ -325,16 +428,24 @@ def build_paper_trade_picks(
         if pd.isna(row.get("over_odds")) or pd.isna(row.get("under_odds")):
             metadata["skipped_rows"]["missing_odds"] += 1
             continue
-        market = price_two_sided_prop(
+        threshold = float(min_ev if min_ev is not None else (min_edge if min_edge is not None else 0.02))
+        decision = price_two_sided_prop_decision(
             raw_prob_over=float(row["raw_prob"]),
             over_odds=int(row["over_odds"]),
             under_odds=int(row["under_odds"]),
             calibrator=calibrator,
+            player_id=str(row.get("player_id", "")),
+            stat=str(row.get("stat", "")),
+            line=float(row.get("line", float("nan"))),
+            stake=stake,
+            min_ev=threshold,
+            inputs=row.to_dict(),
         )
-        best_side = max(market.values(), key=lambda item: float(item["edge"]))
-        if float(best_side["edge"]) < min_edge:
+        if decision.recommendation == "no_bet":
             metadata["skipped_rows"]["edge_threshold"] += 1
+            metadata["skipped_rows"]["no_bet"] += 1
             continue
+        best_side = decision.side_payload(decision.recommendation)
 
         result = settle_pick(
             actual_value=float(row["actual_value"]),
@@ -358,10 +469,21 @@ def build_paper_trade_picks(
             "selected_side": str(best_side["side"]),
             "selected_odds": int(best_side["book_odds"]),
             "selected_book_implied_prob": float(best_side["book_implied_prob"]),
+            "selected_market_no_vig_prob": float(best_side["market_no_vig_prob"]),
             "selected_fair_american": float(best_side["fair_american"]),
             "selected_raw_prob": float(best_side["raw_prob"]),
             "selected_prob": float(best_side["calibrated_prob"]),
             "selected_edge": float(best_side["edge"]),
+            "selected_ev": float(best_side["ev"]),
+            "model_p_over_calibrated": decision.model_p_over_calibrated,
+            "model_p_under_calibrated": decision.model_p_under_calibrated,
+            "market_p_over_no_vig": decision.market_p_over_no_vig,
+            "market_p_under_no_vig": decision.market_p_under_no_vig,
+            "ev_over": decision.ev_over,
+            "ev_under": decision.ev_under,
+            "recommendation": decision.recommendation,
+            "confidence": decision.confidence,
+            "top_drivers": list(decision.top_drivers),
             "result": result,
             "stake_units": float(stake),
             "profit_units": float(profit),
@@ -377,8 +499,8 @@ def build_paper_trade_picks(
         return empty
 
     candidates = pd.DataFrame(candidate_rows).sort_values(
-        ["season", "week", "selected_edge", "player_id", "stat", "line"],
-        ascending=[True, True, False, True, True, True],
+        ["season", "week", "selected_ev", "selected_edge", "player_id", "stat", "line"],
+        ascending=[True, True, False, False, True, True, True],
     )
 
     selected_rows: list[dict[str, Any]] = []

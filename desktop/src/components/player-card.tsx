@@ -1,5 +1,7 @@
 import type { Pick } from '../lib/types'
+import { Link } from 'react-router-dom'
 import { ConfidenceBar } from './confidence-bar'
+import { DecisionDrawer } from './decision-drawer'
 import { DistChart } from './dist-chart'
 import { EdgeBadge } from './edge-badge'
 import { InjuryPill } from './injury-pill'
@@ -66,9 +68,16 @@ export function PlayerCard({ pick }: PlayerCardProps) {
             )}
             <ConfidenceBar probability={pick.selected_prob} />
             <div className="flex flex-wrap gap-2">
-              <WeatherBadge weather={null} />
-              <InjuryPill status={null} />
+              <WeatherBadge weather={pick.weather ?? null} />
+              <InjuryPill status={pick.injury_status ?? null} />
             </div>
+            <DecisionDrawer pick={pick} />
+            <Link
+              to={`/player/${encodeURIComponent(pick.player_id)}`}
+              className="inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-200 transition hover:bg-white/10"
+            >
+              Player profile
+            </Link>
           </div>
         </div>
       </CardContent>

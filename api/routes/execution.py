@@ -57,7 +57,8 @@ async def get_portfolio(request: Request) -> dict:
             "unrealized_pnl": portfolio.unrealized_pnl,
             "positions": [
                 {
-                    "market_id": k,
+                    "market_id": k[0] if isinstance(k, tuple) else k,
+                    "side": k[1] if isinstance(k, tuple) else p.side,
                     "size": p.size,
                     "avg_price": p.avg_price,
                     "unrealized_pnl": p.unrealized_pnl,
@@ -86,7 +87,7 @@ async def events_stream(request: Request) -> StreamingResponse:
             new_events = svc.get_events(cursor)
             for evt in new_events:
                 yield f"data: {json.dumps(evt)}\n\n"
-            cursor += len(svc._events)
+            cursor += len(new_events)
             await asyncio.sleep(0.5)
 
     return StreamingResponse(

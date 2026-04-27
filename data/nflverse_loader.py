@@ -194,13 +194,24 @@ def load_weekly_with_weather(
     # Deferred import to avoid circular imports at module level.
     from data.weather import load_archive
 
-    stats = load_weekly(years, force_refresh)
+    stats = load_weekly(years, force_refresh).copy()
     weather = load_archive(years)
+    weather_cols = ["temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code", "indoor"]
 
-    if weather.empty:
+    if "game_id" not in stats.columns:
+        for col in weather_cols:
+            if col not in stats.columns:
+                stats[col] = pd.NA
+        stats["indoor"] = stats["indoor"].fillna(True).astype("boolean")
         return stats
 
-    weather_cols = ["game_id", "temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code", "indoor"]
-    weather_slim = weather[weather_cols]
+    if weather.empty:
+        for col in weather_cols:
+            stats[col] = pd.NA
+        stats["indoor"] = True
+        return stats
 
-    return stats.merge(weather_slim, on="game_id", how="left")
+    weather_slim = weather[["game_id", *weather_cols]]
+    merged = stats.merge(weather_slim, on="game_id", how="left")
+    merged["indoor"] = merged["indoor"].fillna(True)
+    return merged

@@ -85,6 +85,12 @@ def _brier_score(raw_probs: np.ndarray, outcomes: np.ndarray) -> float:
     return float(np.mean((raw_probs - outcomes) ** 2))
 
 
+def assert_disjoint_years(train_years: list[int], holdout_years: list[int]) -> None:
+    overlap = sorted(set(int(year) for year in train_years) & set(int(year) for year in holdout_years))
+    if overlap:
+        raise ValueError(f"train_years and holdout_years overlap: {overlap}")
+
+
 def _normalize_props_schema(df: pd.DataFrame) -> pd.DataFrame:
     props = df.copy()
     props.columns = [str(col) for col in props.columns]
@@ -150,6 +156,7 @@ def _fit_models(
     holdout_years: list[int],
     weekly: pd.DataFrame,
 ) -> dict[str, QBModel | RBModel | WRTEModel]:
+    assert_disjoint_years(train_years, holdout_years)
     models = _model_map()
     fit_and_eval_years = sorted(set(train_years + holdout_years))
     weekly_window = weekly[weekly["season"].isin(fit_and_eval_years)].copy()
@@ -166,10 +173,12 @@ def build_calibration_rows(
     *,
     strict_stats: bool = True,
     require_odds: bool = False,
+    use_future_row: bool = False,
     return_metadata: bool = False,
 ) -> pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]]:
     train_years = list(TRAIN_YEARS if train_years is None else train_years)
     holdout_years = list(HOLDOUT_YEARS if holdout_years is None else holdout_years)
+    assert_disjoint_years(train_years, holdout_years)
 
     props = _normalize_props_schema(props_df)
     unsupported = sorted(set(props["stat"]) - set(STAT_SPECS))
@@ -211,11 +220,42 @@ def build_calibration_rows(
         spec = STAT_SPECS[stat]
         model = models[spec.model_name]
         opp_team = str(row["opponent_team"]) if pd.notna(row.get("opponent_team")) else ""
+        future_row = None
+        if use_future_row:
+            try:
+                player_history = weekly[weekly["player_id"].astype(str) == str(row["player_id"])].copy()
+                prior_history = player_history[
+                    (player_history["season"] < int(row["season"]))
+                    | (
+                        (player_history["season"] == int(row["season"]))
+                        & (player_history["week"] <= int(row["week"]))
+                    )
+                ].copy()
+                source = prior_history.sort_values(["season", "week"]).iloc[-1] if not prior_history.empty else None
+                position = str(source.get("position", "")) if source is not None else ""
+                recent_team = str(row["recent_team"]) if pd.notna(row.get("recent_team")) else (
+                    str(source.get("recent_team", "")) if source is not None else ""
+                )
+                if position and recent_team and opp_team:
+                    from data.upcoming import build_upcoming_row
+
+                    future_row = build_upcoming_row(
+                        player_id=str(row["player_id"]),
+                        season=int(row["season"]),
+                        week=int(row["week"]),
+                        position=position,
+                        opponent_team=opp_team,
+                        recent_team=recent_team,
+                        weekly=weekly,
+                    )
+            except Exception:  # noqa: BLE001 - grid flag should degrade to legacy path
+                future_row = None
         preds = model.predict(
             player_id=str(row["player_id"]),
             week=int(row["week"]),
             season=int(row["season"]),
             opp_team=opp_team,
+            future_row=future_row,
         )
         raw_prob = float(preds[spec.stat].prob_over(float(row["line"])))
 

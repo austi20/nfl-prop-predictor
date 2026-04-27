@@ -55,8 +55,8 @@ class TestFill:
     def test_buy_fill_creates_position(self, tmp_path: Path) -> None:
         ledger = _ledger(tmp_path)
         state = ledger.apply(_event("filled", price=0.55, size=10.0))
-        assert "MKT-1" in state.positions
-        pos = state.positions["MKT-1"]
+        assert ("MKT-1", "yes") in state.positions
+        pos = state.positions[("MKT-1", "yes")]
         assert pos.size == 10.0
         assert pos.avg_price == pytest.approx(0.55)
 
@@ -69,7 +69,7 @@ class TestFill:
         ledger = _ledger(tmp_path)
         ledger.apply(_event("partial", price=0.50, size=5.0))
         ledger.apply(_event("partial", price=0.60, size=5.0))
-        pos = ledger.snapshot().positions["MKT-1"]
+        pos = ledger.snapshot().positions[("MKT-1", "yes")]
         assert pos.size == 10.0
         assert pos.avg_price == pytest.approx(0.55)
 
@@ -94,4 +94,14 @@ class TestPersist:
         import json
         data = json.loads(path.read_text())
         assert data["session_id"] == "test"
-        assert "MKT-1" in data["positions"]
+        assert "MKT-1:yes" in data["positions"]
+
+    def test_mark_to_market_and_settle(self, tmp_path: Path) -> None:
+        ledger = _ledger(tmp_path)
+        ledger.apply(_event("filled", price=0.40, size=10.0))
+        marked = ledger.mark_to_market({("MKT-1", "yes"): 0.55})
+        assert marked.unrealized_pnl == pytest.approx(1.5)
+
+        settled = ledger.settle("MKT-1", "yes")
+        assert settled.realized_pnl == pytest.approx(6.0)
+        assert ("MKT-1", "yes") not in settled.positions

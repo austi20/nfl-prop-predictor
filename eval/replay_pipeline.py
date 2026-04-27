@@ -9,7 +9,9 @@ from typing import Any
 
 import pandas as pd
 
-from eval.calibration_pipeline import build_calibration_rows, load_props_file
+from data.nflverse_loader import TRAIN_YEARS
+from data.weather import archive_available
+from eval.calibration_pipeline import assert_disjoint_years, build_calibration_rows, load_props_file
 from eval.parlay_builder import build_parlay_candidates, summarize_parlays
 from eval.prop_pricer import PropCalibrator, build_paper_trade_picks, summarize_paper_trade
 
@@ -177,6 +179,7 @@ def _build_summary_payload(
     stats: list[str] | None,
     books: list[str] | None,
     min_edge: float,
+    min_ev: float,
     stake: float,
     calibrator_path: Path | None,
     filter_metadata: dict[str, Any],
@@ -191,12 +194,14 @@ def _build_summary_payload(
     max_picks_per_week: int | None,
     max_picks_per_player: int | None,
     max_picks_per_game: int | None,
+    weather_archive_available: bool,
 ) -> dict[str, Any]:
     skipped_rows = {
         "unsupported_stat": int(row_metadata["skipped_rows"]["unsupported_stat"]),
         "missing_odds": int(row_metadata["skipped_rows"]["missing_odds"] + pick_metadata["skipped_rows"]["missing_odds"]),
         "missing_actual_outcome": int(row_metadata["skipped_rows"]["missing_actual_outcome"]),
         "no_selection_edge_threshold": int(pick_metadata["skipped_rows"]["edge_threshold"]),
+        "no_bet": int(pick_metadata["skipped_rows"].get("no_bet", 0)),
         "max_picks_per_week": int(pick_metadata["skipped_rows"]["max_picks_per_week"]),
         "max_picks_per_player": int(pick_metadata["skipped_rows"]["max_picks_per_player"]),
         "max_picks_per_game": int(pick_metadata["skipped_rows"]["max_picks_per_game"]),
@@ -217,6 +222,7 @@ def _build_summary_payload(
         },
         "policy": {
             "min_edge": float(min_edge),
+            "min_ev": float(min_ev),
             "stake": float(stake),
             "singles_evaluated_separately_from_parlays": True,
             "same_game_penalty": float(same_game_penalty),
@@ -230,6 +236,7 @@ def _build_summary_payload(
             "rows_after_filters": int(filter_metadata["rows_after_filters"]),
             "rows_priced": int(row_metadata["output_rows"]),
             "selected_rows": int(pick_metadata["selected_rows"]),
+            "weather_archive_available": bool(weather_archive_available),
             "applied_filters": filter_metadata["applied_filters"],
             "unsupported_stats_seen": row_metadata.get("unsupported_stats", []),
             "skipped_rows": skipped_rows,
@@ -251,6 +258,7 @@ def run_replay(
     *,
     calibrator_path: Path | None = None,
     min_edge: float = 0.05,
+    min_ev: float | None = None,
     stake: float = 1.0,
     train_years: list[int] | None = None,
     replay_years: list[int] | None = None,
@@ -265,9 +273,13 @@ def run_replay(
     parlay_legs: int = 2,
     max_parlay_candidates: int = 20,
     weekly: pd.DataFrame | None = None,
+    use_future_row: bool = False,
 ) -> dict[str, Any]:
     props_df = load_props_file(Path(props_path), require_odds=True)
     replay_years = replay_years or sorted(set(int(x) for x in props_df["season"].unique().tolist()))
+    if train_years is None:
+        train_years = [int(year) for year in TRAIN_YEARS if int(year) not in set(replay_years)]
+    assert_disjoint_years(list(train_years), list(replay_years))
     filtered_props, filter_metadata = _apply_replay_filters(
         props_df,
         replay_years=replay_years,
@@ -282,14 +294,17 @@ def run_replay(
         weekly=weekly,
         strict_stats=False,
         require_odds=True,
+        use_future_row=use_future_row,
         return_metadata=True,
     )
 
     calibrator = PropCalibrator.load(calibrator_path) if calibrator_path else None
+    effective_min_ev = float(min_ev if min_ev is not None else min_edge)
     picks, pick_metadata = build_paper_trade_picks(
         calibration_rows,
         calibrator=calibrator,
         min_edge=min_edge,
+        min_ev=effective_min_ev,
         stake=stake,
         max_picks_per_week=max_picks_per_week,
         max_picks_per_player=max_picks_per_player,
@@ -312,6 +327,7 @@ def run_replay(
         calibration_rows,
         calibrator=calibrator,
         min_edge=0.0,
+        min_ev=0.0,
         stake=stake,
         max_picks_per_week=max_picks_per_week,
         max_picks_per_player=max_picks_per_player,
@@ -321,6 +337,7 @@ def run_replay(
         calibration_rows,
         calibrator=calibrator,
         min_edge=min_edge,
+        min_ev=effective_min_ev,
         stake=stake,
         max_picks_per_week=1,
         max_picks_per_player=max_picks_per_player,
@@ -335,6 +352,7 @@ def run_replay(
         stats=stats,
         books=books,
         min_edge=min_edge,
+        min_ev=effective_min_ev,
         stake=stake,
         calibrator_path=calibrator_path,
         filter_metadata=filter_metadata,
@@ -354,6 +372,7 @@ def run_replay(
         max_picks_per_week=max_picks_per_week,
         max_picks_per_player=max_picks_per_player,
         max_picks_per_game=max_picks_per_game,
+        weather_archive_available=archive_available(replay_years),
     )
     return {
         "rows": calibration_rows,
@@ -372,6 +391,7 @@ def run_replay(
         "stats": stats or [],
         "books": books or [],
         "min_edge": min_edge,
+        "min_ev": effective_min_ev,
         "stake": stake,
         "calibrator_path": str(calibrator_path) if calibrator_path else "",
     }
@@ -532,6 +552,7 @@ def main() -> None:
     parser.add_argument("--props-file", required=True)
     parser.add_argument("--calibrator-path", default=None)
     parser.add_argument("--min-edge", type=float, default=0.05)
+    parser.add_argument("--min-ev", type=float, default=None)
     parser.add_argument("--stake", type=float, default=1.0)
     parser.add_argument("--train-years", default=None)
     parser.add_argument("--replay-years", default=None)
@@ -553,6 +574,7 @@ def main() -> None:
         props_path=Path(args.props_file),
         calibrator_path=Path(args.calibrator_path) if args.calibrator_path else None,
         min_edge=args.min_edge,
+        min_ev=args.min_ev,
         stake=args.stake,
         train_years=_parse_csv_ints(args.train_years),
         replay_years=replay_years,

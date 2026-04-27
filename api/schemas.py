@@ -26,6 +26,7 @@ class ReplayContext(BaseModel):
 
 class ReplayPolicy(BaseModel):
     min_edge: float
+    min_ev: float | None = None
     stake: float
     singles_evaluated_separately_from_parlays: bool = True
     same_game_penalty: float
@@ -40,6 +41,7 @@ class ReplaySkippedRows(BaseModel):
     missing_odds: int = 0
     missing_actual_outcome: int = 0
     no_selection_edge_threshold: int = 0
+    no_bet: int = 0
     max_picks_per_week: int = 0
     max_picks_per_player: int = 0
     max_picks_per_game: int = 0
@@ -50,6 +52,7 @@ class ReplayValidation(BaseModel):
     rows_after_filters: int = 0
     rows_priced: int = 0
     selected_rows: int = 0
+    weather_archive_available: bool = False
     applied_filters: dict[str, Any] = Field(default_factory=dict)
     unsupported_stats_seen: list[str] = Field(default_factory=list)
     skipped_rows: ReplaySkippedRows = Field(default_factory=ReplaySkippedRows)
@@ -134,7 +137,9 @@ class SidePrice(BaseModel):
     calibrated_prob: float
     book_odds: float
     book_implied_prob: float
+    market_no_vig_prob: float | None = None
     edge: float
+    ev: float | None = None
     fair_american: float
 
 
@@ -142,6 +147,16 @@ class DistributionSummary(BaseModel):
     mean: float
     std: float
     dist_type: str
+
+
+class WeatherSummary(BaseModel):
+    temp_f: float | None = None
+    wind_mph: float | None = None
+    wind_dir_deg: float | None = None
+    precip_in: float | None = None
+    precip_prob: float | None = None
+    weather_code: float | None = None
+    indoor: bool | None = None
 
 
 class FantasyComponent(BaseModel):
@@ -203,6 +218,18 @@ class NormalizedPick(BaseModel):
     over: SidePrice | None = None
     under: SidePrice | None = None
     distribution: DistributionSummary | None = None
+    weather: WeatherSummary | None = None
+    injury_status: Literal["Q", "D", "O", "IR", "PUP"] | None = None
+    model_p_over_calibrated: float | None = None
+    model_p_under_calibrated: float | None = None
+    market_p_over_no_vig: float | None = None
+    market_p_under_no_vig: float | None = None
+    ev_over: float | None = None
+    ev_under: float | None = None
+    selected_ev: float | None = None
+    recommendation: Literal["over", "under", "no_bet"] | None = None
+    confidence: Literal["high", "med", "low"] | None = None
+    top_drivers: list[str] = Field(default_factory=list)
     fantasy: FantasySummary | None = None
 
 

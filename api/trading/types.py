@@ -59,6 +59,17 @@ class OrderEvent:
     price: float
     size: float
     ts: datetime
+    side: Literal["yes", "no"] = "yes"
+    action: Literal["open", "close"] = "open"
+
+
+@dataclass(frozen=True)
+class Trade:
+    market_id: str
+    side: Literal["yes", "no"]
+    open_event: OrderEvent
+    close_event: OrderEvent
+    realized_pnl: float
 
 
 @dataclass(frozen=True)
@@ -67,11 +78,12 @@ class Position:
     size: float
     avg_price: float
     unrealized_pnl: float
+    side: Literal["yes", "no"] = "yes"
 
 
 @dataclass
 class PortfolioState:
     cash_balance: float
-    positions: dict[str, Position] = field(default_factory=dict)
+    positions: dict[tuple[str, Literal["yes", "no"]] | str, Position] = field(default_factory=dict)
     realized_pnl: float = 0.0
     unrealized_pnl: float = 0.0

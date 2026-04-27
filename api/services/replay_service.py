@@ -18,6 +18,7 @@ from api.schemas import (
 )
 from api.settings import AppSettings
 from api.services.fantasy_service import build_fantasy_summary
+from data.weather import load_archive
 from data.nflverse_loader import load_weekly
 from eval.replay_pipeline import run_replay, save_replay_report
 
@@ -81,11 +82,93 @@ def _player_lookup_df(settings: AppSettings, seasons: list[int]) -> pd.DataFrame
     return player_df.drop_duplicates(subset=["player_id"], keep="last")
 
 
+@lru_cache(maxsize=8)
+def _weather_lookup_df(seasons_key: tuple[int, ...]) -> pd.DataFrame:
+    try:
+        weather = load_archive(list(seasons_key))
+    except Exception:  # noqa: BLE001
+        return pd.DataFrame()
+    if weather.empty or "game_id" not in weather.columns:
+        return pd.DataFrame()
+    cols = [
+        col
+        for col in ("game_id", "temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code", "indoor")
+        if col in weather.columns
+    ]
+    return weather[cols].drop_duplicates(subset=["game_id"], keep="last")
+
+
+@lru_cache(maxsize=8)
+def _injury_lookup_df(cache_dir: str, seasons_key: tuple[int, ...]) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+    for season in seasons_key:
+        path = Path(cache_dir) / f"injuries_{season}.parquet"
+        if path.exists():
+            try:
+                frames.append(pd.read_parquet(path))
+            except Exception:  # noqa: BLE001
+                continue
+    if not frames:
+        return pd.DataFrame(columns=["player_id", "season", "week", "injury_status"])
+    injuries = pd.concat(frames, ignore_index=True)
+    id_col = next(
+        (col for col in ("player_id", "gsis_id", "player_gsis_id", "nfl_id") if col in injuries.columns),
+        None,
+    )
+    if id_col is None:
+        return pd.DataFrame(columns=["player_id", "season", "week", "injury_status"])
+    status_cols = [
+        col
+        for col in ("game_status", "report_status", "status", "injury_report_status", "practice_status")
+        if col in injuries.columns
+    ]
+    if not status_cols:
+        return pd.DataFrame(columns=["player_id", "season", "week", "injury_status"])
+
+    def _normalize_status(row: pd.Series) -> str | None:
+        text = " ".join(str(row.get(col, "")) for col in status_cols).upper()
+        if "PUP" in text:
+            return "PUP"
+        if "IR" in text or "INJURED RESERVE" in text:
+            return "IR"
+        if "OUT" in text:
+            return "O"
+        if "DOUBTFUL" in text:
+            return "D"
+        if "QUESTIONABLE" in text or "LIMITED" in text:
+            return "Q"
+        return None
+
+    normalized = pd.DataFrame({
+        "player_id": injuries[id_col].astype(str),
+        "season": injuries["season"].astype(int) if "season" in injuries.columns else pd.NA,
+        "week": injuries["week"].astype(int) if "week" in injuries.columns else pd.NA,
+        "injury_status": injuries.apply(_normalize_status, axis=1),
+    })
+    normalized = normalized[normalized["injury_status"].notna()].copy()
+    if normalized.empty:
+        return pd.DataFrame(columns=["player_id", "season", "week", "injury_status"])
+    return normalized.drop_duplicates(subset=["player_id", "season", "week"], keep="last")
+
+
 def _enrich_picks(settings: AppSettings, picks: pd.DataFrame, seasons: list[int]) -> list[NormalizedPick]:
     if picks.empty:
         return []
     lookup = _player_lookup_df(settings, seasons)
     merged = picks.merge(lookup, how="left", on="player_id", suffixes=("", "_lookup"))
+    weather = _weather_lookup_df(tuple(sorted(set(int(season) for season in seasons))))
+    if not weather.empty and "game_id" in merged.columns:
+        merged = merged.merge(weather, how="left", on="game_id", suffixes=("", "_weather"))
+        weather_cols = ["temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code", "indoor"]
+        merged["weather"] = merged.apply(
+            lambda row: None
+            if pd.isna(row.get("indoor"))
+            else {col: row.get(col) for col in weather_cols if col in row and pd.notna(row.get(col))},
+            axis=1,
+        )
+    injuries = _injury_lookup_df(str(settings.cache_dir), tuple(sorted(set(int(season) for season in seasons))))
+    if not injuries.empty:
+        merged = merged.merge(injuries, how="left", on=["player_id", "season", "week"])
     if "player_name" not in merged.columns:
         merged["player_name"] = ""
     if "player_name_lookup" in merged.columns:
@@ -94,8 +177,18 @@ def _enrich_picks(settings: AppSettings, picks: pd.DataFrame, seasons: list[int]
         merged["position"] = ""
     merged["player_name"] = merged["player_name"].fillna("")
     merged["position"] = merged["position"].fillna("")
+    if "top_drivers" in merged.columns:
+        merged["top_drivers"] = merged["top_drivers"].map(_normalize_top_drivers)
     records = merged.to_dict("records")
     return [NormalizedPick.model_validate(record) for record in records]
+
+
+def _normalize_top_drivers(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    if pd.isna(value):
+        return []
+    return [part.strip() for part in str(value).strip("[]").replace("'", "").split(",") if part.strip()]
 
 
 def _normalize_parlays(parlays: pd.DataFrame) -> list[ParlayRow]:
@@ -175,7 +268,10 @@ def _generate_seed_replay(settings: AppSettings) -> ReplayArtifacts:
         train_years=list(settings.default_train_years),
         replay_years=replay_years,
         min_edge=settings.default_min_edge,
+        min_ev=settings.min_ev,
         stake=settings.default_stake,
+        max_picks_per_player=settings.max_props_per_player,
+        max_picks_per_game=settings.max_props_per_game,
         same_game_penalty=settings.default_same_game_penalty,
         same_team_penalty=settings.default_same_team_penalty,
         parlay_legs=settings.default_parlay_legs,
@@ -200,9 +296,12 @@ def load_replay_artifacts(
     train_years: tuple[int, ...],
     replay_years: tuple[int, ...],
     min_edge: float,
+    min_ev: float,
     stake: float,
     same_game_penalty: float,
     same_team_penalty: float,
+    max_props_per_player: int,
+    max_props_per_game: int,
     parlay_legs: int,
     max_parlay_candidates: int,
 ) -> ReplayArtifacts:
@@ -212,9 +311,12 @@ def load_replay_artifacts(
         default_train_years=train_years,
         default_replay_years=replay_years,
         default_min_edge=min_edge,
+        min_ev=min_ev,
         default_stake=stake,
         default_same_game_penalty=same_game_penalty,
         default_same_team_penalty=same_team_penalty,
+        max_props_per_player=max_props_per_player,
+        max_props_per_game=max_props_per_game,
         default_parlay_legs=parlay_legs,
         default_max_parlay_candidates=max_parlay_candidates,
     )
@@ -231,9 +333,12 @@ def get_replay_artifacts(settings: AppSettings) -> ReplayArtifacts:
         tuple(settings.default_train_years),
         tuple(settings.default_replay_years),
         settings.default_min_edge,
+        settings.min_ev,
         settings.default_stake,
         settings.default_same_game_penalty,
         settings.default_same_team_penalty,
+        settings.max_props_per_player,
+        settings.max_props_per_game,
         settings.default_parlay_legs,
         settings.default_max_parlay_candidates,
     )

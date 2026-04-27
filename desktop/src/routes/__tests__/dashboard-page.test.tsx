@@ -23,7 +23,7 @@ const MOCK_SLATE = {
   interpretation: 'Test interpretation.',
   filter_metadata: { available_seasons: [2024], available_weeks: [1], available_stats: ['passing_yards', 'rushing_yards'], available_books: ['DK'], applied_filters: {} },
   top_picks: [
-    { player_id: 'p1', player_name: 'QB One', position: 'QB', season: 2024, week: 1, stat: 'passing_yards', line: 250, book: 'DK', selected_side: 'over', selected_odds: -110, selected_book_implied_prob: 0.524, selected_fair_american: -120, selected_raw_prob: 0.58, selected_prob: 0.58, selected_edge: 0.06, game_id: 'g1', recent_team: 'KC', opponent_team: 'BUF' },
+    { player_id: 'p1', player_name: 'QB One', position: 'QB', season: 2024, week: 1, stat: 'passing_yards', line: 250, book: 'DK', selected_side: 'over', selected_odds: -110, selected_book_implied_prob: 0.524, selected_fair_american: -120, selected_raw_prob: 0.58, selected_prob: 0.58, selected_edge: 0.06, game_id: 'g1', recent_team: 'KC', opponent_team: 'BUF', weather: { temp_f: 42, wind_mph: 18, precip_in: 0, indoor: false }, injury_status: 'Q', market_p_over_no_vig: 0.5, market_p_under_no_vig: 0.5, ev_over: 0.11, ev_under: -0.12, recommendation: 'over', confidence: 'high', top_drivers: ['wind 18mph'] },
     { player_id: 'p2', player_name: 'RB Two', position: 'RB', season: 2024, week: 1, stat: 'rushing_yards', line: 75, book: 'DK', selected_side: 'over', selected_odds: -115, selected_book_implied_prob: 0.535, selected_fair_american: -130, selected_raw_prob: 0.61, selected_prob: 0.61, selected_edge: 0.075, game_id: 'g2', recent_team: 'SF', opponent_team: 'LAR' },
   ],
   top_parlays: [],
@@ -62,5 +62,17 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText('QB One')).toBeInTheDocument()
     expect(screen.queryByText('RB Two')).not.toBeInTheDocument()
+  })
+
+  it('opens the decision drawer from a player card', async () => {
+    const user = userEvent.setup()
+    render(<DashboardPage />, { wrapper })
+    await waitFor(() => screen.getByText('QB One'))
+
+    await user.click(screen.getAllByRole('button', { name: /why this bet/i })[0])
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('Recommendation')).toBeInTheDocument()
+    expect(screen.getByText('wind 18mph')).toBeInTheDocument()
   })
 })

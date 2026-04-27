@@ -133,3 +133,22 @@ def test_load_weekly_with_weather_joins_correctly():
     assert len(kc_rows) == 1
     assert pd.isna(kc_rows.iloc[0]["temp_f"])
     assert pd.isna(kc_rows.iloc[0]["wind_mph"])
+    assert bool(kc_rows.iloc[0]["indoor"]) is True
+
+
+def test_load_weekly_with_weather_keeps_schema_when_archive_empty():
+    from data.nflverse_loader import load_weekly_with_weather
+
+    stats_df = pd.DataFrame([
+        {"player_id": "P1", "game_id": "2023_01_NE_BUF", "passing_yards": 300},
+    ])
+
+    with (
+        patch("data.nflverse_loader.load_weekly", return_value=stats_df),
+        patch("data.weather.load_archive", return_value=pd.DataFrame()),
+    ):
+        result = load_weekly_with_weather(years=[2023])
+
+    for col in ("temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code", "indoor"):
+        assert col in result.columns
+    assert bool(result.iloc[0]["indoor"]) is True

@@ -1,5 +1,6 @@
 export type ReplayPolicy = {
   min_edge: number
+  min_ev?: number | null
   stake: number
   singles_evaluated_separately_from_parlays: boolean
   same_game_penalty: number
@@ -62,7 +63,9 @@ export type SidePrice = {
   calibrated_prob: number
   book_odds: number
   book_implied_prob: number
+  market_no_vig_prob?: number | null
   edge: number
+  ev?: number | null
   fair_american: number
 }
 
@@ -105,6 +108,16 @@ export type FantasySummary = {
   omitted_stats: string[]
 }
 
+export type WeatherSummary = {
+  temp_f?: number | null
+  wind_mph?: number | null
+  wind_dir_deg?: number | null
+  precip_in?: number | null
+  precip_prob?: number | null
+  weather_code?: number | null
+  indoor?: boolean | null
+}
+
 export type Pick = {
   player_id: string
   player_name: string
@@ -131,6 +144,18 @@ export type Pick = {
   over?: SidePrice | null
   under?: SidePrice | null
   distribution?: DistributionSummary | null
+  weather?: WeatherSummary | null
+  injury_status?: 'Q' | 'D' | 'O' | 'IR' | 'PUP' | null
+  model_p_over_calibrated?: number | null
+  model_p_under_calibrated?: number | null
+  market_p_over_no_vig?: number | null
+  market_p_under_no_vig?: number | null
+  ev_over?: number | null
+  ev_under?: number | null
+  selected_ev?: number | null
+  recommendation?: 'over' | 'under' | 'no_bet' | null
+  confidence?: 'high' | 'med' | 'low' | null
+  top_drivers?: string[]
   fantasy?: FantasySummary | null
 }
 
@@ -210,7 +235,7 @@ export type Portfolio = {
   cash_balance: number
   realized_pnl: number
   unrealized_pnl: number
-  positions: Array<{ market_id: string; size: number; avg_price: number; unrealized_pnl: number }>
+  positions: Array<{ market_id: string; side?: string; size: number; avg_price: number; unrealized_pnl: number }>
 }
 
 export type ExecutionEvent = {
@@ -220,6 +245,8 @@ export type ExecutionEvent = {
   event_type?: string
   pick_id?: string
   market_id?: string
+  side?: string
+  action?: string
   reason?: string
   price?: number
   size?: number

@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from api.trading.types import ExecutionIntent, PortfolioState, RiskDecision
 
@@ -35,7 +36,7 @@ class StaticRiskEngine:
             return self._reject(intent, portfolio, f"notional {notional:.2f} > max {self.max_notional_per_order:.2f}")
 
         market_id = intent.market_ref.market_id
-        pos = portfolio.positions.get(market_id)
+        pos = portfolio.positions.get((market_id, intent.side)) or portfolio.positions.get(market_id)
         open_notional = (pos.size * pos.avg_price if pos else 0.0) + notional
         if open_notional >= self.max_open_notional_per_market:
             return self._reject(
@@ -91,3 +92,54 @@ class StaticRiskEngine:
             "current_realized_pnl": portfolio.realized_pnl,
             "current_unrealized_pnl": portfolio.unrealized_pnl,
         }
+
+
+@dataclass
+class ExposureRiskEngine(StaticRiskEngine):
+    entry_buffer_seconds: float = 7200.0
+    max_yes_inventory_per_market: float = 100.0
+    max_no_inventory_per_market: float = 100.0
+
+    def evaluate(self, intent: ExecutionIntent, portfolio: PortfolioState) -> RiskDecision:
+        base = super().evaluate(intent, portfolio)
+        if not base.approved:
+            return base
+
+        expires_at = intent.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        seconds_to_lock = (expires_at - datetime.now(timezone.utc)).total_seconds()
+        if seconds_to_lock <= self.entry_buffer_seconds:
+            return self._reject(
+                intent,
+                portfolio,
+                f"entry_buffer {seconds_to_lock:.0f}s <= {self.entry_buffer_seconds:.0f}s",
+            )
+
+        worst_case = self._worst_case_loss(intent)
+        if worst_case > self.max_notional_per_order:
+            return self._reject(
+                intent,
+                portfolio,
+                f"worst_case_loss {worst_case:.2f} > max {self.max_notional_per_order:.2f}",
+            )
+
+        key = (intent.market_ref.market_id, intent.side)
+        existing = portfolio.positions.get(key)
+        current_inventory = existing.size if existing else 0.0
+        next_inventory = current_inventory + intent.size
+        cap = self.max_yes_inventory_per_market if intent.side == "yes" else self.max_no_inventory_per_market
+        if next_inventory > cap:
+            return self._reject(
+                intent,
+                portfolio,
+                f"{intent.side}_inventory {next_inventory:.2f} > max {cap:.2f}",
+            )
+
+        return base
+
+    @staticmethod
+    def _worst_case_loss(intent: ExecutionIntent) -> float:
+        if intent.side == "yes":
+            return intent.size * intent.limit_price
+        return intent.size * (1.0 - intent.limit_price)

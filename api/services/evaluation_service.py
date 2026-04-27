@@ -89,11 +89,30 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
 
     spec = STAT_SPECS[request.stat]
     model = models[spec.model_name]
+    future_row = None
+    if settings.use_future_row:
+        try:
+            player_rows_for_future = weekly[weekly["player_id"].astype(str) == request.player_id].copy()
+            source = player_rows_for_future.sort_values(["season", "week"]).iloc[-1]
+            from data.upcoming import build_upcoming_row
+
+            future_row = build_upcoming_row(
+                player_id=request.player_id,
+                season=request.season,
+                week=request.week,
+                position=str(source.get("position", "")),
+                opponent_team=request.opponent_team,
+                recent_team=request.recent_team or str(source.get("recent_team", "")),
+                weekly=weekly,
+            )
+        except Exception:  # noqa: BLE001
+            future_row = None
     distributions = model.predict(
         player_id=request.player_id,
         season=request.season,
         week=request.week,
         opp_team=request.opponent_team,
+        future_row=future_row,
     )
     distribution = distributions[request.stat]
 

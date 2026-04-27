@@ -59,6 +59,21 @@ def load_archive(seasons: list[int]) -> pd.DataFrame:
     return df[df["season"].isin(seasons)].reset_index(drop=True)
 
 
+def archive_available(seasons: list[int] | None = None) -> bool:
+    """Return True when the archive cache exists and has rows for the window."""
+    if not _ARCHIVE_PATH.exists():
+        return False
+    if seasons is None:
+        try:
+            return not pd.read_parquet(_ARCHIVE_PATH, engine="pyarrow").empty
+        except Exception:  # noqa: BLE001 - availability is a metadata hint
+            return False
+    try:
+        return not load_archive(seasons).empty
+    except Exception:  # noqa: BLE001 - callers should degrade, not crash
+        return False
+
+
 def load_forecast(game_id: str) -> dict | None:
     """Hit Open-Meteo Forecast API for an upcoming game.
 

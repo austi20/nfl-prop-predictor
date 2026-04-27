@@ -1,5 +1,17 @@
 # Plan: Season-Prep — Inference Fidelity, Training, Pricing, Realistic Paper
 
+## Current Implementation Sequence (2026-04-27)
+
+The post-G.5 sequence now proceeds as **Cleanup -> Pricing -> Execution -> UI -> Training** and is logged in `VERSIONS.md` as:
+
+- `v0.8d-preflight`: stable weather schema, disjoint train/holdout guards, SSE cursor fix, weather availability metadata
+- `v0.8e-pricing`: no-vig utility, `PropDecision`, EV selection, no-bet handling
+- `v0.8f-execution`: side-aware ledger, realistic paper adapter, exposure risk engine
+- `v0.8g-ui`: weather/injury payloads and decision drawer
+- `v0.9a-training`: synthetic-surrogate odds loader and future-row ablation hooks
+
+The detailed older phase notes below remain useful background, but the current code follows the version order above.
+
 ## Status (as of v0.8b-fgfp-prep, 2026-04-24)
 
 Phases A–F are complete and logged in VERSIONS.md. The workstation is hardened (v0.6a–c), trading domain is live (v0.7a), paper trading + Kalshi scaffold are shipped (v0.7b-scaffold, v0.8a-scaffold).

@@ -22,8 +22,8 @@ from api.services.execution_service import ExecutionService
 from api.settings import AppSettings, get_settings
 from api.trading.ledger import InMemoryPortfolioLedger
 from api.trading.mapper import PickToIntentMapper
-from api.trading.paper_adapter import FakePaperAdapter
-from api.trading.risk import StaticRiskEngine
+from api.trading.paper_adapter import FakePaperAdapter, RealisticPaperAdapter
+from api.trading.risk import ExposureRiskEngine, StaticRiskEngine
 
 
 def _error_body(code: str, message: str) -> dict:
@@ -70,7 +70,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             content=_error_body("internal_error", str(exc)),
         )
 
-    risk = StaticRiskEngine(
+    risk_kwargs = dict(
         max_notional_per_order=app_settings.risk_max_notional_per_order,
         max_open_notional_per_market=app_settings.risk_max_open_notional_per_market,
         daily_loss_cap=app_settings.risk_daily_loss_cap,
@@ -78,11 +78,20 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         reject_cooldown_n=app_settings.risk_reject_cooldown_n,
         reject_cooldown_seconds=app_settings.risk_reject_cooldown_seconds,
     )
+    if app_settings.use_exposure_risk:
+        risk = ExposureRiskEngine(
+            **risk_kwargs,
+            entry_buffer_seconds=app_settings.entry_buffer_seconds,
+            max_yes_inventory_per_market=app_settings.max_yes_inventory_per_market,
+            max_no_inventory_per_market=app_settings.max_no_inventory_per_market,
+        )
+    else:
+        risk = StaticRiskEngine(**risk_kwargs)
     ledger = InMemoryPortfolioLedger(audit_dir=app_settings.docs_dir / "audit")
     app.state.execution_service = ExecutionService(
-        adapter=FakePaperAdapter(),
+        adapter=RealisticPaperAdapter() if app_settings.use_realistic_paper else FakePaperAdapter(),
         ledger=ledger,
-        mapper=PickToIntentMapper(),
+        mapper=PickToIntentMapper(order_ttl_hours=24),
         risk=risk,
         audit_dir=app_settings.docs_dir / "audit",
     )

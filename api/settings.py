@@ -29,6 +29,11 @@ class AppSettings(BaseSettings):
     default_train_years: tuple[int, ...] = tuple(TRAIN_YEARS[:-1])
     default_replay_years: tuple[int, ...] = (2024,)
     default_min_edge: float = 0.05
+    min_ev: float = 0.02
+    use_no_vig: bool = True
+    max_props_per_player: int = 1
+    max_props_per_game: int = 4
+    correlation_penalty_enabled: bool = False
     default_stake: float = 1.0
     default_same_game_penalty: float = 0.97
     default_same_team_penalty: float = 0.985
@@ -41,8 +46,14 @@ class AppSettings(BaseSettings):
     risk_min_edge: float = 0.03
     risk_reject_cooldown_n: int = 3
     risk_reject_cooldown_seconds: float = 60.0
+    use_realistic_paper: bool = True
+    use_exposure_risk: bool = True
+    entry_buffer_seconds: float = 7200.0
+    max_yes_inventory_per_market: float = 100.0
+    max_no_inventory_per_market: float = 100.0
 
     default_calibrator_path: str = ""
+    training_props_path: Path = Field(default_factory=lambda: Path("docs") / "training" / "synthetic_props_training.csv")
     llama_cpp_base_url: str = "http://127.0.0.1:8080"
     weather_source: str = "open-meteo"
     use_live_forecast: bool = False

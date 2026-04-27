@@ -5,6 +5,27 @@ will collapse the open-question section into a locked configuration.
 
 ---
 
+## Post-G.5 Sequencing Implementation (v0.8d-preflight through v0.9a-training)
+
+- Weather is now a stable-schema input: missing archives keep the weather
+  columns present, unmatched joins mark `indoor=True`, and replay metadata
+  reports `weather_archive_available` so H can skip weather ablations when the
+  archive is absent.
+- Pricing policy now separates model belief from market belief. Two-sided
+  American odds are no-vigged before edge/EV decisions, while realized replay
+  profit still uses the offered American odds.
+- `docs/training/synthetic_props_training.csv` is the default offline market
+  dataset for H/J/K prep. Its synthetic-surrogate odds are leakage-safe enough
+  for pipeline and policy evaluation, but all result summaries should still be
+  labeled synthetic-surrogate rather than live-market profitability.
+- Odds, provenance, and outcome fields are explicitly excluded from model
+  features via `eval/training_dataset.py::TRAINING_ODDS_FEATURE_EXCLUSIONS`.
+- `use_future_row` is wired as a flag path in replay/calibration/evaluation
+  and fantasy prediction, but the default remains `False` until Phase H
+  ablation confirms it should become the baseline.
+
+---
+
 ## Phase G.5 — Future-Game Feature Pipeline (v0.8b-fgfp)
 
 ### What landed

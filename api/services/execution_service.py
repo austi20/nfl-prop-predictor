@@ -89,7 +89,8 @@ class ExecutionService:
                 "price": order_event.price,
                 "size": order_event.size,
                 "market_id": intent.market_ref.market_id,
-                "side": intent.side,
+                "side": order_event.side,
+                "action": order_event.action,
                 "edge": intent.edge,
                 "pick_id": signal.pick_id,
             }

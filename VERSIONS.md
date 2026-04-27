@@ -5,6 +5,82 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9a-training - 2026-04-27
+
+**Training hooks for synthetic-surrogate odds and future-row ablation.**
+
+- Added `eval/training_dataset.py` to load `docs/training/synthetic_props_training.csv`, filter `eligible_for_training=True`, validate `market_source=synthetic_surrogate_v1`, and centralize odds/provenance/outcome feature exclusions
+- Wired `use_future_row` as an explicit replay/calibration/evaluation/fantasy flag path while keeping the default off until Phase H evidence supports flipping it
+- Added training dataset tests that validate no-vig market columns against the pricing utility and keep odds/outcome columns out of model features
+
+**Verification:** included in full suite: 240 Python tests passing, 5 deselected.
+
+---
+
+## v0.8g-ui - 2026-04-27
+
+**Weather, injury, and decision drawer surface.**
+
+- Extended pick schemas and frontend types with optional weather, injury, no-vig, EV, recommendation, confidence, and driver fields so old replay artifacts still load
+- Enriched replay picks with archive weather when available and cached injury statuses when present; missing feeds continue to render honest fallback states
+- Updated `WeatherBadge`, `InjuryPill`, and `PlayerCard` to use real payload fields, and added a Radix decision drawer with model/market probabilities, EV, recommendation, confidence, and driver slots
+
+**Verification:** `npm.cmd test -- --run` passed (17 tests); `npm.cmd run build` passed.
+
+---
+
+## v0.8f-execution - 2026-04-27
+
+**Side-aware paper execution and realistic fills.**
+
+- Added side/action fields to order events, side-aware portfolio keys, realized close P&L, mark-to-market, and settlement transitions
+- Added `RealisticPaperAdapter` with spread, next-tick executable price, non-fill probability, and partial fills while keeping `FakePaperAdapter` for unit tests
+- Added `ExposureRiskEngine` with side-aware worst-case loss, market-lock buffer, per-side inventory caps, daily loss cap, and static-risk fallback wiring
+
+**Verification:** full trading tests included in the 240-test Python suite.
+
+---
+
+## v0.8e-pricing - 2026-04-27
+
+**No-vig pricing, decision object, and EV selection.**
+
+- Added `eval/no_vig.py::remove_vig_two_sided()` with multiplicative/additive methods and an explicit Shin `NotImplementedError`
+- Added frozen `PropDecision` pricing output while preserving the existing dict-shaped two-sided pricing wrapper
+- Updated paper-pick selection to rank by expected value, emit no-vig market probabilities and EV fields, and mark below-threshold rows as `no_bet`
+- Added settings for no-vig, EV threshold, player/game caps, and correlation-penalty gating
+
+**Verification:** no-vig, decision, replay, and synthetic odds tests included in the 240-test Python suite.
+
+---
+
+## v0.8d-preflight - 2026-04-27
+
+**Preflight safety fixes before pricing/execution/training work.**
+
+- `load_weekly_with_weather()` now always returns stable weather columns, even when `cache/weather_archive.parquet` is missing
+- Unmatched weather joins now default `indoor=True` with null numeric weather fields, matching the Phase G contract
+- Added train/holdout overlap guards in calibration and replay before model fitting
+- Fixed execution SSE cursor advancement so streams do not skip events
+- Added `weather_archive_available` replay metadata for H weather ablations
+
+**Verification:** weather, calibration, replay, and SSE-adjacent coverage included in the 240-test Python suite.
+
+---
+
+## v0.8c-data - 2026-04-27
+
+**Training-grade synthetic odds dataset for Phase H/J/K prep.**
+
+- Added an additive training mode to `scripts/generate_synthetic_props.py` via `--emit-training-dataset` and `--training-out-file`, while keeping the default `docs/synthetic_replay_props.csv` replay seed behavior unchanged
+- Generated `docs/training/synthetic_props_training.csv` with 41,508 rows, varied leakage-safe surrogate odds, no-vig market probabilities, actual outcomes, provenance fields, and line/odds outlier flags
+- Synthetic training odds now use only pre-game player history, recency-weighted empirical hit rates, shrinkage toward 0.50, stat-specific vig, American-odds rounding, and explicit `market_source=synthetic_surrogate_v1`
+- Added tests covering legacy output stability, training schema compatibility, odds variation, no-vig probability sums, determinism, target-game leakage protection, outlier flag behavior, replay compatibility, `/api/slate` stability, and Phase H feature-exclusion guards
+
+**Verification:** 220 Python tests passing, 5 deselected.
+
+---
+
 ## v0.8b-fgfp - 2026-04-27
 
 **Future-Game Feature Pipeline (Phase G.5).**

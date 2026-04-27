@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Activity, BadgeDollarSign, LayoutPanelTop, ShieldCheck } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 
 import { GlossaryTooltip } from '../components/glossary-tooltip'
 import { PlayerCard } from '../components/player-card'
@@ -235,13 +234,7 @@ export function DashboardPage() {
             </div>
             <div className="grid gap-4">
               {filteredPicks.map((pick) => (
-                <Link
-                  key={`${pick.player_id}-${pick.stat}-${pick.line}`}
-                  to={`/player/${encodeURIComponent(pick.player_id)}`}
-                  className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
-                >
-                  <PlayerCard pick={pick} />
-                </Link>
+                <PlayerCard key={`${pick.player_id}-${pick.stat}-${pick.line}`} pick={pick} />
               ))}
             </div>
           </div>

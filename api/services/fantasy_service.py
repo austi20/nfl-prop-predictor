@@ -121,6 +121,7 @@ def _predict_distributions(
     week: int,
     opponent_team: str,
     position: str,
+    recent_team: str = "",
 ) -> dict[str, StatDistribution]:
     train_years = tuple(settings.default_train_years)
     models = _model_bundle(train_years, season)
@@ -131,11 +132,31 @@ def _predict_distributions(
         if spec is None:
             continue
         model = models[spec.model_name]
+        future_row = None
+        if settings.use_future_row and recent_team:
+            try:
+                train_years = tuple(settings.default_train_years)
+                weekly_years = tuple(sorted(set(train_years + (season,))))
+                weekly = _weekly_cache(weekly_years)
+                from data.upcoming import build_upcoming_row
+
+                future_row = build_upcoming_row(
+                    player_id=player_id,
+                    season=season,
+                    week=week,
+                    position=position,
+                    opponent_team=opponent_team,
+                    recent_team=recent_team,
+                    weekly=weekly,
+                )
+            except Exception:  # noqa: BLE001
+                future_row = None
         predicted = model.predict(
             player_id=player_id,
             season=season,
             week=week,
             opp_team=opponent_team,
+            future_row=future_row,
         )
         if stat in predicted:
             distributions[stat] = predicted[stat]
@@ -506,6 +527,7 @@ def build_fantasy_summary(
         week=week,
         opponent_team=opponent_team,
         position=normalized_position,
+        recent_team=recent_team,
     )
     factors = _context_factors(
         settings,
