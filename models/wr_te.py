@@ -189,9 +189,21 @@ class WRTEModel:
         player_id: str,
         week: int,
         season: int,
-        opp_team: str,
+        opp_team: str | None = None,
+        *,
+        future_row: dict | None = None,
     ) -> dict[str, StatDistribution]:
         result: dict[str, StatDistribution] = {}
+
+        if future_row is None and opp_team is not None:
+            warnings.warn(
+                "WRTEModel.predict(opp_team=...) without future_row uses the latest "
+                "historical row's opponent context, not the upcoming opponent. "
+                "Pass future_row=build_upcoming_row(...) to use upcoming-game context. "
+                "This compatibility path will be removed after Phase H.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if not self._models or self._player_stats is None:
             for stat in _TARGET_STATS:
@@ -204,7 +216,7 @@ class WRTEModel:
             & (self._player_stats["week"] < week)
         ]
 
-        if player_rows.empty:
+        if future_row is None and player_rows.empty:
             # No history - return prior means
             for stat in _TARGET_STATS:
                 mean = self._prior_means.get(stat, 0.0)
@@ -212,9 +224,15 @@ class WRTEModel:
                 result[stat] = StatDistribution(mean=mean, std=std, dist_type=_DIST_TYPES[stat])
             return result
 
-        # Use the most recent row's rolling features
-        latest = player_rows.sort_values("week").iloc[[-1]]
-        X = latest[self._feature_cols].values.astype(float)
+        if future_row is not None:
+            X = np.array(
+                [[float(future_row.get(col, 0.0) or 0.0) for col in self._feature_cols]],
+                dtype=float,
+            )
+        else:
+            # Use the most recent row's rolling features
+            latest = player_rows.sort_values("week").iloc[[-1]]
+            X = latest[self._feature_cols].values.astype(float)
 
         for stat in _TARGET_STATS:
             model = self._models[stat]

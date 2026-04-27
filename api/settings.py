@@ -46,6 +46,11 @@ class AppSettings(BaseSettings):
     llama_cpp_base_url: str = "http://127.0.0.1:8080"
     weather_source: str = "open-meteo"
     use_live_forecast: bool = False
+    # Phase G.5: when True, replay/scoring paths build a future_row via
+    # data.upcoming.build_upcoming_row and pass it to model.predict() so the
+    # opponent context matches the upcoming game rather than the latest
+    # historical row. Default False until Phase H ablation evaluates it.
+    use_future_row: bool = False
 
 
 @lru_cache(maxsize=1)

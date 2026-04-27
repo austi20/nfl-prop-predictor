@@ -5,6 +5,21 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8b-fgfp - 2026-04-27
+
+**Future-Game Feature Pipeline (Phase G.5).**
+
+- G.5-1: `data/upcoming.py::build_upcoming_row(player_id, season, week, *, position, opponent_team, recent_team, is_home=None, weather=None, weekly=None)` — builds a feature dict for an unplayed game by appending a stat-zero placeholder row to the historical weekly frame and re-running the position's `_build_features`. Reuses training feature semantics exactly; no parallel rolling/lagging logic. Returns dict whose keys are a strict superset of the model's `_feature_cols`.
+- G.5-2: `models/{qb,rb,wr_te}.py::predict()` gained `future_row: dict | None = None` kwarg. When supplied, the feature vector is built from the dict via `np.array([[row.get(col, 0.0) for col in self._feature_cols]])`. Legacy `opp_team` arg is now optional and emits `DeprecationWarning` when used without `future_row` (will be removed after Phase H).
+- G.5-3: `tests/test_upcoming.py` — 8 tests covering opp-context shift, player-rolling stability, weather pass-through, is_home override, position dispatch (QB/RB/WR-TE), unsupported-position guard
+- G.5-3: `tests/test_predict_with_future_row.py` — 5 tests covering BUF vs MIA distribution divergence, same-opponent stability, deprecation warning on legacy path, no-warning on cold model, future_row overrides opp_team
+- `api/settings.py::use_future_row: bool = False` (env: `NFL_APP_USE_FUTURE_ROW`) — flag to gate replay/scoring services on the future-row path. Default off until Phase H ablation locks the config.
+- `docs/ModelingNotes.md` — new file documenting what landed, what was deferred to Phase H (PBP-EPA in `data/team_context.py`, snap-share, injury swap), and the expected delta vs pre-FGFP replay output.
+
+**Verification:** 212 Python tests passing, 5 deselected (slow). +13 new G.5 tests over v0.8b baseline.
+
+---
+
 ## v0.8b - 2026-04-25
 
 **Historical weather backfill + loader integration (Phase G2+G3).**
