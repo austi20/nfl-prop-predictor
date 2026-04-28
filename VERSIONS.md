@@ -5,6 +5,42 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8c-h2-session-c - 2026-04-28
+
+**Phase H Session C — H2 Opus brainstorm (pre-implementation locks) + synthetic training backfill.**
+
+- **Session sequencing:** Opens after Session B close (**5528363**). Deliverable targets `scripts/train_loop.py`: walk-forward discipline, **`docs/training/synthetic_props_training.csv` coverage**, and a frozen **results CSV schema** grounded in existing eval paths (`prob_over(line)` vs `outcome_over` log-loss aligns with Phase H definition of done). Checkpoint format and **parallelism across the 1152-config grid** remain to be finalized alongside the first implementation pass (no separate lock documented in-session).
+- **Synthetic props backfill (prereq for H2/H4 Pareto across seasons):** Regenerated labeled training CSV with `uv run python scripts/generate_synthetic_props.py --seasons 2019,2020,2021,2022,2023,2024,2025 --emit-training-dataset --training-out-file docs/training/synthetic_props_training.csv`. **144,414 rows** across **2019-2025** (deterministic from nflverse weekly; no API calls). Older **v0.8c-data** snapshot (~41k rows, 2024-2025 only) is superseded for Phase H tooling. Row counts vs prior snapshots can drift when upstream nflverse/cache history grows (2024 regenerated slightly larger vs the pre-backfill artifact).
+- **Walk-forward discipline (locked):** **Six** expanding-window steps — train cumulative **2018..(holdout−1)**, holdout season **holdout ∈ {2019…2024}** one step per row in the table below. **2025** labeled rows stay in the CSV for **H4.5/H5 `final_eval`** only; they are **not** a seventh ablation holdout (that would consume the reserved final-eval window). Alternative considered: single holdout year only — rejected because H4 cross-season Pareto selection requires multi-year variance.
+
+  | Step | Train years | Holdout |
+  |------|-------------|---------|
+  | 1 | 2018 | 2019 |
+  | 2 | 2018–2019 | 2020 |
+  | 3 | 2018–2020 | 2021 |
+  | 4 | 2018–2021 | 2022 |
+  | 5 | 2018–2022 | 2023 |
+  | 6 | 2018–2023 | 2024 |
+
+- **Holdout evaluation source (confirmed):** For each `(holdout_season, config, position, stat)` — fit models on training years with that config’s flags; for each synthetic row matching `season == holdout_season` and the stat/position, **`log_loss` from `prob_over(line)` vs `outcome_over`** (plus sanity metrics aligning with `model_backtest`-style reporting).
+- **`docs/training/season_<YYYY>_results.csv` schema (frozen, `YYYY` = holdout season):** One row per `(config_hash, position, stat)` (~**11,520** rows per file: 1152 configs × 10 stats).
+
+  | Group | Columns |
+  |-------|---------|
+  | IDs | `config_hash`, `holdout_season`, `position` (qb \| rb \| wr_te), `stat` |
+  | Config (flat filters) | `use_weather`, `use_opponent_epa`, `use_rest_days`, `use_home_away`, `dist_family`, `k`, `l1_alpha` |
+  | Sizes | `n_train`, `n_holdout` |
+  | Selection metric | `log_loss` (primary vs synthetic labels) |
+  | Calibration / point sanity | `brier`, `mae`, `rmse`, `bias` |
+  | GLM diagnostics | `aic` (nullable for `_ConstantResult` / non-GLM paths), `max_reliability_dev` (max deviation from diagonal, **10 equal-width bins** on predicted probability [0,1]) |
+  | Fit metadata | `fit_seconds`, `convergence_flag` (`ok` \| `constant_fallback` \| `fit_error`) |
+
+  Notes: **`config_hash`** — stable digest of the seven knobs for resume/dedup. **Reliability:** 10 equal-width bins. **Decomposed / Monte Carlo stats:** `prob_over` from sampled tails; **`aic`** may be null where no single fitted GLM applies.
+
+**Verification:** `uv run pytest -q` → **278** passed, **5** deselected (post-backfill regression).
+
+---
+
 ## v0.8c-h2.5 - 2026-04-28
 
 **Phase H Session B close: residual-based uncertainty (`H2.5`).**

@@ -18,7 +18,7 @@ Per `VERSIONS.md`, the following phases are complete and locked:
 |-------|---------|-------------|
 | G | v0.8b | Open-Meteo Archive weather backfill (`cache/weather_archive.parquet`) + `load_weekly_with_weather()` |
 | G.5 | v0.8b-fgfp | `data/upcoming.py::build_upcoming_row()`; `predict(future_row=...)` on QB/RB/WR-TE |
-| training data | v0.8c-data | `docs/training/synthetic_props_training.csv` (41,508 rows, surrogate odds, no-vig probs, outcomes) |
+| training data | v0.8c-h2-session-c | `docs/training/synthetic_props_training.csv` (**144,414** rows @ 2026-04-28, seasons **2019–2025** labeled props; surrogate odds; 2025 reserved `final_eval` per H4.5) |
 | preflight | v0.8d-preflight | Stable weather schema, train/holdout disjoint guards, SSE cursor fix |
 | J | v0.8e-pricing | `eval/no_vig.py`, `PropDecision` dataclass, EV-ranked pick selection, `no_bet` handling |
 | K | v0.8f-execution | Side-aware `OrderEvent`, `RealisticPaperAdapter`, `ExposureRiskEngine` |
@@ -29,7 +29,7 @@ Per `VERSIONS.md`, the following phases are complete and locked:
 - `cache/weekly_2014-...-2025.parquet` — 217,487 rows × 115 cols, full nflverse weekly history
 - `cache/weather_archive.parquet` — 2,227 outdoor games 2018–2025 (indoor games default `indoor=True` + null numerics)
 - `cache/schedules_2018-...-2025.parquet`, `cache/injuries_2015-...-2025.parquet`
-- `docs/training/synthetic_props_training.csv` — labeled `(player_id, season, week, stat, line, market_prob_no_vig, outcome_over)` rows for 2024–2025
+- `docs/training/synthetic_props_training.csv` — labeled `(player_id, season, week, stat, line, …, outcome_over)` rows for **2019–2025** (2025 retained for **`final_eval` only**, not walk-forward holdouts; see VERSIONS.md `v0.8c-h2-session-c`)
 
 **Not yet built:** the joined ML training frame `(X_features, y_outcome, market_prob)` per row. Phase H builds this inside `scripts/train_loop.py` by calling `load_weekly_with_weather()` for the feature base, then joining synthetic props for labels.
 
@@ -101,7 +101,7 @@ Replaces one-regressor-per-stat with a small family of stat-aware models. Adds `
 - `k ∈ {2, 4, 6, 8, 12, 16}` — shrinkage constant
 - `l1_alpha ∈ {0.0, 0.001, 0.01, 0.1}` — L1 regularization; `0.0` means plain GLM
 
-Full grid = `2^4 × 3 × 6 × 4 = 1152` configs per season × 7 walk-forward steps = ~8000 fits. Each GLM fits in <1 second on CPU; total ~2.5 hours wall-time — still acceptable, especially overnight.
+Full grid = `2^4 × 3 × 6 × 4 = 1152` configs × **six** expanding-window walk-forward holdouts (**2019–2024**) = ~**6912** config × step cells (excluding 2025; reserved for **H5 `final_eval`**). Each GLM fits in <1 second on CPU; total wall-time scales roughly with step count (~2–2.5h order of magnitude unchanged). See `VERSIONS.md` `v0.8c-h2-session-c` for the locked step table.
 
 **L1 regularization** replaces hand-tuned "variable weighting." At nonzero `l1_alpha`, coefficients on useless features collapse to zero automatically. Ablation flags remain for feature categories you want to force off regardless (e.g., "does weather help on 2019 specifically?").
 
@@ -159,7 +159,7 @@ Output: markdown written both to `docs/training/season_<YYYY>_summary.md` and ap
 
 ### H4. Cross-season synthesis
 
-**New file:** `scripts/synthesize_training.py` — runs after the full walk-forward completes (2018→2024 holdout-on-next). Aggregates all seven `season_<YYYY>_results.csv` files, picks the config that's **Pareto-optimal across seasons** (lowest mean holdout log-loss *and* lowest variance across seasons — penalizes configs that win one year and tank another). Renders:
+**New file:** `scripts/synthesize_training.py` — runs after the full walk-forward completes (six holdout seasons **2019–2024**). Aggregates all **six** `season_<YYYY>_results.csv` files, picks the config that's **Pareto-optimal across seasons** (lowest mean holdout log-loss *and* lowest variance across seasons — penalizes configs that win one year and tank another). Renders:
 - `docs/training/cross_season_summary.md` — ranking table, headline recommendation, per-feature ablation rollup, per-stat distribution-family choice.
 - `docs/training/cross_season_reliability.png` — overlay of reliability diagrams across seasons for the recommended config.
 
@@ -193,7 +193,7 @@ Review `cross_season_summary.md` + reliability overlay. Pick the `(k, l1_alpha, 
 
 ## Phase H Verification (Definition of Done)
 
-`scripts/train_loop.py` produces `docs/training/season_<YYYY>_results.csv` for every walk-forward step 2018→2024; reliability diagrams rendered per (season, position, stat); Qwen 1.7B season-summary markdown exists per season both in `docs/training/` and the brain; `cross_season_summary.md` documents final `(k, l1_alpha, dist_family, feature_flags, calibration)` choice with Pareto rationale and headline deltas vs v0.5.1; `pytest tests/test_dist_families.py tests/test_residual_uncertainty.py tests/test_calibration_disjoint.py tests/test_l1_path.py tests/test_model_weather.py tests/test_narrate.py` green; ablation grid CSV shows `dist_family=count_aware` or `decomposed` outperforming `legacy` on holdout log-loss for at least 4 of 7 walk-forward steps; `docs/ModelingNotes.md` records the locked config.
+`scripts/train_loop.py` produces `docs/training/season_<YYYY>_results.csv` for every walk-forward step (**six** holdouts, **2019–2024**); reliability diagrams rendered per (season, position, stat); Qwen 1.7B season-summary markdown exists per season both in `docs/training/` and the brain; `cross_season_summary.md` documents final `(k, l1_alpha, dist_family, feature_flags, calibration)` choice with Pareto rationale and headline deltas vs v0.5.1; `pytest tests/test_dist_families.py tests/test_residual_uncertainty.py tests/test_calibration_disjoint.py tests/test_l1_path.py tests/test_model_weather.py tests/test_narrate.py` green; ablation grid CSV shows `dist_family=count_aware` or `decomposed` outperforming `legacy` on holdout log-loss for at least **4 of 6** walk-forward holdouts; `docs/ModelingNotes.md` records the locked config.
 
 ---
 
@@ -360,7 +360,7 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 
 7. **H2 brainstorm** — `train_loop.py` design:
    - Resolve: results CSV schema, checkpoint format, parallelism strategy for 1152-config grid.
-   - Output: locked file design before coding.
+   - Output (Session C documented in `VERSIONS.md` **`v0.8c-h2-session-c`**): expanding-window **six** holdouts (**2019–2024**), frozen **`season_<YYYY>_results.csv`** columns, **`docs/training/synthetic_props_training.csv`** multi-year backfill (**2019–2025**, 2025 for **`final_eval` only**). Checkpoint + worker strategy: finalize with Sonnet alongside `train_loop.py` unless/until patched.
 
 ```
 >>> SWITCH TO SONNET 4.6 <<<
@@ -373,7 +373,7 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 >>> END SESSION C <<<
 ```
 
-**Off-LLM compute window:** `uv run python scripts/train_loop.py` for all 7 walk-forward steps (~2.5h wall time, no token cost). Start after Session C verifies green.
+**Off-LLM compute window:** `uv run python scripts/train_loop.py` for all **six** walk-forward holdouts (~2.5h wall time, no token cost). Start after Session C verifies green.
 
 ---
 
@@ -386,7 +386,7 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 9. **H3** — `llm/templates/season_summary.j2` + `scripts/narrate_season.py` + `tests/test_narrate.py`.
 
 10. **H4** — `scripts/synthesize_training.py` (independent, dispatch as parallel agent):
-    - Pareto selection across 7 `season_<YYYY>_results.csv` files.
+    - Pareto selection across **six** `season_<YYYY>_results.csv` files (holdouts **2019–2024**).
     - Renders `cross_season_summary.md` + reliability overlay PNG.
 
 ```
