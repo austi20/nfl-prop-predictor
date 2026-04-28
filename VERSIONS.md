@@ -5,6 +5,19 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8c-h2.5 - 2026-04-28
+
+**Phase H Session B close: residual-based uncertainty (`H2.5`).**
+
+- H2.5: Replaced hand-scaled std formula (`prior_std * shrunk_mean / max(prior_mean, _MIN_MEAN)`) in `_legacy_distribution()` across all three position models with empirical residual std computed at `fit()` time (`np.std(y_fit - y_pred_train)`). Fixes the single biggest tail-pricing risk identified in the Phase H spec.
+- H2.5: Added `self._residual_stds: dict[str, float]` to `QBModel`, `RBModel`, and `WRTEModel`. Populated after each GLM fit on the legacy path; count-aware stats already carry model-implied dispersion; decomposed path derives uncertainty from Monte Carlo composition.
+- H2.5: `_legacy_distribution()` emits `DeprecationWarning("No empirical residual std cached...")` when called on an unfitted model and falls back to the old formula, preserving the unfitted-predict contract for existing callers.
+- H2.5: Added `tests/test_residual_uncertainty.py` — 11 tests covering populated-after-fit, positive-valued stds, no-warning path after fit, DeprecationWarning path without fit (QB/RB/WR-TE), and residual-std ≤ prior-std cross-model consistency check.
+
+**Verification:** `uv run pytest -q tests/test_residual_uncertainty.py` -> 11 passed; `uv run pytest -q` -> 278 passed, 5 deselected.
+
+---
+
 ## v0.8c-h1.5 - 2026-04-28
 
 **Phase H Session B start: stat-specific distribution architecture (`H1.5`).**

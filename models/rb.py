@@ -144,6 +144,7 @@ class RBModel:
         self._feature_cols: list[str] = []
         self._prior_means: dict[str, float] = {}
         self._prior_stds: dict[str, float] = {}
+        self._residual_stds: dict[str, float] = {}
         self._player_stats: pd.DataFrame | None = None
         self._use_weather: bool = False
         self._dist_family: str = "legacy"
@@ -152,10 +153,20 @@ class RBModel:
         self._ypc_model: RateModelSpec | None = None
 
     def _legacy_distribution(self, stat: str, mean: float) -> StatDistribution:
-        prior_mean = self._prior_means.get(stat, 0.0)
-        prior_std = self._prior_stds.get(stat, 1.0)
-        std = prior_std * (mean / max(prior_mean, _MIN_MEAN))
-        std = max(std, _MIN_MEAN)
+        if stat in self._residual_stds:
+            std = max(self._residual_stds[stat], _MIN_MEAN)
+        else:
+            warnings.warn(
+                f"No empirical residual std cached for {stat!r}; "
+                "falling back to prior-scaled estimate. "
+                "Fit the model before calling predict.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            prior_mean = self._prior_means.get(stat, 0.0)
+            prior_std = self._prior_stds.get(stat, 1.0)
+            std = prior_std * (mean / max(prior_mean, _MIN_MEAN))
+            std = max(std, _MIN_MEAN)
         return StatDistribution(mean=mean, std=std, dist_type=_DIST_TYPE[stat])
 
     def fit(
@@ -225,6 +236,11 @@ class RBModel:
                 except (ValueError, np.linalg.LinAlgError):
                     result = ConstantResult(float(y_fit.mean()))
             self._models[stat] = result
+            try:
+                y_pred_train = np.array(result.predict(X_const)).ravel()
+                self._residual_stds[stat] = float(np.std(y_fit - y_pred_train))
+            except Exception:
+                pass
 
             if dist_family != "legacy" and stat == "rushing_yards":
                 self._quantile_models[stat] = fit_quantile_models(y, X_const)
