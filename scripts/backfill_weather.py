@@ -1,7 +1,8 @@
 """Backfill NFL game weather from Open-Meteo Archive API.
 
 Usage:
-    python -m uv run python scripts/backfill_weather.py --seasons 2018,2019
+    uv run python scripts/backfill_weather.py --seasons 2018,2019
+    uv run python scripts/backfill_weather.py --min-interval 1.2   # stricter free-tier pacing
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
 import requests
+from requests.exceptions import ConnectTimeout, ReadTimeout, Timeout
 
 # Allow imports from project root.
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -24,11 +26,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from data.nflverse_loader import load_schedules
 from data.stadium_coords import STADIUMS, is_indoor
 
+# nflverse schedules use "LA" for Rams home; stadium table keys "LAR".
+_SCHEDULE_HOME_ALIASES: dict[str, str] = {"LA": "LAR"}
+
 _LOG = logging.getLogger(__name__)
 
 _CACHE_DIR = Path(__file__).parent.parent / "cache"
 _ARCHIVE_PARQUET = _CACHE_DIR / "weather_archive.parquet"
 _OPEN_METEO_URL = "https://archive-api.open-meteo.com/v1/archive"
+# Free-tier Open-Meteo: 600/min, 5_000/hour, 10_000/day. Stay under ~4_500/hour sustained.
+_DEFAULT_MIN_INTERVAL_SEC = 1.05
+_REQUEST_TIMEOUT_SEC = 120.0  # single limit: connect + read (archive API can be slow)
+_MAX_FETCH_ATTEMPTS = 12
 
 _OUTPUT_COLS = [
     "game_id",
@@ -73,8 +82,22 @@ def _kickoff_utc(gameday: str, gametime: str, tz_name: str) -> datetime:
     return local_dt.astimezone(timezone.utc)
 
 
+def _retry_after_seconds(resp: requests.Response, fallback: float) -> float:
+    """Parse Retry-After header (seconds only); cap to avoid hanging."""
+    raw = resp.headers.get("Retry-After")
+    if raw is None:
+        return max(1.0, min(fallback, 300.0))
+    raw = raw.strip()
+    if raw.isdigit():
+        return max(1.0, min(float(raw), 300.0))
+    return max(1.0, min(fallback, 300.0))
+
+
 def _fetch_weather(lat: float, lon: float, date_str: str) -> dict[str, Any]:
-    """Call Open-Meteo Archive for one day; return raw JSON. Retries on 5xx."""
+    """Call Open-Meteo Archive for one day; return raw JSON.
+
+    Retries timeouts, 429 (rate limit), and 5xx with backoff. Does not retry 403.
+    """
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -83,19 +106,54 @@ def _fetch_weather(lat: float, lon: float, date_str: str) -> dict[str, Any]:
         "hourly": "temperature_2m,precipitation,wind_speed_10m,wind_direction_10m,weather_code",
         "timezone": "UTC",
     }
-    backoff = 1
-    for attempt in range(4):
-        resp = requests.get(_OPEN_METEO_URL, params=params, timeout=30)
+    backoff = 2.0
+    for attempt in range(_MAX_FETCH_ATTEMPTS):
+        try:
+            resp = requests.get(
+                _OPEN_METEO_URL,
+                params=params,
+                timeout=_REQUEST_TIMEOUT_SEC,
+            )
+        except (ReadTimeout, ConnectTimeout, Timeout) as exc:
+            if attempt < _MAX_FETCH_ATTEMPTS - 1:
+                _LOG.warning(
+                    "Open-Meteo timeout on attempt %d (%s), retrying in %.1fs",
+                    attempt + 1,
+                    exc,
+                    backoff,
+                )
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 90.0)
+                continue
+            raise
         if resp.status_code == 200:
             return resp.json()
-        if resp.status_code in (429, 403):
+        if resp.status_code == 429:
+            if attempt < _MAX_FETCH_ATTEMPTS - 1:
+                wait = _retry_after_seconds(resp, backoff)
+                _LOG.warning(
+                    "HTTP 429 rate limited, sleeping %.1fs (attempt %d/%d)",
+                    wait,
+                    attempt + 1,
+                    _MAX_FETCH_ATTEMPTS,
+                )
+                time.sleep(wait)
+                backoff = min(max(backoff * 2, wait), 120.0)
+                continue
             raise RuntimeError(
-                f"HTTP {resp.status_code} from Open-Meteo - stopping (rate limit / forbidden)"
+                "HTTP 429 from Open-Meteo after retries — try again later or raise --min-interval"
             )
-        if 500 <= resp.status_code < 600 and attempt < 3:
-            _LOG.warning("HTTP %d on attempt %d, retrying in %ds", resp.status_code, attempt + 1, backoff)
+        if resp.status_code == 403:
+            raise RuntimeError("HTTP 403 from Open-Meteo — forbidden (no retry)")
+        if 500 <= resp.status_code < 600 and attempt < _MAX_FETCH_ATTEMPTS - 1:
+            _LOG.warning(
+                "HTTP %d on attempt %d, retrying in %.1fs",
+                resp.status_code,
+                attempt + 1,
+                backoff,
+            )
             time.sleep(backoff)
-            backoff *= 2
+            backoff = min(backoff * 2, 90.0)
             continue
         resp.raise_for_status()
     raise AssertionError("unreachable: _fetch_weather retry loop logic broken")
@@ -140,7 +198,7 @@ def process_games(
     games: pd.DataFrame,
     existing_ids: set[str],
     *,
-    sleep_secs: float = 0.1,
+    min_interval_sec: float = _DEFAULT_MIN_INTERVAL_SEC,
 ) -> list[dict]:
     """Core loop: process game rows, return list of output dicts.
 
@@ -156,7 +214,7 @@ def process_games(
             _LOG.debug("Skipping already-cached game %s", game_id)
             continue
 
-        home_team = str(game["home_team"])
+        home_team = _SCHEDULE_HOME_ALIASES.get(str(game["home_team"]), str(game["home_team"]))
         gameday = game.get("gameday")
         gametime = game.get("gametime")
 
@@ -220,7 +278,8 @@ def process_games(
             "indoor": False,
         })
         processed += 1
-        time.sleep(sleep_secs)
+        if min_interval_sec > 0:
+            time.sleep(min_interval_sec)
 
     return rows
 
@@ -254,13 +313,17 @@ def write_results(new_rows: list[dict]) -> pd.DataFrame:
     return combined
 
 
-def run(seasons: list[int]) -> None:
+def run(seasons: list[int], *, min_interval_sec: float = _DEFAULT_MIN_INTERVAL_SEC) -> None:
     _LOG.info("Loading schedules for seasons: %s", seasons)
     schedules = load_schedules(seasons)
     existing_ids = _load_existing()
     _LOG.info("Schedules: %d rows, %d already cached", len(schedules), len(existing_ids))
+    _LOG.info(
+        "Open-Meteo pacing: %.2fs minimum between outdoor HTTP calls (free tier ~5000/hour)",
+        min_interval_sec,
+    )
 
-    new_rows = process_games(schedules, existing_ids)
+    new_rows = process_games(schedules, existing_ids, min_interval_sec=min_interval_sec)
     _LOG.info("Fetched %d new rows", len(new_rows))
 
     if new_rows:
@@ -270,10 +333,15 @@ def run(seasons: list[int]) -> None:
 
 
 def main() -> None:
+    try:
+        sys.stderr.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
+    except AttributeError:
+        pass
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         stream=sys.stderr,
+        force=True,
     )
     parser = argparse.ArgumentParser(description="Backfill NFL game weather from Open-Meteo.")
     parser.add_argument(
@@ -281,9 +349,19 @@ def main() -> None:
         default="2018,2019,2020,2021,2022,2023,2024,2025",
         help="Comma-separated list of seasons to backfill (default: 2018-2025)",
     )
+    parser.add_argument(
+        "--min-interval",
+        type=float,
+        default=_DEFAULT_MIN_INTERVAL_SEC,
+        metavar="SEC",
+        help=(
+            "Seconds to sleep after each successful outdoor API call "
+            f"(default: {_DEFAULT_MIN_INTERVAL_SEC}; increase for stricter free-tier pacing)"
+        ),
+    )
     args = parser.parse_args()
     seasons = _parse_seasons(args.seasons)
-    run(seasons)
+    run(seasons, min_interval_sec=max(0.0, args.min_interval))
 
 
 if __name__ == "__main__":

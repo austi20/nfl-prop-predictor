@@ -67,7 +67,7 @@ class TestIndoorGame:
     def test_indoor_row_has_indoor_true(self):
         games = _make_game("2023_01_NE_LV", "LV")
         with patch("scripts.backfill_weather.requests.get") as mock_get:
-            rows = process_games(games, existing_ids=set(), sleep_secs=0)
+            rows = process_games(games, existing_ids=set(), min_interval_sec=0)
             mock_get.assert_not_called()
 
         assert len(rows) == 1
@@ -76,7 +76,7 @@ class TestIndoorGame:
     def test_indoor_row_numeric_columns_are_na(self):
         games = _make_game("2023_01_NE_LV", "LV")
         with patch("scripts.backfill_weather.requests.get") as mock_get:
-            rows = process_games(games, existing_ids=set(), sleep_secs=0)
+            rows = process_games(games, existing_ids=set(), min_interval_sec=0)
             mock_get.assert_not_called()
 
         row = rows[0]
@@ -86,7 +86,7 @@ class TestIndoorGame:
     def test_indoor_game_makes_zero_http_calls(self):
         games = _make_game("2023_01_NE_LV", "LV")
         with patch("scripts.backfill_weather.requests.get") as mock_get:
-            process_games(games, existing_ids=set(), sleep_secs=0)
+            process_games(games, existing_ids=set(), min_interval_sec=0)
 
         mock_get.assert_not_called()
 
@@ -103,7 +103,7 @@ class TestOutdoorGame:
         mock_resp.json.return_value = _OPEN_METEO_RESPONSE
 
         with patch("scripts.backfill_weather.requests.get", return_value=mock_resp):
-            rows = process_games(games, existing_ids=set(), sleep_secs=0)
+            rows = process_games(games, existing_ids=set(), min_interval_sec=0)
 
         return rows
 
@@ -145,7 +145,7 @@ class TestOutdoorGame:
         mock_resp.json.return_value = _OPEN_METEO_RESPONSE
 
         with patch("scripts.backfill_weather.requests.get", return_value=mock_resp) as mock_get:
-            process_games(games, existing_ids=set(), sleep_secs=0)
+            process_games(games, existing_ids=set(), min_interval_sec=0)
 
         assert mock_get.call_count == 1
 
@@ -159,7 +159,7 @@ class TestIdempotency:
         game_id = "2023_01_NE_BUF"
         games = _make_game(game_id, "BUF")
         with patch("scripts.backfill_weather.requests.get") as mock_get:
-            rows = process_games(games, existing_ids={game_id}, sleep_secs=0)
+            rows = process_games(games, existing_ids={game_id}, min_interval_sec=0)
 
         assert rows == []
         mock_get.assert_not_called()
@@ -202,11 +202,11 @@ class TestIdempotency:
 
         # First run.
         with patch("scripts.backfill_weather.requests.get", return_value=mock_resp):
-            rows1 = process_games(games, existing_ids=set(), sleep_secs=0)
+            rows1 = process_games(games, existing_ids=set(), min_interval_sec=0)
 
         # Second run: game_id already present.
         with patch("scripts.backfill_weather.requests.get") as mock_get2:
-            rows2 = process_games(games, existing_ids={game_id}, sleep_secs=0)
+            rows2 = process_games(games, existing_ids={game_id}, min_interval_sec=0)
 
         assert len(rows1) == 1
         assert rows2 == []
@@ -288,7 +288,7 @@ class TestMissingGametime:
             "gametime": float("nan"),
         }])
         with patch("scripts.backfill_weather.requests.get") as mock_get:
-            rows = process_games(games, existing_ids=set(), sleep_secs=0)
+            rows = process_games(games, existing_ids=set(), min_interval_sec=0)
         assert rows == []
         mock_get.assert_not_called()
 
@@ -303,7 +303,7 @@ class TestMissingGametime:
             "gametime": "TBD",
         }])
         with patch("scripts.backfill_weather.requests.get") as mock_get:
-            rows = process_games(games, existing_ids=set(), sleep_secs=0)
+            rows = process_games(games, existing_ids=set(), min_interval_sec=0)
         assert rows == []
         mock_get.assert_not_called()
 
@@ -329,27 +329,54 @@ class TestRetryAndStop:
             side_effect=[fail_resp, ok_resp],
         ) as mock_get:
             with patch("scripts.backfill_weather.time.sleep"):
-                rows = process_games(games, existing_ids=set(), sleep_secs=0)
+                rows = process_games(games, existing_ids=set(), min_interval_sec=0)
 
         assert len(rows) == 1
         assert mock_get.call_count == 2
 
-    def test_429_stops_cleanly(self):
-        """First game succeeds; second triggers RuntimeError (429 path) - no exception raised."""
+    def test_429_retries_then_succeeds_single_game(self):
+        """429 then 200 — one outdoor row (free-tier pacing retries)."""
+        games = _make_game("2023_01_NE_BUF", "BUF", gameday="2023-09-10", gametime="13:00")
+
+        r429 = MagicMock()
+        r429.status_code = 429
+        r429.headers = {"Retry-After": "1"}
+
+        ok_resp = MagicMock()
+        ok_resp.status_code = 200
+        ok_resp.json.return_value = _OPEN_METEO_RESPONSE
+
+        with patch(
+            "scripts.backfill_weather.requests.get",
+            side_effect=[r429, ok_resp],
+        ) as mock_get:
+            with patch("scripts.backfill_weather.time.sleep"):
+                rows = process_games(games, existing_ids=set(), min_interval_sec=0)
+
+        assert len(rows) == 1
+        assert mock_get.call_count == 2
+
+    def test_429_exhausted_stops_remaining_games(self):
+        """First game succeeds; second game gets only 429 — partial progress, no crash."""
         game1 = _make_game("2023_01_NE_BUF", "BUF", gameday="2023-09-10", gametime="13:00")
         game2 = _make_game("2023_01_NE_KC", "KC", gameday="2023-09-10", gametime="13:00")
         games = pd.concat([game1, game2], ignore_index=True)
 
-        # First call returns valid data; second raises RuntimeError (simulates 429 stop).
-        call_count = {"n": 0}
+        ok_resp = MagicMock()
+        ok_resp.status_code = 200
+        ok_resp.json.return_value = _OPEN_METEO_RESPONSE
 
-        def _fetch_side_effect(lat, lon, date_str):
-            call_count["n"] += 1
-            if call_count["n"] == 1:
-                return _OPEN_METEO_RESPONSE
-            raise RuntimeError("HTTP 429 from Open-Meteo - stopping (rate limit / forbidden)")
+        r429 = MagicMock()
+        r429.status_code = 429
+        r429.headers = {}
 
-        with patch("scripts.backfill_weather._fetch_weather", side_effect=_fetch_side_effect):
-            rows = process_games(games, existing_ids=set(), sleep_secs=0)
+        # First HTTP: 200 for BUF; then _MAX_FETCH_ATTEMPTS × 429 for KC.
+        from scripts.backfill_weather import _MAX_FETCH_ATTEMPTS
+
+        side = [ok_resp] + [r429] * _MAX_FETCH_ATTEMPTS
+        with patch("scripts.backfill_weather.requests.get", side_effect=side) as mock_get:
+            with patch("scripts.backfill_weather.time.sleep"):
+                rows = process_games(games, existing_ids=set(), min_interval_sec=0)
 
         assert len(rows) == 1
+        assert mock_get.call_count == 1 + _MAX_FETCH_ATTEMPTS
