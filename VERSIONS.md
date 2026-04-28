@@ -5,6 +5,23 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8c-h1-h4.5 - 2026-04-28
+
+**Phase H Session A: statsmodels GLM migration (H1) + four-window calibration discipline (H4.5).**
+
+- H1: Migrated all three position models (`models/qb.py`, `models/rb.py`, `models/wr_te.py`) from sklearn `GammaRegressor`/`PoissonRegressor`/`TweedieRegressor` to `statsmodels.GLM` with identical family/link mappings (Gamma-Log, Poisson, Tweedie-1.5-Log). Models now expose `.aic` on fitted results, enabling H3 narration slots.
+- H1: Added `l1_alpha: float = 0.0` parameter to all three `fit()` methods. When nonzero, uses `glm.fit_regularized(alpha=l1_alpha, L1_wt=1.0)`. Default off — plain GLM, no regularization until H2 ablation grid validates the path.
+- H1: Added flag-guarded weather features (`use_weather: bool = False`) to `_build_features()` on all three models. QB adds `wind_mph`, `precip_in`, `temp_f_minus_60`, `wind_x_pass_attempt_rate`; RB/WR-TE add the first three. Indoor games (`indoor=True`) get zero for all weather features. Default off until H2 ablation validates inclusion.
+- H1: Added `_ConstantResult` fallback in all three models for degenerate/sparse training sets (replaces NaN-crashing GLM initialization on minimal data with graceful constant-mean prediction).
+- H1: Added `statsmodels>=0.14.0` (+ `patsy`) to `pyproject.toml`.
+- H1: `tests/test_model_weather.py` — 11 tests covering weather feature presence/absence by flag, indoor masking, QB-only interaction term, prediction range sanity, and AIC accessibility.
+- H4.5: New `eval/calibration_fit.py` — `assert_four_window_disjoint()` enforces model_train ⊥ calibrator_fit ⊥ policy_tune ⊥ final_eval across all six pairwise combinations; `build_training_windows()` returns the default Phase H split (model_train: 2018-2021, calibrator_fit: 2022, policy_tune: 2023-2024, final_eval: 2025 - reserved).
+- H4.5: `tests/test_calibration_disjoint.py` — 8 tests covering all pairwise overlap cases, error message contents, empty window handling, and default window disjointness.
+
+**Verification:** 260 Python tests passing, 5 deselected.
+
+---
+
 ## v0.9a-training - 2026-04-27
 
 **Training hooks for synthetic-surrogate odds and future-row ablation.**

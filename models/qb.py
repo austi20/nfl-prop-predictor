@@ -1,6 +1,7 @@
 """QB model - passing yards, TDs, INTs, completions.
 
-Uses Gamma GLM (log link) per stat with empirical-Bayes shrinkage.
+Uses statsmodels Gamma GLM (log link) per stat with empirical-Bayes shrinkage.
+Weather features are flag-guarded; default off to preserve parity with pre-H1 output.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import GammaRegressor
+import statsmodels.api as sm
 
 from models.feature_utils import (
     add_group_rolling_mean,
@@ -22,7 +23,18 @@ from models.feature_utils import (
 )
 from models.base import StatDistribution
 
-# Columns we want from weekly data
+
+class _ConstantResult:
+    """Fallback when GLM fails on sparse data - predicts training mean."""
+    def __init__(self, mean: float) -> None:
+        self._mean = mean
+        self.aic = float("inf")
+
+    def predict(self, X: Any) -> np.ndarray:
+        n = X.shape[0] if hasattr(X, "shape") else 1
+        return np.full(n, self._mean)
+
+
 _WEEKLY_COLS = [
     "player_id", "player_name", "position", "season", "week", "recent_team",
     "opponent_team", "passing_yards", "passing_tds", "interceptions", "completions",
@@ -31,12 +43,18 @@ _WEEKLY_COLS = [
 
 _TARGET_STATS = ["passing_yards", "passing_tds", "interceptions", "completions"]
 
-# Minimum mean value to avoid degenerate Gamma fits
 _MIN_MEAN = 1e-3
 
+_FAMILIES = {
+    "passing_yards": sm.families.Gamma(sm.families.links.Log()),
+    "passing_tds": sm.families.Gamma(sm.families.links.Log()),
+    "interceptions": sm.families.Gamma(sm.families.links.Log()),
+    "completions": sm.families.Gamma(sm.families.links.Log()),
+}
 
-def _build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Build per-player feature matrix. df must be sorted by player, season, week."""
+
+def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.DataFrame, list[str]]:
+    """Build per-player feature matrix. df must have weather cols when use_weather=True."""
     df = df.sort_values(["player_id", "season", "week"]).copy()
 
     attempts = safe_col(df, "attempts")
@@ -46,7 +64,6 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     passing_tds = safe_col(df, "passing_tds")
     interceptions = safe_col(df, "interceptions")
 
-    # Pressure proxy: sacks / (sacks + attempts)
     total_drops = sacks + attempts
     df["pressure_proxy"] = np.where(total_drops > 0, sacks / total_drops, 0.0)
     df["yards_per_attempt"] = safe_ratio(passing_yards, attempts).to_numpy()
@@ -55,7 +72,6 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df["completion_rate"] = safe_ratio(completions, attempts).to_numpy()
 
     feature_cols: list[str] = []
-
     grp = df.groupby("player_id", group_keys=False)
 
     for col in _TARGET_STATS + ["attempts"]:
@@ -72,9 +88,10 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
         df = add_group_rolling_mean(df, "player_id", source_col, feature_name)
         feature_cols.append(feature_name)
 
-    df["roll_air_yards"] = grp["passing_air_yards"].transform(
-        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
-    ) if "passing_air_yards" in df.columns else 0.0
+    df["roll_air_yards"] = (
+        grp["passing_air_yards"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
+        if "passing_air_yards" in df.columns else 0.0
+    )
     feature_cols.append("roll_air_yards")
 
     df["roll_pressure"] = grp["pressure_proxy"].transform(
@@ -82,27 +99,22 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     )
     feature_cols.append("roll_pressure")
 
-    df["roll_passing_epa"] = grp["passing_epa"].transform(
-        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
-    ) if "passing_epa" in df.columns else 0.0
+    df["roll_passing_epa"] = (
+        grp["passing_epa"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
+        if "passing_epa" in df.columns else 0.0
+    )
     feature_cols.append("roll_passing_epa")
 
-    df["roll_dakota"] = grp["dakota"].transform(
-        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
-    ) if "dakota" in df.columns else 0.0
+    df["roll_dakota"] = (
+        grp["dakota"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
+        if "dakota" in df.columns else 0.0
+    )
     feature_cols.append("roll_dakota")
 
     df, team_feature_cols = merge_group_context(
         df,
         group_col="recent_team",
-        stat_cols=(
-            "passing_yards",
-            "passing_tds",
-            "completions",
-            "attempts",
-            "interceptions",
-            "sacks",
-        ),
+        stat_cols=("passing_yards", "passing_tds", "completions", "attempts", "interceptions", "sacks"),
         prefix="team_pass",
     )
     feature_cols.extend(team_feature_cols)
@@ -110,14 +122,7 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df, opponent_feature_cols = merge_group_context(
         df,
         group_col="opponent_team",
-        stat_cols=(
-            "passing_yards",
-            "passing_tds",
-            "completions",
-            "attempts",
-            "interceptions",
-            "sacks",
-        ),
+        stat_cols=("passing_yards", "passing_tds", "completions", "attempts", "interceptions", "sacks"),
         prefix="opp_pass_allowed",
     )
     feature_cols.extend(opponent_feature_cols)
@@ -128,74 +133,89 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df["week_num"] = df["week"].astype(float)
     feature_cols.append("week_num")
 
+    if use_weather:
+        indoor_mask = safe_col(df, "indoor", 0.0).astype(bool)
+        wind = safe_col(df, "wind_mph", 0.0)
+        precip = safe_col(df, "precip_in", 0.0)
+        temp = safe_col(df, "temp_f", 60.0)
+
+        df["wind_mph"] = np.where(indoor_mask, 0.0, wind)
+        df["precip_in"] = np.where(indoor_mask, 0.0, precip)
+        df["temp_f_minus_60"] = np.where(indoor_mask, 0.0, temp - 60.0)
+        # Interaction: wind × rolling pass volume (outdoor only)
+        df["wind_x_pass_attempt_rate"] = np.where(
+            indoor_mask, 0.0, df["wind_mph"] * df["roll_attempts"]
+        )
+        feature_cols.extend(["wind_mph", "precip_in", "temp_f_minus_60", "wind_x_pass_attempt_rate"])
+
     df = df.fillna(0.0)
     return df, feature_cols
 
 
-def _shrink_toward_prior(y: np.ndarray, n_obs: int, prior_mean: float, k: int = 8) -> np.ndarray:
-    """Empirical Bayes shrinkage: blend observed mean toward prior."""
+def _shrink_toward_prior(y: np.ndarray, n_obs: int, prior_mean: float, k: int = 8) -> float:
     weight = n_obs / (n_obs + k)
-    observed_mean = y.mean() if len(y) > 0 else prior_mean
+    observed_mean = float(y.mean()) if len(y) > 0 else prior_mean
     return prior_mean + weight * (observed_mean - prior_mean)
 
 
 class QBModel:
     def __init__(self) -> None:
-        self._models: dict[str, GammaRegressor] = {}
+        self._models: dict[str, Any] = {}
         self._feature_cols: list[str] = []
         self._prior_means: dict[str, float] = {}
         self._prior_stds: dict[str, float] = {}
         self._player_stats: pd.DataFrame | None = None
+        self._use_weather: bool = False
 
-    # ------------------------------------------------------------------
-    # Fit
-    # ------------------------------------------------------------------
-
-    def fit(self, years: list[int], weekly: pd.DataFrame | None = None) -> None:
+    def fit(
+        self,
+        years: list[int],
+        weekly: pd.DataFrame | None = None,
+        *,
+        use_weather: bool = False,
+        l1_alpha: float = 0.0,
+    ) -> None:
         if weekly is None:
             from data.nflverse_loader import load_weekly
-
             weekly = load_weekly(years)
         else:
             weekly = weekly.copy()
 
-        qbs = weekly[weekly["position"] == "QB"].copy()
+        self._use_weather = use_weather
 
-        # Ensure required columns exist (fill missing with 0)
+        qbs = weekly[weekly["position"] == "QB"].copy()
         for col in _WEEKLY_COLS:
             if col not in qbs.columns:
                 qbs[col] = 0.0
 
-        qbs, feature_cols = _build_features(qbs)
+        qbs, feature_cols = _build_features(qbs, use_weather=use_weather)
         train_qbs = qbs[qbs["season"].isin(years)].copy()
         self._feature_cols = feature_cols
 
-        # Drop rows with no data yet (week 1 rolling is fine - min_periods=1)
         qbs = qbs.dropna(subset=feature_cols + _TARGET_STATS)
         train_qbs = train_qbs.dropna(subset=feature_cols + _TARGET_STATS)
-
-        # Store player rolling stats for predict()
         self._player_stats = qbs.copy()
 
         for stat in _TARGET_STATS:
             y = train_qbs[stat].values.astype(float)
-            # Gamma requires strictly positive target - clip to small positive
             y_fit = np.clip(y, 1e-2, None)
-
             X = train_qbs[feature_cols].values.astype(float)
+            X_const = sm.add_constant(X, has_constant="add")
 
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0
 
-            model = GammaRegressor(max_iter=500, alpha=0.1)
+            glm = sm.GLM(y_fit, X_const, family=_FAMILIES[stat])
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                model.fit(X, y_fit)
-            self._models[stat] = model
-
-    # ------------------------------------------------------------------
-    # Predict
-    # ------------------------------------------------------------------
+                try:
+                    if l1_alpha > 0.0:
+                        result = glm.fit_regularized(alpha=l1_alpha, L1_wt=1.0, maxiter=500)
+                    else:
+                        result = glm.fit(maxiter=500)
+                except (ValueError, np.linalg.LinAlgError):
+                    result = _ConstantResult(float(y_fit.mean()))
+            self._models[stat] = result
 
     def predict(
         self,
@@ -230,7 +250,6 @@ class QBModel:
         ]
 
         if future_row is None and player_rows.empty:
-            # No history - return prior means
             for stat in _TARGET_STATS:
                 mean = self._prior_means.get(stat, 0.0)
                 std = self._prior_stds.get(stat, 0.0)
@@ -243,36 +262,31 @@ class QBModel:
                 dtype=float,
             )
         else:
-            # Use the most recent row's rolling features
             latest = player_rows.sort_values("week").iloc[[-1]]
             X = latest[self._feature_cols].values.astype(float)
 
+        X_const = sm.add_constant(X, has_constant="add")
+
         for stat in _TARGET_STATS:
-            model = self._models[stat]
+            sm_result = self._models[stat]
             prior_mean = self._prior_means.get(stat, 0.0)
             prior_std = self._prior_stds.get(stat, 1.0)
 
             try:
-                pred_mean = float(model.predict(X)[0])
+                pred_mean = float(sm_result.predict(X_const)[0])
             except Exception:
                 pred_mean = prior_mean
 
-            # Empirical Bayes shrinkage
             n = len(player_rows)
             shrunk_mean = prior_mean + (n / (n + 8)) * (pred_mean - prior_mean)
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
-            # Std: use positional std scaled by ratio of shrunk/prior
             std = prior_std * (shrunk_mean / max(prior_mean, _MIN_MEAN))
             std = max(std, _MIN_MEAN)
 
             result[stat] = StatDistribution(mean=shrunk_mean, std=std, dist_type="gamma")
 
         return result
-
-    # ------------------------------------------------------------------
-    # Save / load
-    # ------------------------------------------------------------------
 
     def save(self, path: Path) -> None:
         path = Path(path)

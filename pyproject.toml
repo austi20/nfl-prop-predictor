@@ -24,6 +24,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.49b0",
     "cryptography>=42.0.0",
     "keyring>=25.0.0",
+    "statsmodels>=0.14.0",
 ]
 
 [tool.pytest.ini_options]

@@ -1,20 +1,34 @@
 """WR/TE model - receptions, receiving yards, receiving TDs.
 
-Uses Poisson GLM for receptions and TDs, Gamma GLM (log link) for yards,
-with empirical-Bayes shrinkage.
+Uses statsmodels GLM (Gamma for yards, Poisson for counts) with empirical-Bayes shrinkage.
+Weather features are flag-guarded; default off to preserve parity with pre-H1 output.
 """
 
 from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from typing import Any
 
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import GammaRegressor, PoissonRegressor
+import statsmodels.api as sm
 
 from models.base import StatDistribution
+
+
+class _ConstantResult:
+    """Fallback when GLM fails on sparse data - predicts training mean."""
+    def __init__(self, mean: float) -> None:
+        self._mean = mean
+        self.aic = float("inf")
+
+    def predict(self, X: Any) -> np.ndarray:
+        n = X.shape[0] if hasattr(X, "shape") else 1
+        return np.full(n, self._mean)
+
+
 from models.feature_utils import (
     add_group_rolling_mean,
     merge_group_context,
@@ -22,7 +36,6 @@ from models.feature_utils import (
     safe_ratio,
 )
 
-# Columns we want from weekly data
 _WEEKLY_COLS = [
     "player_id", "player_name", "position", "season", "week", "recent_team",
     "opponent_team", "receptions", "receiving_yards", "receiving_tds", "targets",
@@ -31,18 +44,22 @@ _WEEKLY_COLS = [
 
 _TARGET_STATS = ["receptions", "receiving_yards", "receiving_tds"]
 
-# Minimum mean value to avoid degenerate fits
 _MIN_MEAN = 1e-3
 
-# Distribution type per stat
 _DIST_TYPES: dict[str, str] = {
     "receptions": "poisson",
     "receiving_yards": "gamma",
     "receiving_tds": "poisson",
 }
 
-def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    """Build per-player feature matrix. df must be sorted by player, season, week."""
+_FAMILIES: dict[str, Any] = {
+    "receptions": sm.families.Poisson(),
+    "receiving_yards": sm.families.Gamma(sm.families.links.Log()),
+    "receiving_tds": sm.families.Poisson(),
+}
+
+
+def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.DataFrame, list[str]]:
     df = df.sort_values(["player_id", "season", "week"]).copy()
 
     targets = safe_col(df, "targets")
@@ -54,7 +71,6 @@ def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     df["tds_per_target"] = safe_ratio(receiving_tds, targets).to_numpy()
 
     feature_cols: list[str] = []
-
     grp = df.groupby("player_id", group_keys=False)
 
     for col in _TARGET_STATS + ["targets"]:
@@ -70,24 +86,28 @@ def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         df = add_group_rolling_mean(df, "player_id", source_col, feature_name)
         feature_cols.append(feature_name)
 
-    df["roll_target_share"] = grp["target_share"].transform(
-        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
-    ) if "target_share" in df.columns else 0.0
+    df["roll_target_share"] = (
+        grp["target_share"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
+        if "target_share" in df.columns else 0.0
+    )
     feature_cols.append("roll_target_share")
 
-    df["roll_air_yards_share"] = grp["air_yards_share"].transform(
-        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
-    ) if "air_yards_share" in df.columns else 0.0
+    df["roll_air_yards_share"] = (
+        grp["air_yards_share"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
+        if "air_yards_share" in df.columns else 0.0
+    )
     feature_cols.append("roll_air_yards_share")
 
-    df["roll_wopr"] = grp["wopr"].transform(
-        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
-    ) if "wopr" in df.columns else 0.0
+    df["roll_wopr"] = (
+        grp["wopr"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
+        if "wopr" in df.columns else 0.0
+    )
     feature_cols.append("roll_wopr")
 
-    df["roll_receiving_epa"] = grp["receiving_epa"].transform(
-        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
-    ) if "receiving_epa" in df.columns else 0.0
+    df["roll_receiving_epa"] = (
+        grp["receiving_epa"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
+        if "receiving_epa" in df.columns else 0.0
+    )
     feature_cols.append("roll_receiving_epa")
 
     df, team_feature_cols = merge_group_context(
@@ -112,12 +132,22 @@ def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     df["week_num"] = df["week"].astype(float)
     feature_cols.append("week_num")
 
+    if use_weather:
+        indoor_mask = safe_col(df, "indoor", 0.0).astype(bool)
+        wind = safe_col(df, "wind_mph", 0.0)
+        precip = safe_col(df, "precip_in", 0.0)
+        temp = safe_col(df, "temp_f", 60.0)
+
+        df["wind_mph"] = np.where(indoor_mask, 0.0, wind)
+        df["precip_in"] = np.where(indoor_mask, 0.0, precip)
+        df["temp_f_minus_60"] = np.where(indoor_mask, 0.0, temp - 60.0)
+        feature_cols.extend(["wind_mph", "precip_in", "temp_f_minus_60"])
+
     df = df.fillna(0.0)
     return df, feature_cols
 
 
 def _shrink_toward_prior(y: np.ndarray, n_obs: int, prior_mean: float, k: int = 8) -> float:
-    """Empirical Bayes shrinkage: blend observed mean toward prior."""
     weight = n_obs / (n_obs + k)
     observed_mean = y.mean() if len(y) > 0 else prior_mean
     return prior_mean + weight * (observed_mean - prior_mean)
@@ -125,64 +155,62 @@ def _shrink_toward_prior(y: np.ndarray, n_obs: int, prior_mean: float, k: int = 
 
 class WRTEModel:
     def __init__(self) -> None:
-        self._models: dict[str, GammaRegressor | PoissonRegressor] = {}
+        self._models: dict[str, Any] = {}
         self._feature_cols: list[str] = []
         self._prior_means: dict[str, float] = {}
         self._prior_stds: dict[str, float] = {}
         self._player_stats: pd.DataFrame | None = None
+        self._use_weather: bool = False
 
-    # ------------------------------------------------------------------
-    # Fit
-    # ------------------------------------------------------------------
-
-    def fit(self, years: list[int], weekly: pd.DataFrame | None = None) -> None:
+    def fit(
+        self,
+        years: list[int],
+        weekly: pd.DataFrame | None = None,
+        *,
+        use_weather: bool = False,
+        l1_alpha: float = 0.0,
+    ) -> None:
         if weekly is None:
             from data.nflverse_loader import load_weekly
-
             weekly = load_weekly(years)
         else:
             weekly = weekly.copy()
 
-        receivers = weekly[weekly["position"].isin(["WR", "TE"])].copy()
+        self._use_weather = use_weather
 
-        # Ensure required columns exist (fill missing with 0)
+        receivers = weekly[weekly["position"].isin(["WR", "TE"])].copy()
         for col in _WEEKLY_COLS:
             if col not in receivers.columns:
                 receivers[col] = 0.0
 
-        receivers, feature_cols = _build_features(receivers)
+        receivers, feature_cols = _build_features(receivers, use_weather=use_weather)
         train_receivers = receivers[receivers["season"].isin(years)].copy()
         self._feature_cols = feature_cols
 
-        # Drop rows with NaN in features or targets
         receivers = receivers.dropna(subset=feature_cols + _TARGET_STATS)
         train_receivers = train_receivers.dropna(subset=feature_cols + _TARGET_STATS)
-
-        # Store player rolling stats for predict()
         self._player_stats = receivers.copy()
 
         for stat in _TARGET_STATS:
             y = train_receivers[stat].values.astype(float)
             y_fit = np.clip(y, 1e-2, None)
-
             X = train_receivers[feature_cols].values.astype(float)
+            X_const = sm.add_constant(X, has_constant="add")
 
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0
 
-            if stat == "receiving_yards":
-                model: GammaRegressor | PoissonRegressor = GammaRegressor(max_iter=500, alpha=0.1)
-            else:
-                model = PoissonRegressor()
-
+            glm = sm.GLM(y_fit, X_const, family=_FAMILIES[stat])
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                model.fit(X, y_fit)
-            self._models[stat] = model
-
-    # ------------------------------------------------------------------
-    # Predict
-    # ------------------------------------------------------------------
+                try:
+                    if l1_alpha > 0.0:
+                        result = glm.fit_regularized(alpha=l1_alpha, L1_wt=1.0, maxiter=500)
+                    else:
+                        result = glm.fit(maxiter=500)
+                except (ValueError, np.linalg.LinAlgError):
+                    result = _ConstantResult(float(y_fit.mean()))
+            self._models[stat] = result
 
     def predict(
         self,
@@ -217,7 +245,6 @@ class WRTEModel:
         ]
 
         if future_row is None and player_rows.empty:
-            # No history - return prior means
             for stat in _TARGET_STATS:
                 mean = self._prior_means.get(stat, 0.0)
                 std = self._prior_stds.get(stat, 0.0)
@@ -230,36 +257,31 @@ class WRTEModel:
                 dtype=float,
             )
         else:
-            # Use the most recent row's rolling features
             latest = player_rows.sort_values("week").iloc[[-1]]
             X = latest[self._feature_cols].values.astype(float)
 
+        X_const = sm.add_constant(X, has_constant="add")
+
         for stat in _TARGET_STATS:
-            model = self._models[stat]
+            sm_result = self._models[stat]
             prior_mean = self._prior_means.get(stat, 0.0)
             prior_std = self._prior_stds.get(stat, 1.0)
 
             try:
-                pred_mean = float(model.predict(X)[0])
+                pred_mean = float(sm_result.predict(X_const)[0])
             except Exception:
                 pred_mean = prior_mean
 
-            # Empirical Bayes shrinkage
             n = len(player_rows)
             shrunk_mean = prior_mean + (n / (n + 8)) * (pred_mean - prior_mean)
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
-            # Std: use positional std scaled by ratio of shrunk/prior
             std = prior_std * (shrunk_mean / max(prior_mean, _MIN_MEAN))
             std = max(std, _MIN_MEAN)
 
             result[stat] = StatDistribution(mean=shrunk_mean, std=std, dist_type=_DIST_TYPES[stat])
 
         return result
-
-    # ------------------------------------------------------------------
-    # Save / load
-    # ------------------------------------------------------------------
 
     def save(self, path: Path) -> None:
         path = Path(path)
