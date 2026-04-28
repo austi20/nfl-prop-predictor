@@ -1,7 +1,9 @@
 """RB model - rushing yards, carries, rushing TDs.
 
-Uses statsmodels GLM (Tweedie for yards, NegBin for counts) with empirical-Bayes shrinkage.
-Weather features are flag-guarded; default off to preserve parity with pre-H1 output.
+Uses statsmodels GLMs with an H1.5 stat-family layer:
+- `legacy`: Tweedie/Poisson-style legacy output
+- `count_aware`: count stats use Poisson / NegBin (+ optional zero inflation)
+- `decomposed`: rushing yards sampled from carries x yards-per-carry
 """
 
 from __future__ import annotations
@@ -16,33 +18,42 @@ import pandas as pd
 import statsmodels.api as sm
 
 from models.base import StatDistribution
-from models.glm_utils import fit_glm_with_optional_regularization
-
-
-class _ConstantResult:
-    """Fallback when GLM fails on sparse data - predicts training mean."""
-    def __init__(self, mean: float) -> None:
-        self._mean = mean
-        self.aic = float("inf")
-
-    def predict(self, X: Any) -> np.ndarray:
-        n = X.shape[0] if hasattr(X, "shape") else 1
-        return np.full(n, self._mean)
-
-
+from models.dist_family import (
+    ConstantResult,
+    CountFamilySpec,
+    RateModelSpec,
+    compose_product_distribution,
+    fit_count_model,
+    fit_gamma_rate_model,
+    fit_quantile_models,
+    make_count_distribution,
+    make_quantile_distribution,
+    predict_quantiles,
+)
 from models.feature_utils import (
     add_group_rolling_mean,
     merge_group_context,
     safe_col,
     safe_ratio,
 )
+from models.glm_utils import fit_glm_with_optional_regularization
 
 _WEEKLY_COLS = [
-    "player_id", "player_name", "position", "season", "week", "recent_team",
-    "opponent_team", "rushing_yards", "carries", "rushing_tds", "rushing_epa",
+    "player_id",
+    "player_name",
+    "position",
+    "season",
+    "week",
+    "recent_team",
+    "opponent_team",
+    "rushing_yards",
+    "carries",
+    "rushing_tds",
+    "rushing_epa",
 ]
 
 _TARGET_STATS = ["rushing_yards", "carries", "rushing_tds"]
+_COUNT_STATS = {"carries", "rushing_tds"}
 
 _MIN_MEAN = 1e-3
 
@@ -85,7 +96,8 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
 
     df["roll_rushing_epa"] = (
         grp["rushing_epa"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
-        if "rushing_epa" in df.columns else 0.0
+        if "rushing_epa" in df.columns
+        else 0.0
     )
     feature_cols.append("roll_rushing_epa")
 
@@ -126,12 +138,6 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
     return df, feature_cols
 
 
-def _shrink_toward_prior(y: np.ndarray, n_obs: int, prior_mean: float, k: int = 8) -> float:
-    weight = n_obs / (n_obs + k)
-    observed_mean = float(y.mean()) if len(y) > 0 else prior_mean
-    return prior_mean + weight * (observed_mean - prior_mean)
-
-
 class RBModel:
     def __init__(self) -> None:
         self._models: dict[str, Any] = {}
@@ -140,6 +146,17 @@ class RBModel:
         self._prior_stds: dict[str, float] = {}
         self._player_stats: pd.DataFrame | None = None
         self._use_weather: bool = False
+        self._dist_family: str = "legacy"
+        self._count_specs: dict[str, CountFamilySpec] = {}
+        self._quantile_models: dict[str, dict[float, Any]] = {}
+        self._ypc_model: RateModelSpec | None = None
+
+    def _legacy_distribution(self, stat: str, mean: float) -> StatDistribution:
+        prior_mean = self._prior_means.get(stat, 0.0)
+        prior_std = self._prior_stds.get(stat, 1.0)
+        std = prior_std * (mean / max(prior_mean, _MIN_MEAN))
+        std = max(std, _MIN_MEAN)
+        return StatDistribution(mean=mean, std=std, dist_type=_DIST_TYPE[stat])
 
     def fit(
         self,
@@ -148,6 +165,7 @@ class RBModel:
         *,
         use_weather: bool = False,
         l1_alpha: float = 0.0,
+        dist_family: str = "legacy",
     ) -> None:
         if weekly is None:
             if use_weather:
@@ -162,6 +180,10 @@ class RBModel:
             weekly = weekly.copy()
 
         self._use_weather = use_weather
+        self._dist_family = dist_family
+        self._count_specs = {}
+        self._quantile_models = {}
+        self._ypc_model = None
 
         rbs = weekly[weekly["position"] == "RB"].copy()
         for col in _WEEKLY_COLS:
@@ -176,27 +198,45 @@ class RBModel:
         train_rbs = train_rbs.dropna(subset=feature_cols + _TARGET_STATS)
         self._player_stats = rbs.copy()
 
+        X = train_rbs[feature_cols].values.astype(float)
+        X_const = sm.add_constant(X, has_constant="add")
+
         for stat in _TARGET_STATS:
             y = train_rbs[stat].values.astype(float)
             y_fit = np.clip(y, 1e-2, None)
-            X = train_rbs[feature_cols].values.astype(float)
-            X_const = sm.add_constant(X, has_constant="add")
 
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0
+
+            if dist_family != "legacy" and stat in _COUNT_STATS:
+                try:
+                    result, spec = fit_count_model(y, X_const, l1_alpha=l1_alpha, maxiter=500)
+                except (ValueError, np.linalg.LinAlgError):
+                    result, spec = ConstantResult(float(max(y.mean(), _MIN_MEAN))), CountFamilySpec("poisson")
+                self._models[stat] = result
+                self._count_specs[stat] = spec
+                continue
 
             glm = sm.GLM(y_fit, X_const, family=_FAMILIES[stat])
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 try:
-                    result = fit_glm_with_optional_regularization(
-                        glm,
-                        l1_alpha=l1_alpha,
-                        maxiter=500,
-                    )
+                    result = fit_glm_with_optional_regularization(glm, l1_alpha=l1_alpha, maxiter=500)
                 except (ValueError, np.linalg.LinAlgError):
-                    result = _ConstantResult(float(y_fit.mean()))
+                    result = ConstantResult(float(y_fit.mean()))
             self._models[stat] = result
+
+            if dist_family != "legacy" and stat == "rushing_yards":
+                self._quantile_models[stat] = fit_quantile_models(y, X_const)
+
+        if dist_family == "decomposed":
+            self._ypc_model = fit_gamma_rate_model(
+                train_rbs["rushing_yards"].values.astype(float),
+                train_rbs["carries"].values.astype(float),
+                X_const,
+                l1_alpha=l1_alpha,
+                maxiter=500,
+            )
 
     def predict(
         self,
@@ -249,25 +289,88 @@ class RBModel:
         X_const = sm.add_constant(X, has_constant="add")
 
         for stat in _TARGET_STATS:
-            sm_result = self._models[stat]
+            model_result = self._models[stat]
             prior_mean = self._prior_means.get(stat, 0.0)
             prior_std = self._prior_stds.get(stat, 1.0)
 
             try:
-                pred_mean = float(sm_result.predict(X_const)[0])
+                pred_mean = float(model_result.predict(X_const)[0])
             except Exception:
                 pred_mean = prior_mean
+            ceiling = max(prior_mean + (6.0 * prior_std), prior_mean * 5.0, 1.0)
+            pred_mean = float(np.clip(pred_mean, _MIN_MEAN, ceiling))
 
             n = len(player_rows)
             shrunk_mean = prior_mean + (n / (n + 8)) * (pred_mean - prior_mean)
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
-            std = prior_std * (shrunk_mean / max(prior_mean, _MIN_MEAN))
-            std = max(std, _MIN_MEAN)
+            if self._dist_family == "decomposed" and stat == "rushing_yards":
+                dist = self._predict_rushing_yards_distribution(
+                    X_const,
+                    shrunk_mean,
+                    player_id=player_id,
+                    season=season,
+                    week=week,
+                )
+            elif self._dist_family != "legacy" and stat in self._count_specs:
+                dist = make_count_distribution(shrunk_mean, self._count_specs[stat])
+            elif self._dist_family != "legacy" and stat in self._quantile_models:
+                quantiles = predict_quantiles(self._quantile_models[stat], X_const)
+                if quantiles:
+                    scale = shrunk_mean / max(pred_mean, _MIN_MEAN)
+                    scaled_quantiles = {q: max(v * scale, 0.0) for q, v in quantiles.items()}
+                    dist = make_quantile_distribution(
+                        shrunk_mean,
+                        self._legacy_distribution(stat, shrunk_mean).std,
+                        scaled_quantiles,
+                    )
+                else:
+                    dist = self._legacy_distribution(stat, shrunk_mean)
+            else:
+                dist = self._legacy_distribution(stat, shrunk_mean)
 
-            result[stat] = StatDistribution(mean=shrunk_mean, std=std, dist_type=_DIST_TYPE[stat])
+            result[stat] = dist
 
         return result
+
+    def _predict_rushing_yards_distribution(
+        self,
+        X_const: np.ndarray,
+        mean: float,
+        *,
+        player_id: str,
+        season: int,
+        week: int,
+    ) -> StatDistribution:
+        if self._ypc_model is None or "carries" not in self._count_specs:
+            return self._legacy_distribution("rushing_yards", mean)
+
+        carries_result = self._models.get("carries")
+        if carries_result is None:
+            return self._legacy_distribution("rushing_yards", mean)
+
+        try:
+            carries_mean = max(float(carries_result.predict(X_const)[0]), _MIN_MEAN)
+        except Exception:
+            carries_mean = max(self._prior_means.get("carries", 10.0), _MIN_MEAN)
+
+        carries_dist = make_count_distribution(carries_mean, self._count_specs["carries"])
+
+        try:
+            ypc_mean = max(float(self._ypc_model.result.predict(X_const)[0]), _MIN_MEAN)
+        except Exception:
+            ypc_mean = max(self._ypc_model.mean, _MIN_MEAN)
+
+        raw_mean = max(carries_mean * ypc_mean, _MIN_MEAN)
+        scale = mean / raw_mean
+        ypc_std = self._ypc_model.std * (ypc_mean / max(self._ypc_model.mean, _MIN_MEAN)) * scale
+        return compose_product_distribution(
+            carries_dist,
+            ypc_mean * scale,
+            max(ypc_std, _MIN_MEAN),
+            seed_parts=("rb_rushing_yards", player_id, season, week),
+            samples=1000,
+        )
 
     def save(self, path: Path) -> None:
         path = Path(path)

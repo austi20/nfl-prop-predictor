@@ -5,6 +5,22 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8c-h1.5 - 2026-04-28
+
+**Phase H Session B start: stat-specific distribution architecture (`H1.5`).**
+
+- H1.5: Extended `models/base.py::StatDistribution` so the shared prediction contract can represent classic GLM tails, count-aware families, quantile-driven tails, and empirical sample distributions while preserving `prob_over(...)` for pricing and replay callers.
+- H1.5: Added `models/dist_family.py` to centralize count-family fitting, quantile-regression helpers, and decomposition composition logic for Monte Carlo-based distributions.
+- H1.5: `models/qb.py` now accepts `dist_family` in `fit(...)`; count stats (`passing_tds`, `interceptions`, `completions`) use Poisson/negative-binomial logic on non-legacy paths, `passing_yards` gets quantile companions, and `decomposed` builds a sampled passing-yards distribution from attempts x yards-per-attempt.
+- H1.5: `models/rb.py` now accepts `dist_family` in `fit(...)`; count stats (`carries`, `rushing_tds`) use count-aware families, `rushing_yards` gets quantile companions, and `decomposed` builds a sampled rushing-yards distribution from carries x yards-per-carry.
+- H1.5: `models/wr_te.py` now accepts `dist_family` in `fit(...)`; count stats (`receptions`, `receiving_tds`) use count-aware families, `receiving_yards` gets quantile companions, and `decomposed` builds a sampled receptions distribution from targets x catch rate.
+- H1.5: Updated `eval/fantasy_points.py` to sample directly from `StatDistribution`, so fantasy simulations stay compatible with the new empirical and quantile-backed distributions.
+- H1.5: Added `tests/test_dist_families.py` covering quantile lookup behavior, count-aware zero-mass handling, and a hand-check for decomposed receptions.
+
+**Verification:** `uv run pytest -q tests/test_dist_families.py` -> 3 passed; `uv run pytest -q tests/test_models.py tests/test_fantasy_points.py tests/test_predict_with_future_row.py` -> 19 passed; `uv run pytest -q tests/test_model_weather.py` -> 15 passed; `uv run pytest -q tests/test_prop_pricer.py` -> 19 passed.
+
+---
+
 ## v0.8c-h1-fixes - 2026-04-28
 
 **Phase H follow-up fixes: weather-aware loading, regularized AIC preservation, and tighter H1 verification.**

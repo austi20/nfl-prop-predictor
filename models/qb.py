@@ -1,7 +1,9 @@
 """QB model - passing yards, TDs, INTs, completions.
 
-Uses statsmodels Gamma GLM (log link) per stat with empirical-Bayes shrinkage.
-Weather features are flag-guarded; default off to preserve parity with pre-H1 output.
+Uses statsmodels GLMs with an H1.5 stat-family layer:
+- `legacy`: original Gamma-based output contract
+- `count_aware`: count stats use Poisson / NegBin (+ optional zero inflation)
+- `decomposed`: passing yards sampled from attempts x yards-per-attempt
 """
 
 from __future__ import annotations
@@ -15,6 +17,19 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
+from models.base import StatDistribution
+from models.dist_family import (
+    ConstantResult,
+    CountFamilySpec,
+    RateModelSpec,
+    compose_product_distribution,
+    fit_count_model,
+    fit_gamma_rate_model,
+    fit_quantile_models,
+    make_count_distribution,
+    make_quantile_distribution,
+    predict_quantiles,
+)
 from models.feature_utils import (
     add_group_rolling_mean,
     merge_group_context,
@@ -22,27 +37,28 @@ from models.feature_utils import (
     safe_ratio,
 )
 from models.glm_utils import fit_glm_with_optional_regularization
-from models.base import StatDistribution
-
-
-class _ConstantResult:
-    """Fallback when GLM fails on sparse data - predicts training mean."""
-    def __init__(self, mean: float) -> None:
-        self._mean = mean
-        self.aic = float("inf")
-
-    def predict(self, X: Any) -> np.ndarray:
-        n = X.shape[0] if hasattr(X, "shape") else 1
-        return np.full(n, self._mean)
-
 
 _WEEKLY_COLS = [
-    "player_id", "player_name", "position", "season", "week", "recent_team",
-    "opponent_team", "passing_yards", "passing_tds", "interceptions", "completions",
-    "attempts", "sacks", "passing_air_yards", "passing_epa", "dakota",
+    "player_id",
+    "player_name",
+    "position",
+    "season",
+    "week",
+    "recent_team",
+    "opponent_team",
+    "passing_yards",
+    "passing_tds",
+    "interceptions",
+    "completions",
+    "attempts",
+    "sacks",
+    "passing_air_yards",
+    "passing_epa",
+    "dakota",
 ]
 
 _TARGET_STATS = ["passing_yards", "passing_tds", "interceptions", "completions"]
+_COUNT_STATS = {"passing_tds", "interceptions", "completions"}
 
 _MIN_MEAN = 1e-3
 
@@ -91,7 +107,8 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
 
     df["roll_air_yards"] = (
         grp["passing_air_yards"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
-        if "passing_air_yards" in df.columns else 0.0
+        if "passing_air_yards" in df.columns
+        else 0.0
     )
     feature_cols.append("roll_air_yards")
 
@@ -102,13 +119,15 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
 
     df["roll_passing_epa"] = (
         grp["passing_epa"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
-        if "passing_epa" in df.columns else 0.0
+        if "passing_epa" in df.columns
+        else 0.0
     )
     feature_cols.append("roll_passing_epa")
 
     df["roll_dakota"] = (
         grp["dakota"].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
-        if "dakota" in df.columns else 0.0
+        if "dakota" in df.columns
+        else 0.0
     )
     feature_cols.append("roll_dakota")
 
@@ -143,20 +162,15 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
         df["wind_mph"] = np.where(indoor_mask, 0.0, wind)
         df["precip_in"] = np.where(indoor_mask, 0.0, precip)
         df["temp_f_minus_60"] = np.where(indoor_mask, 0.0, temp - 60.0)
-        # Interaction: wind × rolling pass volume (outdoor only)
         df["wind_x_pass_attempt_rate"] = np.where(
-            indoor_mask, 0.0, df["wind_mph"] * df["roll_attempts"]
+            indoor_mask,
+            0.0,
+            df["wind_mph"] * df["roll_attempts"],
         )
         feature_cols.extend(["wind_mph", "precip_in", "temp_f_minus_60", "wind_x_pass_attempt_rate"])
 
     df = df.fillna(0.0)
     return df, feature_cols
-
-
-def _shrink_toward_prior(y: np.ndarray, n_obs: int, prior_mean: float, k: int = 8) -> float:
-    weight = n_obs / (n_obs + k)
-    observed_mean = float(y.mean()) if len(y) > 0 else prior_mean
-    return prior_mean + weight * (observed_mean - prior_mean)
 
 
 class QBModel:
@@ -167,6 +181,19 @@ class QBModel:
         self._prior_stds: dict[str, float] = {}
         self._player_stats: pd.DataFrame | None = None
         self._use_weather: bool = False
+        self._dist_family: str = "legacy"
+        self._count_specs: dict[str, CountFamilySpec] = {}
+        self._quantile_models: dict[str, dict[float, Any]] = {}
+        self._attempts_model: Any | None = None
+        self._attempts_spec: CountFamilySpec | None = None
+        self._ypa_model: RateModelSpec | None = None
+
+    def _legacy_distribution(self, stat: str, mean: float) -> StatDistribution:
+        prior_mean = self._prior_means.get(stat, 0.0)
+        prior_std = self._prior_stds.get(stat, 1.0)
+        std = prior_std * (mean / max(prior_mean, _MIN_MEAN))
+        std = max(std, _MIN_MEAN)
+        return StatDistribution(mean=mean, std=std, dist_type="gamma")
 
     def fit(
         self,
@@ -175,6 +202,7 @@ class QBModel:
         *,
         use_weather: bool = False,
         l1_alpha: float = 0.0,
+        dist_family: str = "legacy",
     ) -> None:
         if weekly is None:
             if use_weather:
@@ -189,6 +217,12 @@ class QBModel:
             weekly = weekly.copy()
 
         self._use_weather = use_weather
+        self._dist_family = dist_family
+        self._count_specs = {}
+        self._quantile_models = {}
+        self._attempts_model = None
+        self._attempts_spec = None
+        self._ypa_model = None
 
         qbs = weekly[weekly["position"] == "QB"].copy()
         for col in _WEEKLY_COLS:
@@ -203,27 +237,57 @@ class QBModel:
         train_qbs = train_qbs.dropna(subset=feature_cols + _TARGET_STATS)
         self._player_stats = qbs.copy()
 
+        X = train_qbs[feature_cols].values.astype(float)
+        X_const = sm.add_constant(X, has_constant="add")
+
         for stat in _TARGET_STATS:
             y = train_qbs[stat].values.astype(float)
             y_fit = np.clip(y, 1e-2, None)
-            X = train_qbs[feature_cols].values.astype(float)
-            X_const = sm.add_constant(X, has_constant="add")
 
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0
+
+            if dist_family != "legacy" and stat in _COUNT_STATS:
+                try:
+                    result, spec = fit_count_model(y, X_const, l1_alpha=l1_alpha, maxiter=500)
+                except (ValueError, np.linalg.LinAlgError):
+                    result, spec = ConstantResult(float(max(y.mean(), _MIN_MEAN))), CountFamilySpec("poisson")
+                self._models[stat] = result
+                self._count_specs[stat] = spec
+                continue
 
             glm = sm.GLM(y_fit, X_const, family=_FAMILIES[stat])
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 try:
-                    result = fit_glm_with_optional_regularization(
-                        glm,
-                        l1_alpha=l1_alpha,
-                        maxiter=500,
-                    )
+                    result = fit_glm_with_optional_regularization(glm, l1_alpha=l1_alpha, maxiter=500)
                 except (ValueError, np.linalg.LinAlgError):
-                    result = _ConstantResult(float(y_fit.mean()))
+                    result = ConstantResult(float(y_fit.mean()))
             self._models[stat] = result
+
+            if dist_family != "legacy" and stat == "passing_yards":
+                self._quantile_models[stat] = fit_quantile_models(y, X_const)
+
+        if dist_family == "decomposed":
+            attempts = train_qbs["attempts"].values.astype(float)
+            try:
+                self._attempts_model, self._attempts_spec = fit_count_model(
+                    attempts,
+                    X_const,
+                    l1_alpha=l1_alpha,
+                    maxiter=500,
+                )
+            except (ValueError, np.linalg.LinAlgError):
+                self._attempts_model = ConstantResult(float(max(attempts.mean(), _MIN_MEAN)))
+                self._attempts_spec = CountFamilySpec("poisson")
+
+            self._ypa_model = fit_gamma_rate_model(
+                train_qbs["passing_yards"].values.astype(float),
+                attempts,
+                X_const,
+                l1_alpha=l1_alpha,
+                maxiter=500,
+            )
 
     def predict(
         self,
@@ -276,25 +340,84 @@ class QBModel:
         X_const = sm.add_constant(X, has_constant="add")
 
         for stat in _TARGET_STATS:
-            sm_result = self._models[stat]
+            model_result = self._models[stat]
             prior_mean = self._prior_means.get(stat, 0.0)
             prior_std = self._prior_stds.get(stat, 1.0)
 
             try:
-                pred_mean = float(sm_result.predict(X_const)[0])
+                pred_mean = float(model_result.predict(X_const)[0])
             except Exception:
                 pred_mean = prior_mean
+            ceiling = max(prior_mean + (6.0 * prior_std), prior_mean * 5.0, 1.0)
+            pred_mean = float(np.clip(pred_mean, _MIN_MEAN, ceiling))
 
             n = len(player_rows)
             shrunk_mean = prior_mean + (n / (n + 8)) * (pred_mean - prior_mean)
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
-            std = prior_std * (shrunk_mean / max(prior_mean, _MIN_MEAN))
-            std = max(std, _MIN_MEAN)
+            if self._dist_family == "decomposed" and stat == "passing_yards":
+                dist = self._predict_passing_yards_distribution(
+                    X_const,
+                    shrunk_mean,
+                    player_id=player_id,
+                    season=season,
+                    week=week,
+                )
+            elif self._dist_family != "legacy" and stat in self._count_specs:
+                dist = make_count_distribution(shrunk_mean, self._count_specs[stat])
+            elif self._dist_family != "legacy" and stat in self._quantile_models:
+                quantiles = predict_quantiles(self._quantile_models[stat], X_const)
+                if quantiles:
+                    scale = shrunk_mean / max(pred_mean, _MIN_MEAN)
+                    scaled_quantiles = {q: max(v * scale, 0.0) for q, v in quantiles.items()}
+                    dist = make_quantile_distribution(
+                        shrunk_mean,
+                        self._legacy_distribution(stat, shrunk_mean).std,
+                        scaled_quantiles,
+                    )
+                else:
+                    dist = self._legacy_distribution(stat, shrunk_mean)
+            else:
+                dist = self._legacy_distribution(stat, shrunk_mean)
 
-            result[stat] = StatDistribution(mean=shrunk_mean, std=std, dist_type="gamma")
+            result[stat] = dist
 
         return result
+
+    def _predict_passing_yards_distribution(
+        self,
+        X_const: np.ndarray,
+        mean: float,
+        *,
+        player_id: str,
+        season: int,
+        week: int,
+    ) -> StatDistribution:
+        if self._attempts_model is None or self._attempts_spec is None or self._ypa_model is None:
+            return self._legacy_distribution("passing_yards", mean)
+
+        try:
+            attempts_mean = max(float(self._attempts_model.predict(X_const)[0]), _MIN_MEAN)
+        except Exception:
+            attempts_mean = max(self._prior_means.get("completions", 20.0), _MIN_MEAN)
+
+        attempts_dist = make_count_distribution(attempts_mean, self._attempts_spec)
+
+        try:
+            ypa_mean = max(float(self._ypa_model.result.predict(X_const)[0]), _MIN_MEAN)
+        except Exception:
+            ypa_mean = max(self._ypa_model.mean, _MIN_MEAN)
+
+        raw_mean = max(attempts_mean * ypa_mean, _MIN_MEAN)
+        scale = mean / raw_mean
+        ypa_std = self._ypa_model.std * (ypa_mean / max(self._ypa_model.mean, _MIN_MEAN)) * scale
+        return compose_product_distribution(
+            attempts_dist,
+            ypa_mean * scale,
+            max(ypa_std, _MIN_MEAN),
+            seed_parts=("qb_passing_yards", player_id, season, week),
+            samples=1000,
+        )
 
     def save(self, path: Path) -> None:
         path = Path(path)

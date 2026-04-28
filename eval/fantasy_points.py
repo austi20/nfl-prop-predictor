@@ -95,20 +95,7 @@ def _sample_distribution(
     rng: np.random.Generator,
     size: int,
 ) -> np.ndarray:
-    mean = max(float(distribution.mean), 0.0)
-    std = max(float(distribution.std), 0.0)
-    if mean <= 0.0 or std <= 0.0:
-        return np.zeros(size, dtype=float)
-
-    if distribution.dist_type == "poisson":
-        return rng.poisson(lam=mean, size=size).astype(float)
-
-    if distribution.dist_type in {"gamma", "tweedie"}:
-        shape = max((mean / std) ** 2, 1e-6)
-        scale = max((std**2) / max(mean, 1e-6), 1e-6)
-        return rng.gamma(shape=shape, scale=scale, size=size).astype(float)
-
-    return np.clip(rng.normal(loc=mean, scale=std, size=size), 0.0, None).astype(float)
+    return distribution.sample(rng, size)
 
 
 def project_fantasy_points(
