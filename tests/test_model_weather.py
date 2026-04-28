@@ -161,6 +161,30 @@ def test_wr_te_weather_features_in_feature_cols_when_enabled():
     assert "wind_x_pass_attempt_rate" not in model._feature_cols
 
 
+def test_qb_fit_uses_weather_loader_when_flag_enabled(monkeypatch):
+    from data import nflverse_loader
+    from models.qb import QBModel
+
+    df = _make_qb_df()
+    calls = {"plain": 0, "weather": 0}
+
+    def fake_load_weekly(years):
+        calls["plain"] += 1
+        return df.copy()
+
+    def fake_load_weekly_with_weather(years):
+        calls["weather"] += 1
+        return df.copy()
+
+    monkeypatch.setattr(nflverse_loader, "load_weekly", fake_load_weekly)
+    monkeypatch.setattr(nflverse_loader, "load_weekly_with_weather", fake_load_weekly_with_weather)
+
+    model = QBModel()
+    model.fit([2020, 2021], use_weather=True)
+
+    assert calls == {"plain": 0, "weather": 1}
+
+
 # ---------------------------------------------------------------------------
 # Indoor masking test
 # ---------------------------------------------------------------------------
@@ -237,3 +261,58 @@ def test_aic_accessible_after_qb_fit():
     for stat, result in model._models.items():
         assert hasattr(result, "aic"), f"statsmodels result for {stat} should have .aic"
         assert np.isfinite(result.aic), f"AIC for {stat} should be finite"
+
+
+def test_regularized_fit_preserves_finite_aic():
+    from models.qb import QBModel
+
+    df = _make_qb_df()
+    model = QBModel()
+    model.fit([2020, 2021], weekly=df, l1_alpha=0.01)
+
+    for stat, result in model._models.items():
+        assert hasattr(result, "aic"), f"regularized result for {stat} should expose .aic"
+        assert np.isfinite(result.aic), f"regularized AIC for {stat} should be finite"
+
+
+def test_weather_toggle_keeps_aic_delta_bounded():
+    from models.qb import QBModel
+
+    df = _make_qb_df()
+    model_plain = QBModel()
+    model_plain.fit([2020, 2021], weekly=df, use_weather=False)
+
+    model_weather = QBModel()
+    model_weather.fit([2020, 2021], weekly=df, use_weather=True)
+
+    delta = abs(
+        model_weather._models["passing_yards"].aic - model_plain._models["passing_yards"].aic
+    )
+    assert np.isfinite(delta)
+    assert delta < 200.0
+
+
+def test_statsmodels_gamma_matches_sklearn_baseline():
+    from sklearn.linear_model import GammaRegressor
+    import statsmodels.api as sm
+
+    rng = np.random.default_rng(123)
+    X = rng.normal(size=(400, 4))
+    beta = np.array([0.12, -0.08, 0.05, 0.09])
+    intercept = 5.4
+    mu = np.exp(intercept + (X @ beta))
+    y = rng.gamma(shape=20.0, scale=mu / 20.0)
+
+    sklearn_model = GammaRegressor(alpha=0.0, max_iter=1000)
+    sklearn_model.fit(X, y)
+
+    sm_model = sm.GLM(
+        y,
+        sm.add_constant(X, has_constant="add"),
+        family=sm.families.Gamma(sm.families.links.Log()),
+    ).fit(maxiter=500)
+
+    pred_sklearn = sklearn_model.predict(X[:50])
+    pred_statsmodels = sm_model.predict(sm.add_constant(X[:50], has_constant="add"))
+
+    assert np.allclose(pred_statsmodels, pred_sklearn, rtol=1e-2, atol=1e-2)

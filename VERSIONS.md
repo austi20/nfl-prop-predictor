@@ -5,6 +5,18 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8c-h1-fixes - 2026-04-28
+
+**Phase H follow-up fixes: weather-aware loading, regularized AIC preservation, and tighter H1 verification.**
+
+- H1: When `use_weather=True`, all three position models now load `load_weekly_with_weather(...)` instead of silently training on the plain weekly frame with zero-filled weather columns.
+- H1: Added `models/glm_utils.py` to centralize GLM fitting. The L1 path now uses `statsmodels.GLM.fit_regularized(..., refit=True)` so regularized fits keep finite coefficients and real `.aic` values for later H3/H4 reporting.
+- H1: Expanded `tests/test_model_weather.py` with coverage for weather-loader selection, regularized-fit AIC availability, bounded weather on/off AIC drift, and direct statsmodels-vs-sklearn Gamma parity to `1e-2`.
+
+**Verification:** `uv run pytest -q tests/test_model_weather.py tests/test_calibration_disjoint.py` -> 23 passed.
+
+---
+
 ## v0.8c-h1-h4.5 - 2026-04-28
 
 **Phase H Session A: statsmodels GLM migration (H1) + four-window calibration discipline (H4.5).**

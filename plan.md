@@ -54,17 +54,17 @@ Per-season walk-forward training driven by a **deterministic harness**, not the 
 
 **Note on filenames:** actual model files are `models/qb.py`, `models/rb.py`, `models/wr_te.py`.
 
-**Note on GLM backend:** current models use sklearn `GammaRegressor`. Phase H requires AIC introspection (for H3 narration), L1 regularization (H2), and family flexibility (H1.5). Statsmodels `GLM.fit_regularized` provides all three; sklearn does not. Migration plan: switch all three models to `statsmodels.formula.api` Gamma GLM at H1 start. Default behavior (l1_alpha=0.0, no weather, legacy family) must produce identical predictions to within floating-point tolerance — verify this before adding weather features. Mixing backends is not acceptable.
+**Note on GLM backend:** current models use sklearn `GammaRegressor`. Phase H requires AIC introspection (for H3 narration), L1 regularization (H2), and family flexibility (H1.5). Statsmodels covers all three, but raw `GLM.fit_regularized()` does not expose `.aic`, so the regularized path must use an active-set refit (or equivalent wrapped metadata) before H3/H4 consume those results. Migration plan: switch all three models to `statsmodels.formula.api` Gamma GLM at H1 start. Default behavior (`l1_alpha=0.0`, no weather, legacy family) must produce identical predictions to within floating-point tolerance — verify this before adding weather features. Mixing backends is not acceptable.
 
-**Modify:** `models/qb.py`, `models/rb.py`, `models/wr_te.py` — `_build_features(df, *, use_weather: bool = True)` adds (for outdoor games only; zero for indoor/null):
+**Modify:** `models/qb.py`, `models/rb.py`, `models/wr_te.py` — `_build_features(df, *, use_weather: bool = False)` adds (for outdoor games only; zero for indoor/null):
 - `wind_mph` — affects passing_yards, passing_tds most
-- `precip_in_kickoff_hour` — affects completions, receptions
+- `precip_in` — affects completions, receptions
 - `temp_f_minus_60` — mild effect on passing (centered so dome games hit baseline at 0)
 - `wind_x_pass_attempt_rate` — interaction term, QB model only
 
 Features are additive; GLM fitting stays stable. Shrinkage applies to the player-specific intercept; weather coefficients pool across all players. The `use_weather` flag is what the ablation grid (H2) toggles — no duplicated model classes.
 
-**Test:** `tests/test_model_weather.py` — train QB on 2018–2024 with/without weather; assert AIC delta is within tolerance; statsmodels migration produces same predictions as old sklearn baseline to 1e-2; deterministic seed.
+**Test:** `tests/test_model_weather.py` — train QB on 2018–2024 with/without weather; assert AIC delta is within tolerance; assert `use_weather=True` calls the weather-aware loader; statsmodels migration produces same predictions as old sklearn baseline to `1e-2`; deterministic seed.
 
 ### H1.5. Stat-specific distribution architecture
 
@@ -105,7 +105,7 @@ Full grid = `2^4 × 3 × 6 × 4 = 1152` configs per season × 7 walk-forward ste
 
 **L1 regularization** replaces hand-tuned "variable weighting." At nonzero `l1_alpha`, coefficients on useless features collapse to zero automatically. Ablation flags remain for feature categories you want to force off regardless (e.g., "does weather help on 2019 specifically?").
 
-**Modify:** `models/qb.py`, `models/rb.py`, `models/wr_te.py` — accept `l1_alpha` parameter; when nonzero, fit via `statsmodels.GLM.fit_regularized(alpha=l1_alpha, L1_wt=1.0)` instead of plain `fit()`.
+**Modify:** `models/qb.py`, `models/rb.py`, `models/wr_te.py` — accept `l1_alpha` parameter; when nonzero, fit via `statsmodels.GLM.fit_regularized(alpha=l1_alpha, L1_wt=1.0, refit=True)` (or an equivalent wrapper that preserves `.aic`) instead of plain `fit()`.
 
 **New file:** `scripts/train_loop.py` — runs the full ablation grid for one season; writes `docs/training/season_<YYYY>_results.csv` per walk-forward step.
 

@@ -21,6 +21,7 @@ from models.feature_utils import (
     safe_col,
     safe_ratio,
 )
+from models.glm_utils import fit_glm_with_optional_regularization
 from models.base import StatDistribution
 
 
@@ -176,8 +177,14 @@ class QBModel:
         l1_alpha: float = 0.0,
     ) -> None:
         if weekly is None:
-            from data.nflverse_loader import load_weekly
-            weekly = load_weekly(years)
+            if use_weather:
+                from data.nflverse_loader import load_weekly_with_weather
+
+                weekly = load_weekly_with_weather(years)
+            else:
+                from data.nflverse_loader import load_weekly
+
+                weekly = load_weekly(years)
         else:
             weekly = weekly.copy()
 
@@ -209,10 +216,11 @@ class QBModel:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 try:
-                    if l1_alpha > 0.0:
-                        result = glm.fit_regularized(alpha=l1_alpha, L1_wt=1.0, maxiter=500)
-                    else:
-                        result = glm.fit(maxiter=500)
+                    result = fit_glm_with_optional_regularization(
+                        glm,
+                        l1_alpha=l1_alpha,
+                        maxiter=500,
+                    )
                 except (ValueError, np.linalg.LinAlgError):
                     result = _ConstantResult(float(y_fit.mean()))
             self._models[stat] = result
