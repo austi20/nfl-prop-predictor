@@ -5,6 +5,39 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8c-h2-complete - 2026-04-29
+
+**Phase H2 complete — `scripts/train_loop.py` + all seven walk-forward season result CSVs.**
+
+- **`scripts/train_loop.py`** shipped: deterministic ablation grid, row-level resume/checkpoints, evaluation vs `docs/training/synthetic_props_training.csv` per `docs/superpowers/specs/2026-04-28-h2-train-loop-design.md`.
+- **`tests/test_train_loop.py`** + **`tests/test_l1_path.py`** cover grid/hash metrics and L1 paths.
+- **`docs/training/season_<YYYY>_results.csv`** for holdout seasons **2019–2025** (7 files); each complete season file has **1,440 rows** (**144 configs × 10 stats**), one unique `(config_hash, position, stat)` per row.
+- **Next (H4 aggregation):** `uv run python scripts/synthesize_training.py` (optional `--results-dir docs/training/`; use `--allow-partial` only if some season files are missing). Produces `per_stat_majority_config.csv`, `cross_season_summary.md`, and `cross_season_reliability.png`, then optional Qwen narration for rollup notes when the local LLM URL is up.
+
+**Verification:** `uv run pytest -q tests/test_train_loop.py tests/test_l1_path.py` (and full suite as usual before merge).
+
+---
+
+## v0.8c-h2-holdouts-2019-2020 - 2026-04-29
+
+**Phase H2 walk-forward output checkpoint: 2019 and 2020 complete.**
+
+- Completed `docs/training/season_2019_results.csv` and `docs/training/season_2020_results.csv`.
+- Each completed holdout file has **1,440 rows**: **144 configs × 10 stats**, with one unique `(config_hash, position, stat)` key per row and no duplicate keys.
+- *(Checkpoint only — superseded by **v0.8c-h2-complete**.)* Previously: remaining holdouts **2021-2025**; finish `train_loop` before `synthesize_training.py`.
+
+---
+
+## v0.8c-h4-reporting-correction - 2026-04-29
+
+**Phase H reporting logic correction: 2025 is consumed by H4 voting.**
+
+- Supersedes the six-holdout note in `v0.8c-h2-session-c`: H4 majority-vote reporting now treats **2019-2025** as the official seven-season walk-forward span.
+- **2025 is no longer pristine `final_eval`** once `scripts/train_loop.py` produces `season_2025_results.csv`; any true final evaluation after H5 must use a later season or explicitly documented out-of-band protocol.
+- H5 production lock remains **per `(position, stat)`** from `per_stat_majority_config.csv`; the global mean-variance config is a benchmark only.
+
+---
+
 ## v0.8c-h2-session-c - 2026-04-28
 
 **Phase H Session C — H2 Opus brainstorm (pre-implementation locks) + synthetic training backfill.**

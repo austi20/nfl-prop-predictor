@@ -3,7 +3,9 @@
 Enforces strict disjointness across:
   model_train ⊥ calibrator_fit ⊥ policy_tune ⊥ final_eval
 
-The final_eval window (2025) is reserved and must not be touched until H5 close.
+The 2019-2025 seasons are consumed by H4 majority-vote training/reporting.
+Callers must explicitly provide a future or out-of-band final_eval window once
+one exists.
 """
 
 from __future__ import annotations
@@ -52,17 +54,17 @@ def build_training_windows(
 ) -> TrainingWindows:
     """Return the default four-window split for Phase H walk-forward.
 
-    Default split (2018-2025):
+    Default split after H4 voting consumes 2019-2025:
       model_train:    2018-2021 (walk-forward harness trains here)
       calibrator_fit: 2022      (isotonic calibration fit)
       policy_tune:    2023-2024 (edge threshold + cap tuning)
-      final_eval:     2025      (held out until H5 close - do not touch)
+      final_eval:     []        (provide a later/out-of-band window explicitly)
     """
     w = TrainingWindows(
         model_train=model_train if model_train is not None else list(range(2018, 2022)),
         calibrator_fit=calibrator_fit if calibrator_fit is not None else [2022],
         policy_tune=policy_tune if policy_tune is not None else [2023, 2024],
-        final_eval=final_eval if final_eval is not None else [2025],
+        final_eval=final_eval if final_eval is not None else [],
     )
     assert_four_window_disjoint(
         w.model_train, w.calibrator_fit, w.policy_tune, w.final_eval

@@ -85,9 +85,10 @@ def test_empty_windows_allowed():
 
 
 def test_build_windows_helper_produces_disjoint_default():
-    """build_training_windows() default split covers 2018-2025 without overlap."""
+    """build_training_windows() leaves final_eval empty after H4 consumes 2025."""
     from eval.calibration_fit import build_training_windows
     w = build_training_windows()
+    assert w.final_eval == []
     assert_sets = [set(w.model_train), set(w.calibrator_fit), set(w.policy_tune), set(w.final_eval)]
     all_years = []
     for s in assert_sets:

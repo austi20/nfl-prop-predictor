@@ -1,0 +1,24 @@
+# Training Season {{ season }}
+
+**Holdout:** {{ holdout_season }}
+
+## Headline metrics (best config)
+- Best k: {{ best_k }}
+- L1 alpha: {{ best_l1_alpha }}
+- Distribution family: {{ best_dist_family }}
+- Feature set: {{ feature_flags }}
+- Log-loss: {{ log_loss }} (Δ vs naive: {{ log_loss_delta }})
+- Brier: {{ brier }}
+- Reliability max deviation: {{ max_reliability_dev }}
+
+## Top 3 features by coefficient magnitude
+{{ top_3_features_table }}
+
+## Ablation findings
+- Weather on vs off: {{ weather_delta }}
+- Opponent EPA on vs off: {{ opp_epa_delta }}
+- Rest days on vs off: {{ rest_days_delta }}
+- Distribution family delta (legacy → count_aware → decomposed): {{ dist_family_table }}
+
+## Qualitative observations
+{{ qwen_freeform_notes }}

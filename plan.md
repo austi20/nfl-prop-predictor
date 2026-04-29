@@ -18,7 +18,7 @@ Per `VERSIONS.md`, the following phases are complete and locked:
 |-------|---------|-------------|
 | G | v0.8b | Open-Meteo Archive weather backfill (`cache/weather_archive.parquet`) + `load_weekly_with_weather()` |
 | G.5 | v0.8b-fgfp | `data/upcoming.py::build_upcoming_row()`; `predict(future_row=...)` on QB/RB/WR-TE |
-| training data | v0.8c-h2-session-c | `docs/training/synthetic_props_training.csv` (**144,414** rows @ 2026-04-28, seasons **2019–2025** labeled props; surrogate odds; 2025 reserved `final_eval` per H4.5) |
+| training data | v0.8c-h2-session-c | `docs/training/synthetic_props_training.csv` (**144,414** rows @ 2026-04-28, seasons **2019–2025** labeled props; surrogate odds; 2025 is now consumed as an H4 voting holdout) |
 | preflight | v0.8d-preflight | Stable weather schema, train/holdout disjoint guards, SSE cursor fix |
 | J | v0.8e-pricing | `eval/no_vig.py`, `PropDecision` dataclass, EV-ranked pick selection, `no_bet` handling |
 | K | v0.8f-execution | Side-aware `OrderEvent`, `RealisticPaperAdapter`, `ExposureRiskEngine` |
@@ -29,7 +29,7 @@ Per `VERSIONS.md`, the following phases are complete and locked:
 - `cache/weekly_2014-...-2025.parquet` — 217,487 rows × 115 cols, full nflverse weekly history
 - `cache/weather_archive.parquet` — 2,227 outdoor games 2018–2025 (indoor games default `indoor=True` + null numerics)
 - `cache/schedules_2018-...-2025.parquet`, `cache/injuries_2015-...-2025.parquet`
-- `docs/training/synthetic_props_training.csv` — labeled `(player_id, season, week, stat, line, …, outcome_over)` rows for **2019–2025** (2025 retained for **`final_eval` only**, not walk-forward holdouts; see VERSIONS.md `v0.8c-h2-session-c`)
+- `docs/training/synthetic_props_training.csv` — labeled `(player_id, season, week, stat, line, …, outcome_over)` rows for **2019–2025**. All seven seasons are used for H4 majority voting; true **`final_eval`** must be a post–last-holdout season or out-of-band protocol.
 
 **Not yet built:** the joined ML training frame `(X_features, y_outcome, market_prob)` per row. Phase H builds this inside `scripts/train_loop.py` by calling `load_weekly_with_weather()` for the feature base, then joining synthetic props for labels.
 
@@ -86,7 +86,7 @@ Replaces one-regressor-per-stat with a small family of stat-aware models. Adds `
 - Passing yards = attempts × ypa (NegBin × Gamma).
 - Compose joint distribution by Monte Carlo (1000 samples) for tail probabilities.
 
-**Grid axis added:** `dist_family ∈ {legacy, count_aware, decomposed}`. Phase H4's Pareto selection picks one per (position, stat) — the family that wins might differ across stats, and that's fine.
+**Grid axis added:** `dist_family ∈ {legacy, count_aware, decomposed}`. Phase H4’s **per-stat majority vote** picks a different `config_hash` (and thus often a different family) per `(position, stat)` across holdout years; that’s expected.
 
 **Test:** `tests/test_dist_families.py` — count-aware path produces non-zero probability for `P(TD ≥ 0)` exactly (Poisson/NegBin reach zero); decomposed receptions match a hand-computed example.
 
@@ -101,7 +101,7 @@ Replaces one-regressor-per-stat with a small family of stat-aware models. Adds `
 - `k ∈ {2, 4, 6, 8, 12, 16}` — shrinkage constant
 - `l1_alpha ∈ {0.0, 0.001, 0.01, 0.1}` — L1 regularization; `0.0` means plain GLM
 
-Full grid = `2^4 × 3 × 6 × 4 = 1152` configs × **six** expanding-window walk-forward holdouts (**2019–2024**) = ~**6912** config × step cells (excluding 2025; reserved for **H5 `final_eval`**). Each GLM fits in <1 second on CPU; total wall-time scales roughly with step count (~2–2.5h order of magnitude unchanged). See `VERSIONS.md` `v0.8c-h2-session-c` for the locked step table.
+Full grid = `2^4 × 3 × 6 × 4 = 1152` configs × **seven** expanding-window walk-forward holdouts (**2019–2025**) = ~**8064** config × step cells at full grid size (this repo’s locked `train_loop` grid may be a smaller Cartesian subset—see `scripts/train_loop.py`). Each GLM fits in <1 second on CPU; total wall-time scales with step count. Because **2025** is the last simulated holdout for H4 voting, treat any “final_eval after tuning” window as **post–last holdout** (see H4.5 note) so that year is not also claimed as a pristine lock.
 
 **L1 regularization** replaces hand-tuned "variable weighting." At nonzero `l1_alpha`, coefficients on useless features collapse to zero automatically. Ablation flags remain for feature categories you want to force off regardless (e.g., "does weather help on 2019 specifically?").
 
@@ -159,16 +159,24 @@ Output: markdown written both to `docs/training/season_<YYYY>_summary.md` and ap
 
 ### H4. Cross-season synthesis
 
-**New file:** `scripts/synthesize_training.py` — runs after the full walk-forward completes (six holdout seasons **2019–2024**). Aggregates all **six** `season_<YYYY>_results.csv` files, picks the config that's **Pareto-optimal across seasons** (lowest mean holdout log-loss *and* lowest variance across seasons — penalizes configs that win one year and tank another). Renders:
-- `docs/training/cross_season_summary.md` — ranking table, headline recommendation, per-feature ablation rollup, per-stat distribution-family choice.
-- `docs/training/cross_season_reliability.png` — overlay of reliability diagrams across seasons for the recommended config.
+**New file:** `scripts/synthesize_training.py` — runs after the full walk-forward completes (holdout seasons **2019–2025**; missing `season_<YYYY>_results.csv` files are skipped with a warning). Aggregates all available `season_<YYYY>_results.csv` files and:
 
-Then one Qwen 1.7B narration pass fills a final `{{ rollup_notes }}` slot (3–4 sentences, 120 tokens max) summarizing what held up year-over-year.
+1. **H5 primary output:** for each **`(position, stat)`**, selects the `config_hash` that **wins on the most holdout years**. A yearly winner is the valid fit (`convergence_flag` ∈ {`ok`, `constant_fallback`}) with **lowest holdout `log_loss`** for that target in that year. **Ties** in vote count break on **lower mean `log_loss` pooled across all loaded seasons** for that `(position, stat, config)`.
+2. **Reference:** keeps the legacy **global** ranking (mean holdout log-loss **plus** 0.5×std across seasons, averaging over all stats first) as a single-config benchmark only—not the production default when using per-stat configs.
+
+Renders:
+- `docs/training/per_stat_majority_config.csv` — **lock table** for H5 (one row per stat with `vote_count`, `winning_seasons`, knobs).
+- `docs/training/cross_season_summary.md` — majority table, ablations, pooled-across-seasons reference, global benchmark section.
+- `docs/training/cross_season_reliability.png` — reliability deviation trend: mean `max_reliability_dev` by season using each stat’s majority config.
+
+Then one Qwen 1.7B narration pass fills `{{ rollup_notes }}` (3–4 sentences, 120 tokens max).
+
+**Test:** `tests/test_synthesize_training.py`.
 
 ### H4.5. Calibration disjointness assertion
 
 **Note:** preflight guards already added in v0.8d. H4.5 elevates them to a stricter four-window discipline:
-model-train ⊥ calibrator-fit ⊥ policy-tune ⊥ final-eval. Final 2025 hold-out-hold-out reserved until H5 close.
+model-train ⊥ calibrator-fit ⊥ policy-tune ⊥ final-eval. Because **2025** is included as the **seventh walk-forward holdout** for grid search and majority voting, the calendar year that was previously described as “final-eval only” is **no longer pristine**—reserve **`final_eval`** to a **later** season or out-of-band protocol documented in `docs/ModelingNotes.md`.
 
 **New file:** `eval/calibration_fit.py` (also referenced by H5) enforces the four-window split.
 
@@ -176,7 +184,7 @@ model-train ⊥ calibrator-fit ⊥ policy-tune ⊥ final-eval. Final 2025 hold-o
 
 ### H5. Human locks in the final config
 
-Review `cross_season_summary.md` + reliability overlay. Pick the `(k, l1_alpha, dist_family per stat, feature_flags, calibration on/off)` combination. Document the choice and rationale in `docs/ModelingNotes.md`.
+Review `cross_season_summary.md` + `per_stat_majority_config.csv` + reliability deviation trend. Lock **`(k, l1_alpha, dist_family, feature_flags)` per stat** from the majority table (not the global benchmark row). Set calibration from evidence. Document in `docs/ModelingNotes.md`.
 
 **Modify:**
 - `models/qb.py`, `models/rb.py`, `models/wr_te.py` — lock in final default `k`, `l1_alpha`, `dist_family per stat`, feature flags.
@@ -185,7 +193,7 @@ Review `cross_season_summary.md` + reliability overlay. Pick the `(k, l1_alpha, 
 
 **Test:** `tests/test_calibration.py` — fit on synthetic data with known ground-truth mapping; assert recovery within tolerance.
 
-**Brain checkpoint:** project note capturing the final config, Pareto rationale from H4, per-stat distribution family choice, and headline metric delta vs v0.5.1 baseline.
+**Brain checkpoint:** project note capturing per-stat majority rationale from H4, any deviations you chose from the CSV, and headline metric delta vs v0.5.1 baseline.
 
 **Git checkpoint:** update `VERSIONS.md` with v0.8c entry; tag `v0.8c`.
 
@@ -193,7 +201,7 @@ Review `cross_season_summary.md` + reliability overlay. Pick the `(k, l1_alpha, 
 
 ## Phase H Verification (Definition of Done)
 
-`scripts/train_loop.py` produces `docs/training/season_<YYYY>_results.csv` for every walk-forward step (**six** holdouts, **2019–2024**); reliability diagrams rendered per (season, position, stat); Qwen 1.7B season-summary markdown exists per season both in `docs/training/` and the brain; `cross_season_summary.md` documents final `(k, l1_alpha, dist_family, feature_flags, calibration)` choice with Pareto rationale and headline deltas vs v0.5.1; `pytest tests/test_dist_families.py tests/test_residual_uncertainty.py tests/test_calibration_disjoint.py tests/test_l1_path.py tests/test_model_weather.py tests/test_narrate.py` green; ablation grid CSV shows `dist_family=count_aware` or `decomposed` outperforming `legacy` on holdout log-loss for at least **4 of 6** walk-forward holdouts; `docs/ModelingNotes.md` records the locked config.
+`scripts/train_loop.py` produces `docs/training/season_<YYYY>_results.csv` for every walk-forward step (**seven** holdouts, **2019–2025**); reliability deviation trend rendered for locked per-stat configs; Qwen 1.7B season-summary markdown exists per season both in `docs/training/` and the brain; `per_stat_majority_config.csv` + `cross_season_summary.md` document the **per-stat** lock derived from yearly winners (H4) plus headline deltas vs v0.5.1; `pytest tests/test_dist_families.py tests/test_residual_uncertainty.py tests/test_calibration_disjoint.py tests/test_l1_path.py tests/test_model_weather.py tests/test_narrate.py tests/test_synthesize_training.py` green; ablation evidence remains diagnostic; `docs/ModelingNotes.md` records the locked per-stat configs.
 
 ---
 
@@ -360,7 +368,7 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 
 7. **H2 brainstorm** — `train_loop.py` design:
    - Resolve: results CSV schema, checkpoint format, parallelism strategy for 1152-config grid.
-   - Output (Session C documented in `VERSIONS.md` **`v0.8c-h2-session-c`**): expanding-window **six** holdouts (**2019–2024**), frozen **`season_<YYYY>_results.csv`** columns, **`docs/training/synthetic_props_training.csv`** multi-year backfill (**2019–2025**, 2025 for **`final_eval` only**). Checkpoint + worker strategy: finalize with Sonnet alongside `train_loop.py` unless/until patched.
+   - Output (Session C documented in `VERSIONS.md` **`v0.8c-h2-session-c`**, then corrected by the H4 reporting cleanup): expanding-window **seven** holdouts (**2019–2025**), frozen **`season_<YYYY>_results.csv`** columns, **`docs/training/synthetic_props_training.csv`** multi-year backfill (**2019–2025**). Since **2025** is the last simulated holdout for config voting, choose a **post–last-holdout** or strictly held-out protocol for true `final_eval` (see H4.5). Checkpoint + worker strategy: finalize with Sonnet alongside `train_loop.py` unless/until patched.
 
 ```
 >>> SWITCH TO SONNET 4.6 <<<
@@ -373,7 +381,7 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 >>> END SESSION C <<<
 ```
 
-**Off-LLM compute window:** `uv run python scripts/train_loop.py` for all **six** walk-forward holdouts (~2.5h wall time, no token cost). Start after Session C verifies green.
+**Off-LLM compute window:** `uv run python scripts/train_loop.py` for all **seven** walk-forward holdouts. Start after Session C verifies green.
 
 ---
 
@@ -386,8 +394,8 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 9. **H3** — `llm/templates/season_summary.j2` + `scripts/narrate_season.py` + `tests/test_narrate.py`.
 
 10. **H4** — `scripts/synthesize_training.py` (independent, dispatch as parallel agent):
-    - Pareto selection across **six** `season_<YYYY>_results.csv` files (holdouts **2019–2024**).
-    - Renders `cross_season_summary.md` + reliability overlay PNG.
+    - Per-**(position, stat)** **majority vote** across holdout `season_<YYYY>_results.csv` files (**2019–2025** as available).
+    - Writes `per_stat_majority_config.csv`, `cross_season_summary.md`, reliability deviation trend PNG.
 
 ```
 >>> END SESSION D <<<
@@ -401,7 +409,7 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 >>> SWITCH TO OPUS 4.7 <<<
 ```
 
-11. **H5 review** — read `cross_season_summary.md`, pick final `(k, l1_alpha, dist_family per stat, feature_flags, calibration on/off)`.
+11. **H5 review** — read `cross_season_summary.md` + **`per_stat_majority_config.csv`**, lock **per-stat** `(k, l1_alpha, dist_family, feature_flags, calibration on/off)`.
 
 ```
 >>> SWITCH TO SONNET 4.6 <<<
@@ -420,7 +428,7 @@ Full Phase H = **3-4 separate 5h sessions** even optimized.
 
 **Create:** `scripts/train_loop.py`, `scripts/narrate_season.py`, `scripts/synthesize_training.py`, `eval/calibration_fit.py`, `llm/templates/season_summary.j2`, `docs/ModelingNotes.md` (extend existing)
 
-**Tests:** `tests/test_model_weather.py`, `tests/test_dist_families.py`, `tests/test_l1_path.py`, `tests/test_residual_uncertainty.py`, `tests/test_narrate.py`, `tests/test_calibration_disjoint.py`, `tests/test_calibration.py`
+**Tests:** `tests/test_model_weather.py`, `tests/test_dist_families.py`, `tests/test_l1_path.py`, `tests/test_residual_uncertainty.py`, `tests/test_narrate.py`, `tests/test_synthesize_training.py`, `tests/test_calibration_disjoint.py`, `tests/test_calibration.py`
 
 **Cached training inputs (already built):** `cache/weekly_2014-...-2025.parquet`, `cache/weather_archive.parquet`, `cache/schedules_*.parquet`, `cache/injuries_*.parquet`, `docs/training/synthetic_props_training.csv`
 

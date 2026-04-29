@@ -1,0 +1,11 @@
+position,stat,config_hash,vote_count,winning_seasons,mean_log_loss_pooled,dist_family,k,l1_alpha,use_weather,use_opponent_epa,use_rest_days,use_home_away,holdout_seasons_available
+qb,completions,4ad79b219c249946,1,2019,0.755939594398867,count_aware,12,0.0,True,False,False,False,2
+qb,interceptions,d4534384749123ac,1,2020,0.6045557126873788,count_aware,16,0.0,True,False,False,False,2
+qb,passing_tds,677259fe0974c41b,1,2020,0.6570046896316019,count_aware,2,0.0,False,False,False,False,2
+qb,passing_yards,156ea763d8ab7e66,1,2019,0.7713285171233953,decomposed,16,0.0,True,False,False,False,2
+rb,carries,f73ca2adc4e369b3,1,2019,2.864087715392054,count_aware,2,0.0,True,False,False,False,2
+rb,rushing_tds,c2447cee46a2028c,1,2019,0.5280019011280629,legacy,2,0.001,True,False,False,False,2
+rb,rushing_yards,a271332f2ca0b329,1,2020,1.2755136691906348,decomposed,2,0.001,True,False,False,False,2
+wr_te,receiving_tds,c2447cee46a2028c,1,2020,0.5003022543857616,legacy,2,0.001,True,False,False,False,2
+wr_te,receiving_yards,a5392e02009fcdf7,1,2019,0.8473919589600429,count_aware,2,0.01,False,False,False,False,2
+wr_te,receptions,fff405a0021bafd9,2,"2019,2020",0.8393927059492372,decomposed,2,0.0,True,False,False,False,2

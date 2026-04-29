@@ -45,12 +45,19 @@ def fit_glm_with_optional_regularization(
     if l1_alpha <= 0.0:
         return glm.fit(maxiter=maxiter)
 
-    result = glm.fit_regularized(
-        alpha=l1_alpha,
-        L1_wt=1.0,
-        maxiter=maxiter,
-        refit=True,
-    )
+    try:
+        result = glm.fit_regularized(
+            alpha=l1_alpha,
+            L1_wt=1.0,
+            maxiter=maxiter,
+            refit=True,
+        )
+    except Exception:
+        # scipy brent/bracket optimizer can fail on poorly-conditioned count data
+        # (e.g. BracketError on count_aware + nonzero l1_alpha).  Fall back to
+        # unregularized fit so the config is not marked fit_error.
+        return glm.fit(maxiter=maxiter)
+
     if hasattr(result, "aic"):
         return result
     return RegularizedResultProxy(

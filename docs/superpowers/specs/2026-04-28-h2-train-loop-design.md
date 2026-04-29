@@ -5,6 +5,8 @@
 **Status:** Approved by user 2026-04-28
 **Implementer notes:** Session C, switch to Sonnet 4.6 after spec is approved.
 
+> **Superseded by v0.8c-h4-reporting-correction (2026-04-29):** this historical spec locks six holdouts and reserves 2025 for `final_eval`. The active implementation/reporting contract now uses seven H4 voting holdouts (**2019-2025**), and any true `final_eval` must be a later season or out-of-band protocol.
+
 ---
 
 ## Context
@@ -59,18 +61,19 @@ This is a deterministic harness — no LLM in the loop. Qwen 1.7B narration is H
 
 ## 3. Ablation grid
 
-Per plan.md H2 section. 1152 configs:
+**Reduced from plan.md.** The plan.md spec lists 4 boolean ablation flags but only `use_weather` is implemented in the model code as of HEAD 5528363. The other 3 flags (`use_opponent_epa`, `use_rest_days`, `use_home_away`) require ~300-400 lines of new feature engineering (including a new `data/team_context.py` for opponent EPA per ModelingNotes deferral). Adding them in H2 doubles session scope. They're deferred to a follow-up sub-phase **H2.1** before H4 ranking.
+
+H2 grid (144 configs):
 - `use_weather ∈ {True, False}`
-- `use_opponent_epa ∈ {True, False}` *(opponent defensive EPA from nflverse)*
-- `use_rest_days ∈ {True, False}`
-- `use_home_away ∈ {True, False}`
 - `dist_family ∈ {legacy, count_aware, decomposed}`
 - `k ∈ {2, 4, 6, 8, 12, 16}` *(shrinkage constant)*
 - `l1_alpha ∈ {0.0, 0.001, 0.01, 0.1}` *(L1 via `GLM.fit_regularized(L1_wt=1.0, refit=True)` when nonzero)*
 
-`2^4 × 3 × 6 × 4 = 1152` configs × 6 holdout steps = 6,912 (config, step) pairs. Each pair fits 10 GLMs (4 QB stats + 3 RB stats + 3 WR/TE stats) ⇒ ~69K total GLM fits.
+`2 × 3 × 6 × 4 = 144` configs × 6 holdout steps = 864 (config, step) pairs. Each pair fits 10 GLMs ⇒ ~8,640 total GLM fits.
 
-**Estimated wall time:** ~2 hours sequential on a single CPU core.
+**Estimated wall time:** ~25 min sequential on a single CPU core.
+
+**Schema-forward design:** the 7-knob config layout in Section 4 still includes `use_opponent_epa`/`use_rest_days`/`use_home_away` columns (always `False` in H2 output) so H2.1's expanded grid can append rows to the same CSVs without schema break.
 
 ---
 
@@ -78,7 +81,7 @@ Per plan.md H2 section. 1152 configs:
 
 **File:** `docs/training/season_<YYYY>_results.csv`, one per holdout season.
 
-**One row per (config, position, stat).** ~11,520 rows per season-CSV.
+**One row per (config, position, stat).** ~1,440 rows per season-CSV in H2 (144 configs × 10 stats); will grow to ~11,520 after H2.1 adds the 3 deferred flags.
 
 **Columns (22 total):**
 
@@ -196,7 +199,7 @@ Smoke tests for `train_loop.py` (in `tests/test_train_loop.py`, optional but rec
 
 Per plan.md H2 verification:
 1. `scripts/train_loop.py` runs end-to-end, producing `docs/training/season_<YYYY>_results.csv` for all 6 holdout seasons
-2. Each season CSV has ~11,520 rows (1152 configs × ~10 stats)
+2. Each season CSV has ~1,440 rows (144 configs × ~10 stats) in H2; ~11,520 after H2.1
 3. Resume from partial CSV works correctly (re-running skips completed rows)
 4. `tests/test_l1_path.py` passes
 5. Spot-check: best log-loss config per (position, stat) is sensible (e.g., not always `dist_family=legacy`, not always `l1_alpha=0`)

@@ -148,6 +148,7 @@ class RBModel:
         self._player_stats: pd.DataFrame | None = None
         self._use_weather: bool = False
         self._dist_family: str = "legacy"
+        self._k: int = 8
         self._count_specs: dict[str, CountFamilySpec] = {}
         self._quantile_models: dict[str, dict[float, Any]] = {}
         self._ypc_model: RateModelSpec | None = None
@@ -177,6 +178,7 @@ class RBModel:
         use_weather: bool = False,
         l1_alpha: float = 0.0,
         dist_family: str = "legacy",
+        k: int = 8,
     ) -> None:
         if weekly is None:
             if use_weather:
@@ -192,6 +194,7 @@ class RBModel:
 
         self._use_weather = use_weather
         self._dist_family = dist_family
+        self._k = k
         self._count_specs = {}
         self._quantile_models = {}
         self._ypc_model = None
@@ -242,7 +245,7 @@ class RBModel:
             except Exception:
                 pass
 
-            if dist_family != "legacy" and stat == "rushing_yards":
+            if dist_family == "count_aware" and stat == "rushing_yards":
                 self._quantile_models[stat] = fit_quantile_models(y, X_const)
 
         if dist_family == "decomposed":
@@ -317,7 +320,7 @@ class RBModel:
             pred_mean = float(np.clip(pred_mean, _MIN_MEAN, ceiling))
 
             n = len(player_rows)
-            shrunk_mean = prior_mean + (n / (n + 8)) * (pred_mean - prior_mean)
+            shrunk_mean = prior_mean + (n / (n + self._k)) * (pred_mean - prior_mean)
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
             if self._dist_family == "decomposed" and stat == "rushing_yards":
