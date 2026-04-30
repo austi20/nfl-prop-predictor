@@ -36,7 +36,7 @@ _TEMPLATE_DIR = Path(__file__).parent.parent / "llm" / "templates"
 _RESULTS_DIR = Path("docs/training")
 _BRAIN_BASE = Path("E:/AI Brain/ClaudeBrain/02 Work and Career/NFLStatsPredictor/training")
 _LLM_DEFAULT_URL = "http://localhost:8080"
-_FREEFORM_MAX_TOKENS = 80
+_FREEFORM_MAX_TOKENS = 120
 
 _NAIVE_LOG_LOSS = 0.6931  # log(2) - baseline for a coin-flip
 
@@ -161,34 +161,46 @@ def render_scaffold(context: dict) -> str:
     return template.render(**context)
 
 
-def fill_freeform(scaffold: str, llm_url: str) -> str:
-    """Send scaffold to Qwen and splice in the freeform notes (80 tokens max)."""
-    prompt = textwrap.dedent(f"""
-        You are a concise NFL analytics assistant. Below is a structured training season report
-        with all statistics already filled in. Write 2-3 sentences for the
-        "Qualitative observations" section only. Focus on what the numbers suggest about
-        model behavior. Be specific to the numbers shown. Do not repeat the numbers verbatim.
+def fill_freeform(scaffold: str, llm_url: str, api_key: str = "") -> str:
+    """Send scaffold to Qwen and splice in the freeform notes (80 tokens max).
+
+    Uses chat/completions with /no_think so the model skips its reasoning
+    block and produces output text directly within the token budget.
+    """
+    user_msg = textwrap.dedent(f"""
+        Below is a structured NFL training season report with all statistics already filled in.
+        Write 2-3 sentences for the "Qualitative observations" section only.
+        Focus on what the numbers suggest about model behavior.
+        Be specific to the numbers shown. Do not repeat them verbatim.
 
         Report:
         {scaffold}
 
-        Write only the 2-3 sentence observation below:
+        Write only the 2-3 sentence observation:
     """).strip()
+
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
     try:
         resp = requests.post(
-            f"{llm_url}/v1/completions",
+            f"{llm_url}/v1/chat/completions",
             json={
-                "prompt": prompt,
+                "model": "qwen3-1.7b-q8",
+                "messages": [
+                    {"role": "system", "content": "/no_think"},
+                    {"role": "user", "content": user_msg},
+                ],
                 "max_tokens": _FREEFORM_MAX_TOKENS,
                 "temperature": 0.3,
-                "stop": ["\n\n", "##"],
             },
+            headers=headers,
             timeout=30,
         )
         resp.raise_for_status()
         data = resp.json()
-        freeform = data["choices"][0]["text"].strip()
+        freeform = data["choices"][0]["message"]["content"].strip()
     except Exception as exc:
         freeform = f"(LLM unavailable: {exc})"
 
@@ -210,11 +222,11 @@ def write_outputs(content: str, holdout_season: int, results_dir: Path) -> list[
     return written
 
 
-def narrate(holdout_season: int, llm_url: str, results_dir: Path) -> None:
+def narrate(holdout_season: int, llm_url: str, results_dir: Path, api_key: str = "") -> None:
     df = load_results(holdout_season, results_dir)
     context = build_template_context(df, holdout_season)
     scaffold = render_scaffold(context)
-    final = fill_freeform(scaffold, llm_url)
+    final = fill_freeform(scaffold, llm_url, api_key=api_key)
     paths = write_outputs(final, holdout_season, results_dir)
     for p in paths:
         print(f"  Written: {p}")
@@ -224,6 +236,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Phase H3: per-season Qwen narration")
     parser.add_argument("--holdout", type=int, required=True, help="Holdout season (2019-2025)")
     parser.add_argument("--llm-url", default=_LLM_DEFAULT_URL, help="llama.cpp server URL")
+    parser.add_argument("--api-key", default="", help="Bearer token for llama.cpp server")
     parser.add_argument("--results-dir", default=str(_RESULTS_DIR))
     args = parser.parse_args()
 
@@ -231,6 +244,7 @@ def main() -> None:
         holdout_season=args.holdout,
         llm_url=args.llm_url,
         results_dir=Path(args.results_dir),
+        api_key=args.api_key,
     )
 
 

@@ -62,6 +62,15 @@ class AppSettings(BaseSettings):
     # opponent context matches the upcoming game rather than the latest
     # historical row. Default False until Phase H ablation evaluates it.
     use_future_row: bool = False
+    # Phase H5 lock (v0.8c): default False. Cross-season Phase H walk-forward
+    # evidence showed mean max_reliability_dev of 0.44-0.48 against synthetic
+    # surrogate odds — high enough to motivate calibration, but the metric is
+    # against synthetic labels, not real market lines, so a calibrator fit on
+    # this data may not transfer. Recommendation: leave False until v0.9 ships
+    # real captured Kalshi quotes (see plan.md Season-Start checklist), then
+    # fit a calibrator on the held-out 2025 data plus first weeks of real
+    # quotes. See docs/ModelingNotes.md "Phase H5 calibration deferral".
+    use_calibration: bool = False
 
 
 @lru_cache(maxsize=1)

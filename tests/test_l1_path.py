@@ -97,10 +97,12 @@ def test_k_zero_gives_full_shrinkage_to_prior(minimal_weekly):
     assert model._k == 1
 
 
-def test_k_default_is_eight(minimal_weekly):
+def test_k_default_is_two(minimal_weekly):
+    """H5 lock: k=2 is the universal best across all 10 stats (Phase H walk-forward
+    evidence). See docs/ModelingNotes.md "Phase H5 Per-stat lock"."""
     model = QBModel()
     model.fit([2018, 2019], weekly=minimal_weekly)
-    assert model._k == 8
+    assert model._k == 2
 
 
 def test_large_alpha_collapses_most_coefficients(minimal_weekly):

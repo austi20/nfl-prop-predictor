@@ -5,6 +5,28 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.8c - 2026-04-29
+
+**Phase H complete: per-stat configuration locked into model defaults; ModelingNotes documents the rationale; calibration deferred to v0.9.**
+
+- **Per-position fit() defaults locked from cross-season Phase H walk-forward evidence:**
+  - `models/qb.py`: `dist_family="decomposed"`, `k=2`, `l1_alpha=0.0`, `use_weather=False` — passing_yards uses Monte Carlo composition; completions/passing_tds/interceptions automatically route through count_aware NegBin/Poisson.
+  - `models/rb.py`: `dist_family="count_aware"`, `k=2`, `l1_alpha=0.0`, `use_weather=False` — rushing_yards uses count_aware quantile path; carries/rushing_tds use count_aware NegBin/Poisson.
+  - `models/wr_te.py`: `dist_family="decomposed"`, `k=2`, `l1_alpha=0.0`, `use_weather=False` — receptions uses targets×catch_rate composition; receiving_yards/receiving_tds use count_aware paths.
+- **Universal findings (all 10 stats):** `k=2` is monotonically best (pooled log_loss strictly increases with k); weather effect is in the noise (-0.0001 to +0.0076 log_loss, ~2,227 outdoor games is too thin to fit weather coefficients reliably); L1 effects are in the noise (0.0001-0.005 per stat, no consistent direction).
+- **dist_family architectural fact:** `decomposed` is functionally identical to `count_aware` for 7 of 10 stats — decomposition is only implemented for `passing_yards`, `rushing_yards`, `receptions`. The auto-generated `per_stat_majority_config.csv` reports `dist_family=decomposed` for some arbitrary-tiebreak cases; lock chose `count_aware` (the actual underlying model) for honesty.
+- **Two empirical concessions for architectural cleanliness:** `rb/rushing_tds` and `wr_te/receiving_tds` were 0.0001-0.0002 better with `legacy`, but lock chose `count_aware` so all count stats use one family.
+- **`use_calibration: bool = False`** added to `api/settings.py`. Mean `max_reliability_dev` across locked configs was 0.44-0.48, but evaluated against synthetic surrogate odds rather than real captured market lines. Calibrator deferred until v0.9 ships real Kalshi quote capture.
+- **Three grid axes never varied** (`use_opponent_epa`, `use_rest_days`, `use_home_away`) — shipped 144-config grid only varied 4 axes. Locked False with note in ModelingNotes for v0.9 H2.1 mini-grid.
+- **2019 had 288 QB fit_errors** (only 2018 as training data is too thin for regularized count_aware/decomposed); 2019 1-vote QB winners discarded as artifacts.
+- `tests/test_l1_path.py::test_k_default_is_eight` renamed to `test_k_default_is_two` reflecting the new H5 locked default.
+- `docs/ModelingNotes.md` extended with full Phase H5 section: locked defaults table, universal findings, dist_family architectural facts, tight-pack stats analysis, season anomalies, calibration deferral rationale, deferred-to-v0.9 list.
+- Per-season Qwen 1.7B narration (Phase H3): `scripts/narrate_season.py` now uses `/v1/chat/completions` with `/no_think` system prompt and Bearer auth (the 1.7B model burned all tokens in thinking mode otherwise); `_FREEFORM_MAX_TOKENS` raised 80→120; `--api-key` flag added; all 7 season summaries written with real Qwen-generated qualitative notes to `docs/training/season_<YYYY>_summary.md`.
+
+**Verification:** `uv run pytest -q` → **315 passed, 5 deselected** in 70 seconds.
+
+---
+
 ## v0.8c-h2-complete - 2026-04-29
 
 **Phase H2 complete — `scripts/train_loop.py` + all seven walk-forward season result CSVs.**

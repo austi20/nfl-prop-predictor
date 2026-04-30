@@ -1,28 +1,28 @@
 # Cross-Season Training Summary (Phase H4)
 
-**Holdout seasons loaded:** [np.int64(2019), np.int64(2020)]
+**Holdout seasons loaded:** [2019, 2020, 2021, 2022, 2023, 2024, 2025]
 **Total distinct configs in grid:** 144
 
 ## Per-stat majority config (H5 primary)
 
 Each row is the `config_hash` that **won on the most holdout seasons** for that stat 
 (lowest holdout `log_loss` among valid fits per season). 
-Ties use lower **pooled mean** `log_loss` across all loaded seasons for that triple.
+Ties use lower **n_holdout-weighted pooled mean** `log_loss` across all loaded seasons for that triple.
 
 Full table: [`per_stat_majority_config.csv`](per_stat_majority_config.csv)
 
 | position | stat | config_hash | vote_count | holdout_seasons_available | winning_seasons | mean_log_loss_pooled | k | l1_alpha | dist_family | use_weather |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| qb | completions | 4ad79b219c249946 | 1 | 2 | 2019 | 0.755939594398867 | 12 | 0.0 | count_aware | True |
-| qb | interceptions | d4534384749123ac | 1 | 2 | 2020 | 0.6045557126873788 | 16 | 0.0 | count_aware | True |
-| qb | passing_tds | 677259fe0974c41b | 1 | 2 | 2020 | 0.6570046896316019 | 2 | 0.0 | count_aware | False |
-| qb | passing_yards | 156ea763d8ab7e66 | 1 | 2 | 2019 | 0.7713285171233953 | 16 | 0.0 | decomposed | True |
-| rb | carries | f73ca2adc4e369b3 | 1 | 2 | 2019 | 2.864087715392054 | 2 | 0.0 | count_aware | True |
-| rb | rushing_tds | c2447cee46a2028c | 1 | 2 | 2019 | 0.5280019011280629 | 2 | 0.001 | legacy | True |
-| rb | rushing_yards | a271332f2ca0b329 | 1 | 2 | 2020 | 1.2755136691906348 | 2 | 0.001 | decomposed | True |
-| wr_te | receiving_tds | c2447cee46a2028c | 1 | 2 | 2020 | 0.5003022543857616 | 2 | 0.001 | legacy | True |
-| wr_te | receiving_yards | a5392e02009fcdf7 | 1 | 2 | 2019 | 0.8473919589600429 | 2 | 0.01 | count_aware | False |
-| wr_te | receptions | fff405a0021bafd9 | 2 | 2 | 2019,2020 | 0.8393927059492372 | 2 | 0.0 | decomposed | True |
+| qb | completions | 677259fe0974c41b | 4 | 7 | 2020,2021,2023,2024 | 0.7471031307898602 | 2 | 0.0 | count_aware | False |
+| qb | interceptions | 46a85a426435e5a4 | 1 | 7 | 2022 | 0.5990633563192711 | 16 | 0.1 | count_aware | True |
+| qb | passing_tds | 677259fe0974c41b | 1 | 7 | 2020 | 0.6584128812484715 | 2 | 0.0 | count_aware | False |
+| qb | passing_yards | fff405a0021bafd9 | 1 | 7 | 2025 | 0.7571822569507077 | 2 | 0.0 | decomposed | True |
+| rb | carries | f73ca2adc4e369b3 | 3 | 7 | 2019,2022,2025 | 2.5477038208577487 | 2 | 0.0 | count_aware | True |
+| rb | rushing_tds | bf21288bdaf831d1 | 2 | 7 | 2020,2022 | 0.5226497709408886 | 2 | 0.001 | count_aware | True |
+| rb | rushing_yards | bb80bdf42e1e317f | 1 | 7 | 2020 | 1.1183030933134082 | 6 | 0.01 | decomposed | False |
+| wr_te | receiving_tds | 2d7e7b96b1b914db | 2 | 7 | 2021,2024 | 0.48177544633214237 | 2 | 0.0 | legacy | True |
+| wr_te | receiving_yards | 0dcee42e0156a3e8 | 4 | 7 | 2021,2022,2023,2025 | 0.7950666303842262 | 2 | 0.1 | count_aware | False |
+| wr_te | receptions | fff405a0021bafd9 | 5 | 7 | 2019,2021,2022,2024,2025 | 0.8019538403567877 | 2 | 0.0 | decomposed | True |
 
 
 ## Reference: global mean-variance config (single-config benchmark)
@@ -37,52 +37,52 @@ Same ranking as before Phase H4 — **not** the recommended production default w
 | k | 2 |
 | l1_alpha | 0.0 |
 
-**Mean holdout log-loss:** 0.9640
-**Std across seasons:** 0.0000
-**Selection score (mean + 0.5×std):** 0.9640
+**Mean holdout log-loss:** 0.9059
+**Std across seasons:** 0.0422
+**Selection score (mean + 0.5×std):** 0.9270
 
 ## Top 10 global benchmark configs by score
 
 | config_hash | use_weather | dist_family | k | l1_alpha | use_opponent_epa | use_rest_days | use_home_away | mean_ll | std_ll | score |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| b80a43f0cb818fbc | False | decomposed | 2 | 0.0 | False | False | False | 0.9639814132366308 | 0.0 | 0.9639814132366308 |
-| ac081e42691b71b8 | False | decomposed | 4 | 0.0 | False | False | False | 0.9661985538366326 | 0.0 | 0.9661985538366326 |
-| fff405a0021bafd9 | True | decomposed | 2 | 0.0 | False | False | False | 0.965853895662133 | 0.002627368590588128 | 0.9671675799574271 |
-| f344212486d2dd69 | False | decomposed | 6 | 0.0 | False | False | False | 0.9694432617276958 | 0.0 | 0.9694432617276958 |
-| 60f9b63bd66191e9 | True | decomposed | 4 | 0.0 | False | False | False | 0.9693018694511131 | 0.004378793473767369 | 0.9714912661879967 |
-| 05e697739e38db94 | False | decomposed | 8 | 0.0 | False | False | False | 0.9727168018595297 | 0.0 | 0.9727168018595297 |
-| 714b8cf648e5f86e | True | decomposed | 6 | 0.0 | False | False | False | 0.9729642796122289 | 0.004978670708184294 | 0.975453614966321 |
-| 34792ceac2c12e5f | False | decomposed | 12 | 0.0 | False | False | False | 0.9778563958562481 | 0.0 | 0.9778563958562481 |
-| 26bc4e3052b4bcad | True | decomposed | 8 | 0.0 | False | False | False | 0.9760978681055472 | 0.004795077343554621 | 0.9784954067773245 |
-| 677259fe0974c41b | False | count_aware | 2 | 0.0 | False | False | False | 0.9761868033043978 | 0.004784331674962195 | 0.9785789691418789 |
+| b80a43f0cb818fbc | False | decomposed | 2 | 0.0 | False | False | False | 0.9058975913648931 | 0.04221195633337985 | 0.927003569531583 |
+| fff405a0021bafd9 | True | decomposed | 2 | 0.0 | False | False | False | 0.9058964862387141 | 0.0422172189040328 | 0.9270050956907305 |
+| 60f9b63bd66191e9 | True | decomposed | 4 | 0.0 | False | False | False | 0.9101792620567926 | 0.041587748098566545 | 0.9309731361060758 |
+| ac081e42691b71b8 | False | decomposed | 4 | 0.0 | False | False | False | 0.9101845500073823 | 0.041580930202800376 | 0.9309750151087824 |
+| 34792ceac2c12e5f | False | decomposed | 12 | 0.0 | False | False | False | 0.9158193291396849 | 0.03150974366447858 | 0.9315742009719242 |
+| 677259fe0974c41b | False | count_aware | 2 | 0.0 | False | False | False | 0.9086511858662788 | 0.04761724304265447 | 0.932459807387606 |
+| f73ca2adc4e369b3 | True | count_aware | 2 | 0.0 | False | False | False | 0.9086538065086199 | 0.047621944062287105 | 0.9324647785397635 |
+| f344212486d2dd69 | False | decomposed | 6 | 0.0 | False | False | False | 0.9143637914226145 | 0.04124437523826945 | 0.9349859790417492 |
+| 714b8cf648e5f86e | True | decomposed | 6 | 0.0 | False | False | False | 0.9143619490464905 | 0.04125058935335544 | 0.9349872437231682 |
+| 1caff0a0a167332a | False | decomposed | 16 | 0.0 | False | False | False | 0.9206742936757484 | 0.031689147337462496 | 0.9365188673444796 |
 
 ## Ablation findings
 
-- Weather on vs off: -0.0202 (helps; on=1.0360, off=1.0562)
-- Dist family log-loss: legacy=1.0289, count_aware=1.0647, decomposed=1.0472
+- Weather on vs off: +0.0014 (hurts; on=0.9444, off=0.9430)
+- Dist family log-loss: legacy=0.9648, count_aware=0.9400, decomposed=0.9255
 - Opponent EPA / rest days / home-away: deferred to H2.1
 
 ## Pooled-across-seasons argmin per (position, stat) (secondary reference)
 
-If you first **average** `log_loss` across all seasons and then pick a single winner, you get 
+If you first pool `log_loss` across all seasons with `n_holdout` weights and then pick a single winner, you get 
 (possibly different) configs — useful for comparison, not the H5 majority vote.
 
 | position | stat | dist_family | k | l1_alpha | use_weather | mean_ll |
 | --- | --- | --- | --- | --- | --- | --- |
-| qb | completions | count_aware | 12 | 0.0 | False | 0.7310322455153421 |
-| qb | interceptions | count_aware | 16 | 0.01 | True | 0.6037977845455169 |
-| qb | passing_tds | decomposed | 4 | 0.0 | False | 0.6502911664197495 |
-| qb | passing_yards | decomposed | 16 | 0.0 | False | 0.736580151152638 |
-| rb | carries | count_aware | 2 | 0.0 | False | 2.864087715392054 |
-| rb | rushing_tds | legacy | 2 | 0.001 | True | 0.5280019011280629 |
-| rb | rushing_yards | decomposed | 2 | 0.01 | False | 1.2678262938118072 |
-| wr_te | receiving_tds | decomposed | 2 | 0.01 | False | 0.4950232929597917 |
-| wr_te | receiving_yards | decomposed | 2 | 0.01 | False | 0.8473919589600429 |
-| wr_te | receptions | decomposed | 2 | 0.0 | False | 0.8353654589686216 |
+| qb | completions | count_aware | 2 | 0.0 | True | 0.7471028174795934 |
+| qb | interceptions | decomposed | 16 | 0.1 | False | 0.5990348553342096 |
+| qb | passing_tds | count_aware | 2 | 0.0 | False | 0.6584128812484715 |
+| qb | passing_yards | decomposed | 2 | 0.0 | True | 0.7571822569507077 |
+| rb | carries | decomposed | 6 | 0.01 | False | 2.5190295745483082 |
+| rb | rushing_tds | legacy | 2 | 0.0 | True | 0.5225761173090921 |
+| rb | rushing_yards | decomposed | 6 | 0.01 | False | 1.1183030933134082 |
+| wr_te | receiving_tds | legacy | 2 | 0.0 | True | 0.48177544633214237 |
+| wr_te | receiving_yards | decomposed | 2 | 0.1 | True | 0.7950662096998102 |
+| wr_te | receptions | decomposed | 2 | 0.0 | False | 0.8019538403567877 |
 
-## Reliability overlay
+## Reliability deviation trend
 
-![Reliability overlay](cross_season_reliability.png)
+![Reliability deviation trend](cross_season_reliability.png)
 
 ## Model gates (for H5 lock-in)
 

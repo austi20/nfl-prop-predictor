@@ -207,9 +207,16 @@ class WRTEModel:
         *,
         use_weather: bool = False,
         l1_alpha: float = 0.0,
-        dist_family: str = "legacy",
-        k: int = 8,
+        dist_family: str = "decomposed",
+        k: int = 2,
     ) -> None:
+        # H5 lock (v0.8c): defaults below were chosen from cross-season Phase H
+        # walk-forward evidence (2019-2025). See docs/ModelingNotes.md "Phase H5
+        # Per-stat lock". dist_family="decomposed" routes receptions through
+        # targets x catch_rate Monte Carlo composition (its strongest signal).
+        # receiving_yards and receiving_tds automatically use the count_aware
+        # quantile/NegBin paths since decomposition is only implemented for
+        # receptions in this position model.
         if weekly is None:
             if use_weather:
                 from data.nflverse_loader import load_weekly_with_weather

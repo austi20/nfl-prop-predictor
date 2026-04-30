@@ -139,7 +139,7 @@ def test_fill_freeform_replaces_placeholder(canned_results) -> None:
 
     mock_text = "The model showed stable calibration across positions."
     mock_resp = MagicMock()
-    mock_resp.json.return_value = {"choices": [{"text": mock_text}]}
+    mock_resp.json.return_value = {"choices": [{"message": {"content": mock_text}}]}
     mock_resp.raise_for_status = MagicMock()
 
     with patch("scripts.narrate_season.requests.post", return_value=mock_resp):
@@ -161,7 +161,7 @@ def test_fill_freeform_handles_llm_failure(canned_results) -> None:
 
 
 def test_freeform_max_tokens_constant() -> None:
-    assert _FREEFORM_MAX_TOKENS == 80
+    assert _FREEFORM_MAX_TOKENS == 120
 
 
 def test_dist_family_table_contains_all_families(canned_results) -> None:

@@ -177,9 +177,15 @@ class RBModel:
         *,
         use_weather: bool = False,
         l1_alpha: float = 0.0,
-        dist_family: str = "legacy",
-        k: int = 8,
+        dist_family: str = "count_aware",
+        k: int = 2,
     ) -> None:
+        # H5 lock (v0.8c): defaults below were chosen from cross-season Phase H
+        # walk-forward evidence (2019-2025). See docs/ModelingNotes.md "Phase H5
+        # Per-stat lock". dist_family="count_aware" because pooled-mean argmin at
+        # k=2 favored count_aware over decomposed for rushing_yards by a small
+        # but real margin; carries and rushing_tds also concentrate at k=2 with
+        # negligible L1/weather effect.
         if weekly is None:
             if use_weather:
                 from data.nflverse_loader import load_weekly_with_weather
