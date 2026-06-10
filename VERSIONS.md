@@ -5,6 +5,23 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m2 - 2026-06-10
+
+**Modernization roadmap accepted + pre-work shipped: breakpoint Layer B gate, PR template, Kalshi NFL series discovery, preseason baseline scaffold.**
+
+Per `docs/superpowers/specs/2026-06-10-modernization-roadmap-design.md` (cross-phase design for P2-P7). Per-phase implementation specs will be authored at the triggers in `memory/roadmap_orchestration.md`.
+
+- **`docs/breakpoints/`** (new): `_template.md` and `README.md` define Layer B adversarial evaluation per roadmap §5 P3. Every phase ships a `p<N>_evaluation.md` covering boundary probes, outlier injection, exception paths, and hypothetical failure modes.
+- **`scripts/check_breakpoint_doc.py` + `tests/test_breakpoint_doc_gate.py`** (new): merge gate — a PR touching `api/trading/`, `eval/`, or `models/` must reference `docs/breakpoints/p<N>_evaluation.md` (in diff or PR body). Roadmap R11 mitigation.
+- **`.github/PULL_REQUEST_TEMPLATE.md`** (new): PR checklist with Layer A test plan, Layer B link, roadmap risk references.
+- **`scripts/discover_kalshi_nfl_series.py` + tests** (new): paginated enumeration of Kalshi series via existing `KalshiClient` signing, filtered to `KXNFL*`, dumps `cache/kalshi_nfl_series.json`. Roadmap R1 mitigation — retires the "do NFL series exist?" question well ahead of P4.
+- **`scripts/capture_preseason_baseline.py` + tests** (new): uncalibrated Brier + log_loss per (position, stat) scaffold → `docs/preseason_baseline_2026.md`. Metric and formatting helpers tested; runtime model integration is intentionally deferred to first real run. Roadmap pre-gate item 5.
+- **`memory/roadmap_orchestration.md`** (new): operator runbook — when to fire each per-phase brainstorm, with prompt templates; cross-phase invariants (model > GUI, LLM downgrade-only, walk-forward only, Layer B gate).
+
+**Verification:** `uv run pytest -q` green (new tests: 4 gate + 5 discovery + 8 baseline = 17 added).
+
+---
+
 ## v0.8c - 2026-04-29
 
 **Phase H complete: per-stat configuration locked into model defaults; ModelingNotes documents the rationale; calibration deferred to v0.9.**
