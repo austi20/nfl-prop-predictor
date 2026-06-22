@@ -42,6 +42,8 @@ def score_predictions(
         raise ValueError(
             f"y_true and y_prob length mismatch: {y_true.shape} vs {y_prob.shape}"
         )
+    if y_true.size == 0:
+        raise ValueError("cannot score empty prediction arrays")
     if np.any(y_prob < 0.0) or np.any(y_prob > 1.0):
         raise ValueError("y_prob must be in [0, 1]")
     brier = float(brier_score_loss(y_true, y_prob))
@@ -89,7 +91,7 @@ def compute_baseline_rows(
     is enough to gate this PR. The runtime integration is a smoke test by
     running the script and inspecting the output file by hand.
     """
-    import pandas as pd
+    import pandas as pd  # local: keeps test-collect fast; not needed at module level
 
     if not training_csv.exists():
         return []

@@ -9,6 +9,7 @@ import pytest
 from scripts.discover_kalshi_nfl_series import (
     SeriesRecord,
     discover_nfl_series,
+    main,
     write_series_json,
 )
 
@@ -72,6 +73,42 @@ def test_discover_follows_cursor_pagination() -> None:
 
     assert [r.ticker for r in records] == ["KXNFLA", "KXNFLB"]
     assert fake_client.get.call_count == 2
+    # The cursor from page 1 must be forwarded as a param on the page-2 request.
+    second_call = fake_client.get.call_args_list[1]
+    assert second_call.kwargs["params"]["cursor"] == "PAGE2"
+
+
+def test_discover_returns_empty_when_no_prefix_matches() -> None:
+    fake_client = MagicMock()
+    fake_client.get.return_value = _fake_response(
+        200,
+        {
+            "series": [
+                {"ticker": "KXNBAPTS", "title": "NBA Points"},
+                {"ticker": "KXMLBHR", "title": "MLB HR"},
+            ],
+            "cursor": "",
+        },
+    )
+    records = discover_nfl_series(
+        http_client=fake_client,
+        kalshi_client=MagicMock(auth_headers=MagicMock(return_value={})),
+        prefix="KXNFL",
+    )
+    assert records == []
+
+
+def test_discover_raises_when_cursor_never_terminates() -> None:
+    fake_client = MagicMock()
+    fake_client.get.return_value = _fake_response(
+        200, {"series": [{"ticker": "KXNFLA", "title": "A"}], "cursor": "MORE"}
+    )
+    with pytest.raises(RuntimeError, match="pagination"):
+        discover_nfl_series(
+            http_client=fake_client,
+            kalshi_client=MagicMock(auth_headers=MagicMock(return_value={})),
+            prefix="KXNFL",
+        )
 
 
 def test_write_series_json_round_trip(tmp_path: Path) -> None:
@@ -89,6 +126,13 @@ def test_write_series_json_round_trip(tmp_path: Path) -> None:
         "KXNFLPASSYDS",
         "KXNFLRUSHYDS",
     }
+
+
+def test_write_series_json_reflects_custom_prefix(tmp_path: Path) -> None:
+    out = tmp_path / "series.json"
+    write_series_json([], out, prefix="KXNBA")
+    payload = json.loads(out.read_text())
+    assert payload["prefix"] == "KXNBA"
 
 
 def test_discover_empty_response_is_ok() -> None:
@@ -120,3 +164,11 @@ def test_discover_raises_on_http_error() -> None:
             kalshi_client=MagicMock(auth_headers=MagicMock(return_value={})),
             prefix="KXNFL",
         )
+
+
+def test_main_exits_when_creds_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NFL_KALSHI_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("NFL_KALSHI_PRIVATE_KEY_PEM", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 2

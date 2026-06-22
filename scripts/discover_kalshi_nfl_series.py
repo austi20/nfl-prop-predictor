@@ -27,6 +27,7 @@ DEFAULT_BASE_URL = "https://api.elections.kalshi.com"
 SERIES_PATH = "/trade-api/v2/series"
 DEFAULT_PREFIX = "KXNFL"
 DEFAULT_OUTPUT = Path("cache") / "kalshi_nfl_series.json"
+MAX_PAGES = 50
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,13 @@ class SeriesRecord:
 
 
 class _HttpClient(Protocol):
-    def get(self, url: str, *, params: dict, headers: dict) -> httpx.Response: ...
+    def get(
+        self,
+        url: str,
+        *,
+        params: dict[str, str | int],
+        headers: dict[str, str],
+    ) -> httpx.Response: ...
 
 
 def discover_nfl_series(
@@ -48,10 +55,10 @@ def discover_nfl_series(
 ) -> list[SeriesRecord]:
     records: list[SeriesRecord] = []
     cursor = ""
-    while True:
+    for _ in range(MAX_PAGES):
         timestamp_ms = int(time.time() * 1000)
         headers = kalshi_client.auth_headers("GET", SERIES_PATH, timestamp_ms)
-        params = {"limit": 200}
+        params: dict[str, str | int] = {"limit": 200}
         if cursor:
             params["cursor"] = cursor
         resp = http_client.get(base_url + SERIES_PATH, params=params, headers=headers)
@@ -66,17 +73,23 @@ def discover_nfl_series(
         cursor = payload.get("cursor", "")
         if not cursor:
             break
+    else:
+        raise RuntimeError(
+            f"pagination exceeded {MAX_PAGES} pages; API cursor never terminated"
+        )
     return records
 
 
-def write_series_json(records: list[SeriesRecord], path: Path) -> None:
+def write_series_json(
+    records: list[SeriesRecord], path: Path, *, prefix: str = DEFAULT_PREFIX
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "count": len(records),
-        "prefix": DEFAULT_PREFIX,
+        "prefix": prefix,
         "series": [{"ticker": r.ticker, "title": r.title} for r in records],
     }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def main() -> None:

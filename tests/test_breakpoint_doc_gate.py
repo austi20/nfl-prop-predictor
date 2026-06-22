@@ -4,7 +4,7 @@ import os
 import subprocess
 
 import pytest
-from scripts.check_breakpoint_doc import check
+from scripts.check_breakpoint_doc import GATED_PREFIXES, check
 
 
 def _changed_files() -> list[str]:
@@ -16,9 +16,6 @@ def _changed_files() -> list[str]:
     except subprocess.CalledProcessError:
         return []
     return [line.strip() for line in out.splitlines() if line.strip()]
-
-
-GATED_PREFIXES = ("api/trading/", "eval/", "models/")
 
 
 def _is_gated(paths: list[str]) -> bool:
@@ -37,7 +34,47 @@ def test_check_pure_function_gated_file_without_breakpoint_doc() -> None:
         diff_paths=["api/trading/readiness.py"],
     )
     assert not ok
-    assert "p<N>_evaluation.md" in msg or "breakpoints" in msg
+    assert "breakpoints" in msg
+    assert "p<N>_evaluation.md" in msg
+
+
+def test_check_pure_function_models_prefix_is_gated() -> None:
+    ok, msg = check(
+        changed=["models/qb.py"],
+        pr_body="no reference",
+        diff_paths=["models/qb.py"],
+    )
+    assert not ok
+    assert "breakpoints" in msg
+
+
+def test_gate_rejects_wrong_suffix_doc_path() -> None:
+    # ...p1_evaluation.md.bak must NOT satisfy the gate.
+    ok, _ = check(
+        changed=["models/qb.py"],
+        pr_body="",
+        diff_paths=["models/qb.py", "docs/breakpoints/p1_evaluation.md.bak"],
+    )
+    assert not ok
+
+
+def test_gate_rejects_wrong_dir_doc_path() -> None:
+    # A breakpoint-looking path in the wrong directory must NOT satisfy the gate.
+    ok, _ = check(
+        changed=["eval/calibration.py"],
+        pr_body="",
+        diff_paths=["eval/calibration.py", "evil/docs/breakpoints/p1_evaluation.md"],
+    )
+    assert not ok
+
+
+def test_gate_rejects_wrong_suffix_mention_in_pr_body() -> None:
+    ok, _ = check(
+        changed=["models/qb.py"],
+        pr_body="see docs/breakpoints/p1_evaluation.mdx (typo)",
+        diff_paths=["models/qb.py"],
+    )
+    assert not ok
 
 
 def test_check_pure_function_gated_file_with_breakpoint_doc_in_diff() -> None:

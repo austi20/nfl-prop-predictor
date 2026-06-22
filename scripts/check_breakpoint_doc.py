@@ -11,7 +11,13 @@ from __future__ import annotations
 import re
 
 GATED_PREFIXES: tuple[str, ...] = ("api/trading/", "eval/", "models/")
-BREAKPOINT_DOC_PATTERN = re.compile(r"docs/breakpoints/p\d+_evaluation\.md")
+# Exact repo-relative path of a breakpoint doc. Diff entries are full paths, so
+# we fullmatch to reject near-misses like a wrong dir (evil/docs/breakpoints/...)
+# or a wrong suffix (...p1_evaluation.md.bak) that an unanchored search lets slip.
+BREAKPOINT_DOC_PATH = re.compile(r"docs/breakpoints/p\d+_evaluation\.md")
+# Same path mentioned inside free-form PR body text. The trailing lookahead stops
+# a bare-name match from also accepting a longer token (.md.bak, .mdx).
+BREAKPOINT_DOC_MENTION = re.compile(r"docs/breakpoints/p\d+_evaluation\.md(?![\w.])")
 
 
 def _has_gated_change(changed: list[str]) -> bool:
@@ -19,11 +25,11 @@ def _has_gated_change(changed: list[str]) -> bool:
 
 
 def _breakpoint_doc_in_diff(diff_paths: list[str]) -> bool:
-    return any(BREAKPOINT_DOC_PATTERN.search(p) is not None for p in diff_paths)
+    return any(BREAKPOINT_DOC_PATH.fullmatch(p) is not None for p in diff_paths)
 
 
 def _breakpoint_doc_in_pr_body(pr_body: str) -> bool:
-    return BREAKPOINT_DOC_PATTERN.search(pr_body) is not None
+    return BREAKPOINT_DOC_MENTION.search(pr_body) is not None
 
 
 def check(
@@ -59,10 +65,14 @@ if __name__ == "__main__":
     import subprocess
     import sys
 
-    changed_out = subprocess.check_output(
-        ["git", "diff", "--name-only", "master...HEAD"],
-        text=True,
-    )
+    try:
+        changed_out = subprocess.check_output(
+            ["git", "diff", "--name-only", "master...HEAD"],
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        print(f"breakpoint gate: could not read git diff ({exc})", file=sys.stderr)
+        sys.exit(1)
     changed_list = [line.strip() for line in changed_out.splitlines() if line.strip()]
     pr_body_env = os.environ.get("PR_BODY", "")
     ok, msg = check(changed=changed_list, pr_body=pr_body_env, diff_paths=changed_list)

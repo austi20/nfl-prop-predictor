@@ -45,6 +45,17 @@ def test_score_predictions_rejects_out_of_range_probs() -> None:
         score_predictions(y_true=np.array([1]), y_prob=np.array([1.5]))
 
 
+def test_score_predictions_rejects_negative_probs() -> None:
+    with pytest.raises(ValueError):
+        score_predictions(y_true=np.array([1]), y_prob=np.array([-0.1]))
+
+
+def test_score_predictions_rejects_empty_input() -> None:
+    empty = np.array([], dtype=float)
+    with pytest.raises(ValueError):
+        score_predictions(y_true=empty, y_prob=empty)
+
+
 def test_format_markdown_emits_one_row_per_baseline() -> None:
     rows = [
         BaselineRow(position="qb", stat="passing_yards", n=120, brier=0.21, log_loss=0.59),
