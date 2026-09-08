@@ -1754,6 +1754,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033357,2019,2,receiving_tds,0.5,synthetic,-110,-110,NO,LA,2019_02_NO_LA
 00-0033357,2019,2,receiving_yards,3.5,synthetic,-110,-110,NO,LA,2019_02_NO_LA
 00-0033357,2019,2,receptions,0.5,synthetic,-110,-110,NO,LA,2019_02_NO_LA
+00-0033376,2019,2,receiving_tds,0.5,synthetic,-110,-110,BAL,ARI,2019_02_BAL_ARI
 00-0033376,2019,2,receiving_yards,0.5,synthetic,-110,-110,BAL,ARI,2019_02_BAL_ARI
 00-0033376,2019,2,receptions,0.5,synthetic,-110,-110,BAL,ARI,2019_02_BAL_ARI
 00-0033421,2019,2,receiving_yards,3.5,synthetic,-110,-110,TB,CAR,2019_02_TB_CAR
@@ -3696,6 +3697,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033357,2019,4,receiving_tds,0.5,synthetic,-110,-110,NO,DAL,2019_04_NO_DAL
 00-0033357,2019,4,receiving_yards,8.5,synthetic,-110,-110,NO,DAL,2019_04_NO_DAL
 00-0033357,2019,4,receptions,1.5,synthetic,-110,-110,NO,DAL,2019_04_NO_DAL
+00-0033376,2019,4,receiving_tds,0.5,synthetic,-110,-110,BAL,CLE,2019_04_BAL_CLE
 00-0033376,2019,4,receiving_yards,1.5,synthetic,-110,-110,BAL,CLE,2019_04_BAL_CLE
 00-0033376,2019,4,receptions,0.5,synthetic,-110,-110,BAL,CLE,2019_04_BAL_CLE
 00-0033434,2019,4,receiving_yards,4.5,synthetic,-110,-110,TB,LA,2019_04_TB_LA
@@ -5745,6 +5747,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033308,2019,6,rushing_yards,85.5,synthetic,-110,-110,SF,LA,2019_06_SF_LA
 00-0033357,2019,6,receiving_yards,5.5,synthetic,-110,-110,NO,JAX,2019_06_NO_JAX
 00-0033357,2019,6,receptions,0.5,synthetic,-110,-110,NO,JAX,2019_06_NO_JAX
+00-0033376,2019,6,receiving_tds,0.5,synthetic,-110,-110,BAL,CIN,2019_06_BAL_CIN
 00-0033376,2019,6,receiving_yards,1.5,synthetic,-110,-110,BAL,CIN,2019_06_BAL_CIN
 00-0033376,2019,6,receptions,0.5,synthetic,-110,-110,BAL,CIN,2019_06_BAL_CIN
 00-0033434,2019,6,receiving_yards,6.5,synthetic,-110,-110,TB,CAR,2019_06_TB_CAR
@@ -8883,6 +8886,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033308,2019,9,receptions,2.5,synthetic,-110,-110,SF,ARI,2019_09_SF_ARI
 00-0033308,2019,9,rushing_tds,0.5,synthetic,-110,-110,SF,ARI,2019_09_SF_ARI
 00-0033308,2019,9,rushing_yards,55.5,synthetic,-110,-110,SF,ARI,2019_09_SF_ARI
+00-0033376,2019,9,receiving_tds,0.5,synthetic,-110,-110,BAL,NE,2019_09_BAL_NE
 00-0033376,2019,9,receiving_yards,2.5,synthetic,-110,-110,BAL,NE,2019_09_BAL_NE
 00-0033376,2019,9,receptions,0.5,synthetic,-110,-110,BAL,NE,2019_09_BAL_NE
 00-0033387,2019,9,receiving_yards,13.5,synthetic,-110,-110,SEA,TB,2019_09_SEA_TB
@@ -23847,6 +23851,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033357,2020,5,receiving_yards,5.5,synthetic,-110,-110,NO,LAC,2020_05_NO_LAC
 00-0033357,2020,5,receptions,0.5,synthetic,-110,-110,NO,LAC,2020_05_NO_LAC
 00-0033376,2020,5,carries,0.5,synthetic,-110,-110,BAL,CIN,2020_05_BAL_CIN
+00-0033376,2020,5,receiving_tds,0.5,synthetic,-110,-110,BAL,CIN,2020_05_BAL_CIN
 00-0033376,2020,5,receiving_yards,2.5,synthetic,-110,-110,BAL,CIN,2020_05_BAL_CIN
 00-0033376,2020,5,receptions,0.5,synthetic,-110,-110,BAL,CIN,2020_05_BAL_CIN
 00-0033386,2020,5,receiving_yards,4.5,synthetic,-110,-110,TEN,BUF,2020_05_TEN_BUF
@@ -24858,6 +24863,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033375,2020,6,receiving_yards,52.5,synthetic,-110,-110,DEN,NE,2020_06_DEN_NE
 00-0033375,2020,6,receptions,4.5,synthetic,-110,-110,DEN,NE,2020_06_DEN_NE
 00-0033376,2020,6,carries,0.5,synthetic,-110,-110,BAL,PHI,2020_06_BAL_PHI
+00-0033376,2020,6,receiving_tds,0.5,synthetic,-110,-110,BAL,PHI,2020_06_BAL_PHI
 00-0033376,2020,6,receiving_yards,4.5,synthetic,-110,-110,BAL,PHI,2020_06_BAL_PHI
 00-0033376,2020,6,receptions,0.5,synthetic,-110,-110,BAL,PHI,2020_06_BAL_PHI
 00-0033439,2020,6,receiving_yards,3.5,synthetic,-110,-110,HOU,TEN,2020_06_HOU_TEN
@@ -26916,6 +26922,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033357,2020,8,receiving_yards,2.5,synthetic,-110,-110,NO,CHI,2020_08_NO_CHI
 00-0033357,2020,8,receptions,0.5,synthetic,-110,-110,NO,CHI,2020_08_NO_CHI
 00-0033376,2020,8,carries,0.5,synthetic,-110,-110,BAL,PIT,2020_08_BAL_PIT
+00-0033376,2020,8,receiving_tds,0.5,synthetic,-110,-110,BAL,PIT,2020_08_BAL_PIT
 00-0033376,2020,8,receiving_yards,4.5,synthetic,-110,-110,BAL,PIT,2020_08_BAL_PIT
 00-0033376,2020,8,receptions,0.5,synthetic,-110,-110,BAL,PIT,2020_08_BAL_PIT
 00-0033382,2020,8,receiving_yards,5.5,synthetic,-110,-110,NO,CHI,2020_08_NO_CHI
@@ -27392,6 +27399,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036158,2020,8,receiving_yards,15.5,synthetic,-110,-110,BAL,PIT,2020_08_BAL_PIT
 00-0036158,2020,8,receptions,2.5,synthetic,-110,-110,BAL,PIT,2020_08_BAL_PIT
 00-0036158,2020,8,rushing_yards,21.5,synthetic,-110,-110,BAL,PIT,2020_08_BAL_PIT
+00-0036187,2020,8,receiving_tds,0.5,synthetic,-110,-110,BUF,NE,2020_08_BUF_NE
 00-0036187,2020,8,receiving_yards,5.5,synthetic,-110,-110,BUF,NE,2020_08_BUF_NE
 00-0036187,2020,8,receptions,0.5,synthetic,-110,-110,BUF,NE,2020_08_BUF_NE
 00-0036196,2020,8,receiving_tds,0.5,synthetic,-110,-110,BUF,NE,2020_08_BUF_NE
@@ -29071,6 +29079,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033375,2020,10,receiving_tds,0.5,synthetic,-110,-110,DEN,LV,2020_10_DEN_LV
 00-0033375,2020,10,receiving_yards,71.5,synthetic,-110,-110,DEN,LV,2020_10_DEN_LV
 00-0033375,2020,10,receptions,4.5,synthetic,-110,-110,DEN,LV,2020_10_DEN_LV
+00-0033376,2020,10,receiving_tds,0.5,synthetic,-110,-110,BAL,NE,2020_10_BAL_NE
 00-0033376,2020,10,receiving_yards,2.5,synthetic,-110,-110,BAL,NE,2020_10_BAL_NE
 00-0033376,2020,10,receptions,0.5,synthetic,-110,-110,BAL,NE,2020_10_BAL_NE
 00-0033387,2020,10,receiving_tds,0.5,synthetic,-110,-110,SEA,LA,2020_10_SEA_LA
@@ -38996,6 +39005,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0035689,2020,20,receiving_tds,0.5,synthetic,-110,-110,BUF,KC,2020_20_BUF_KC
 00-0035689,2020,20,receiving_yards,25.5,synthetic,-110,-110,BUF,KC,2020_20_BUF_KC
 00-0035689,2020,20,receptions,2.5,synthetic,-110,-110,BUF,KC,2020_20_BUF_KC
+00-0036187,2020,20,receiving_tds,0.5,synthetic,-110,-110,BUF,KC,2020_20_BUF_KC
 00-0036187,2020,20,receiving_yards,4.5,synthetic,-110,-110,BUF,KC,2020_20_BUF_KC
 00-0036187,2020,20,receptions,0.5,synthetic,-110,-110,BUF,KC,2020_20_BUF_KC
 00-0036196,2020,20,receiving_tds,0.5,synthetic,-110,-110,BUF,KC,2020_20_BUF_KC
@@ -50785,6 +50795,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033338,2021,11,receiving_yards,2.5,synthetic,-110,-110,MIA,NYJ,2021_11_MIA_NYJ
 00-0033338,2021,11,receptions,0.5,synthetic,-110,-110,MIA,NYJ,2021_11_MIA_NYJ
 00-0033376,2021,11,carries,0.5,synthetic,-110,-110,BAL,CHI,2021_11_BAL_CHI
+00-0033376,2021,11,receiving_tds,0.5,synthetic,-110,-110,BAL,CHI,2021_11_BAL_CHI
 00-0033376,2021,11,receiving_yards,9.5,synthetic,-110,-110,BAL,CHI,2021_11_BAL_CHI
 00-0033376,2021,11,receptions,1.5,synthetic,-110,-110,BAL,CHI,2021_11_BAL_CHI
 00-0033376,2021,11,rushing_yards,0.5,synthetic,-110,-110,BAL,CHI,2021_11_BAL_CHI
@@ -51967,6 +51978,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033375,2021,12,receiving_yards,44.5,synthetic,-110,-110,DEN,LAC,2021_12_DEN_LAC
 00-0033375,2021,12,receptions,3.5,synthetic,-110,-110,DEN,LAC,2021_12_DEN_LAC
 00-0033376,2021,12,carries,0.5,synthetic,-110,-110,BAL,CLE,2021_12_BAL_CLE
+00-0033376,2021,12,receiving_tds,0.5,synthetic,-110,-110,BAL,CLE,2021_12_BAL_CLE
 00-0033376,2021,12,receiving_yards,9.5,synthetic,-110,-110,BAL,CLE,2021_12_BAL_CLE
 00-0033376,2021,12,receptions,1.5,synthetic,-110,-110,BAL,CLE,2021_12_BAL_CLE
 00-0033376,2021,12,rushing_yards,0.5,synthetic,-110,-110,BAL,CLE,2021_12_BAL_CLE
@@ -53048,6 +53060,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033375,2021,13,receiving_yards,47.5,synthetic,-110,-110,DEN,KC,2021_13_DEN_KC
 00-0033375,2021,13,receptions,3.5,synthetic,-110,-110,DEN,KC,2021_13_DEN_KC
 00-0033376,2021,13,carries,0.5,synthetic,-110,-110,BAL,PIT,2021_13_BAL_PIT
+00-0033376,2021,13,receiving_tds,0.5,synthetic,-110,-110,BAL,PIT,2021_13_BAL_PIT
 00-0033376,2021,13,receiving_yards,9.5,synthetic,-110,-110,BAL,PIT,2021_13_BAL_PIT
 00-0033376,2021,13,receptions,1.5,synthetic,-110,-110,BAL,PIT,2021_13_BAL_PIT
 00-0033376,2021,13,rushing_yards,0.5,synthetic,-110,-110,BAL,PIT,2021_13_BAL_PIT
@@ -55411,7 +55424,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034867,2021,15,receiving_yards,15.5,synthetic,-110,-110,DAL,NYG,2021_15_DAL_NYG
 00-0034867,2021,15,receptions,2.5,synthetic,-110,-110,DAL,NYG,2021_15_DAL_NYG
 00-0034959,2021,15,carries,0.5,synthetic,-110,-110,DEN,CIN,2021_15_DEN_CIN
-00-0034959,2021,15,receiving_tds,0.5,synthetic,-110,-110,DEN,CIN,2021_15_DEN_CIN
 00-0034959,2021,15,receiving_yards,12.5,synthetic,-110,-110,DEN,CIN,2021_15_DEN_CIN
 00-0034959,2021,15,receptions,1.5,synthetic,-110,-110,DEN,CIN,2021_15_DEN_CIN
 00-0034959,2021,15,rushing_yards,0.5,synthetic,-110,-110,DEN,CIN,2021_15_DEN_CIN
@@ -60804,6 +60816,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033308,2022,1,receptions,0.5,synthetic,-110,-110,NYG,TEN,2022_01_NYG_TEN
 00-0033308,2022,1,rushing_yards,10.5,synthetic,-110,-110,NYG,TEN,2022_01_NYG_TEN
 00-0033376,2022,1,carries,0.5,synthetic,-110,-110,BAL,NYJ,2022_01_BAL_NYJ
+00-0033376,2022,1,receiving_tds,0.5,synthetic,-110,-110,BAL,NYJ,2022_01_BAL_NYJ
 00-0033376,2022,1,receiving_yards,11.5,synthetic,-110,-110,BAL,NYJ,2022_01_BAL_NYJ
 00-0033376,2022,1,receptions,1.5,synthetic,-110,-110,BAL,NYJ,2022_01_BAL_NYJ
 00-0033376,2022,1,rushing_yards,0.5,synthetic,-110,-110,BAL,NYJ,2022_01_BAL_NYJ
@@ -61079,7 +61092,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034860,2022,1,receiving_yards,32.5,synthetic,-110,-110,CHI,SF,2022_01_CHI_SF
 00-0034860,2022,1,receptions,3.5,synthetic,-110,-110,CHI,SF,2022_01_CHI_SF
 00-0034959,2022,1,carries,0.5,synthetic,-110,-110,DEN,SEA,2022_01_DEN_SEA
-00-0034959,2022,1,receiving_tds,0.5,synthetic,-110,-110,DEN,SEA,2022_01_DEN_SEA
 00-0034959,2022,1,receiving_yards,5.5,synthetic,-110,-110,DEN,SEA,2022_01_DEN_SEA
 00-0034959,2022,1,receptions,1.5,synthetic,-110,-110,DEN,SEA,2022_01_DEN_SEA
 00-0034959,2022,1,rushing_yards,0.5,synthetic,-110,-110,DEN,SEA,2022_01_DEN_SEA
@@ -62202,7 +62214,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034860,2022,2,receiving_yards,34.5,synthetic,-110,-110,CHI,GB,2022_02_CHI_GB
 00-0034860,2022,2,receptions,2.5,synthetic,-110,-110,CHI,GB,2022_02_CHI_GB
 00-0034959,2022,2,carries,0.5,synthetic,-110,-110,DEN,HOU,2022_02_DEN_HOU
-00-0034959,2022,2,receiving_tds,0.5,synthetic,-110,-110,DEN,HOU,2022_02_DEN_HOU
 00-0034959,2022,2,receiving_yards,15.5,synthetic,-110,-110,DEN,HOU,2022_02_DEN_HOU
 00-0034959,2022,2,receptions,1.5,synthetic,-110,-110,DEN,HOU,2022_02_DEN_HOU
 00-0034959,2022,2,rushing_yards,0.5,synthetic,-110,-110,DEN,HOU,2022_02_DEN_HOU
@@ -63527,6 +63538,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036182,2022,3,receiving_tds,0.5,synthetic,-110,-110,TEN,LV,2022_03_TEN_LV
 00-0036182,2022,3,receiving_yards,26.5,synthetic,-110,-110,TEN,LV,2022_03_TEN_LV
 00-0036182,2022,3,receptions,1.5,synthetic,-110,-110,TEN,LV,2022_03_TEN_LV
+00-0036187,2022,3,receiving_tds,0.5,synthetic,-110,-110,BUF,MIA,2022_03_BUF_MIA
 00-0036187,2022,3,receiving_yards,7.5,synthetic,-110,-110,BUF,MIA,2022_03_BUF_MIA
 00-0036187,2022,3,receptions,1.5,synthetic,-110,-110,BUF,MIA,2022_03_BUF_MIA
 00-0036196,2022,3,receiving_tds,1.5,synthetic,-110,-110,BUF,MIA,2022_03_BUF_MIA
@@ -64434,7 +64446,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034867,2022,4,receiving_yards,26.5,synthetic,-110,-110,SF,LA,2022_04_SF_LA
 00-0034867,2022,4,receptions,1.5,synthetic,-110,-110,SF,LA,2022_04_SF_LA
 00-0034959,2022,4,carries,0.5,synthetic,-110,-110,DEN,LV,2022_04_DEN_LV
-00-0034959,2022,4,receiving_tds,0.5,synthetic,-110,-110,DEN,LV,2022_04_DEN_LV
 00-0034959,2022,4,receiving_yards,15.5,synthetic,-110,-110,DEN,LV,2022_04_DEN_LV
 00-0034959,2022,4,receptions,1.5,synthetic,-110,-110,DEN,LV,2022_04_DEN_LV
 00-0034970,2022,4,receiving_tds,0.5,synthetic,-110,-110,MIN,NO,2022_04_MIN_NO
@@ -66816,6 +66827,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036158,2022,6,receptions,2.5,synthetic,-110,-110,BAL,NYG,2022_06_BAL_NYG
 00-0036158,2022,6,rushing_tds,0.5,synthetic,-110,-110,BAL,NYG,2022_06_BAL_NYG
 00-0036158,2022,6,rushing_yards,37.5,synthetic,-110,-110,BAL,NYG,2022_06_BAL_NYG
+00-0036187,2022,6,receiving_tds,0.5,synthetic,-110,-110,BUF,KC,2022_06_BUF_KC
 00-0036187,2022,6,receiving_yards,12.5,synthetic,-110,-110,BUF,KC,2022_06_BUF_KC
 00-0036187,2022,6,receptions,1.5,synthetic,-110,-110,BUF,KC,2022_06_BUF_KC
 00-0036194,2022,6,receiving_tds,0.5,synthetic,-110,-110,CIN,NO,2022_06_CIN_NO
@@ -72025,6 +72037,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036182,2022,11,receiving_tds,0.5,synthetic,-110,-110,TEN,GB,2022_11_TEN_GB
 00-0036182,2022,11,receiving_yards,29.5,synthetic,-110,-110,TEN,GB,2022_11_TEN_GB
 00-0036182,2022,11,receptions,1.5,synthetic,-110,-110,TEN,GB,2022_11_TEN_GB
+00-0036187,2022,11,receiving_tds,0.5,synthetic,-110,-110,BUF,CLE,2022_11_BUF_CLE
 00-0036187,2022,11,receiving_yards,16.5,synthetic,-110,-110,BUF,CLE,2022_11_BUF_CLE
 00-0036187,2022,11,receptions,2.5,synthetic,-110,-110,BUF,CLE,2022_11_BUF_CLE
 00-0036194,2022,11,receiving_tds,0.5,synthetic,-110,-110,CIN,PIT,2022_11_CIN_PIT
@@ -73172,6 +73185,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036182,2022,12,receiving_tds,0.5,synthetic,-110,-110,TEN,CIN,2022_12_TEN_CIN
 00-0036182,2022,12,receiving_yards,36.5,synthetic,-110,-110,TEN,CIN,2022_12_TEN_CIN
 00-0036182,2022,12,receptions,1.5,synthetic,-110,-110,TEN,CIN,2022_12_TEN_CIN
+00-0036187,2022,12,receiving_tds,0.5,synthetic,-110,-110,BUF,DET,2022_12_BUF_DET
 00-0036187,2022,12,receiving_yards,14.5,synthetic,-110,-110,BUF,DET,2022_12_BUF_DET
 00-0036187,2022,12,receptions,1.5,synthetic,-110,-110,BUF,DET,2022_12_BUF_DET
 00-0036196,2022,12,receiving_tds,0.5,synthetic,-110,-110,BUF,DET,2022_12_BUF_DET
@@ -75718,7 +75732,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2022,14,receptions,0.5,synthetic,-110,-110,MIN,DET,2022_14_MIN_DET
 00-0037299,2022,14,carries,2.5,synthetic,-110,-110,ARI,NE,2022_14_ARI_NE
 00-0037299,2022,14,rushing_yards,7.5,synthetic,-110,-110,ARI,NE,2022_14_ARI_NE
-00-0037304,2022,14,receiving_tds,0.5,synthetic,-110,-110,PIT,BAL,2022_14_PIT_BAL
 00-0037304,2022,14,receiving_yards,6.5,synthetic,-110,-110,PIT,BAL,2022_14_PIT_BAL
 00-0037304,2022,14,receptions,0.5,synthetic,-110,-110,PIT,BAL,2022_14_PIT_BAL
 00-0037311,2022,14,receiving_tds,0.5,synthetic,-110,-110,TB,SF,2022_14_TB_SF
@@ -76894,7 +76907,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037299,2022,15,rushing_yards,7.5,synthetic,-110,-110,ARI,DEN,2022_15_ARI_DEN
 00-0037300,2022,15,receiving_yards,7.5,synthetic,-110,-110,CLE,BAL,2022_15_CLE_BAL
 00-0037300,2022,15,receptions,0.5,synthetic,-110,-110,CLE,BAL,2022_15_CLE_BAL
-00-0037304,2022,15,receiving_tds,0.5,synthetic,-110,-110,PIT,CAR,2022_15_PIT_CAR
 00-0037304,2022,15,receiving_yards,7.5,synthetic,-110,-110,PIT,CAR,2022_15_PIT_CAR
 00-0037304,2022,15,receptions,0.5,synthetic,-110,-110,PIT,CAR,2022_15_PIT_CAR
 00-0037311,2022,15,receiving_tds,0.5,synthetic,-110,-110,TB,CIN,2022_15_TB_CIN
@@ -78122,7 +78134,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037300,2022,16,carries,0.5,synthetic,-110,-110,CLE,NO,2022_16_CLE_NO
 00-0037300,2022,16,receiving_yards,6.5,synthetic,-110,-110,CLE,NO,2022_16_CLE_NO
 00-0037300,2022,16,receptions,0.5,synthetic,-110,-110,CLE,NO,2022_16_CLE_NO
-00-0037304,2022,16,receiving_tds,0.5,synthetic,-110,-110,PIT,LV,2022_16_PIT_LV
 00-0037304,2022,16,receiving_yards,7.5,synthetic,-110,-110,PIT,LV,2022_16_PIT_LV
 00-0037304,2022,16,receptions,0.5,synthetic,-110,-110,PIT,LV,2022_16_PIT_LV
 00-0037311,2022,16,receiving_tds,0.5,synthetic,-110,-110,TB,ARI,2022_16_TB_ARI
@@ -79260,9 +79271,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037300,2022,17,carries,0.5,synthetic,-110,-110,CLE,WAS,2022_17_CLE_WAS
 00-0037300,2022,17,receiving_yards,3.5,synthetic,-110,-110,CLE,WAS,2022_17_CLE_WAS
 00-0037300,2022,17,receptions,0.5,synthetic,-110,-110,CLE,WAS,2022_17_CLE_WAS
-00-0037304,2022,17,receiving_tds,0.5,synthetic,-110,-110,PIT,BAL,2022_17_PIT_BAL
+00-0037304,2022,17,carries,0.5,synthetic,-110,-110,PIT,BAL,2022_17_PIT_BAL
 00-0037304,2022,17,receiving_yards,7.5,synthetic,-110,-110,PIT,BAL,2022_17_PIT_BAL
 00-0037304,2022,17,receptions,0.5,synthetic,-110,-110,PIT,BAL,2022_17_PIT_BAL
+00-0037304,2022,17,rushing_yards,5.5,synthetic,-110,-110,PIT,BAL,2022_17_PIT_BAL
 00-0037311,2022,17,receiving_yards,5.5,synthetic,-110,-110,TB,CAR,2022_17_TB_CAR
 00-0037311,2022,17,receptions,0.5,synthetic,-110,-110,TB,CAR,2022_17_TB_CAR
 00-0037327,2022,17,carries,2.5,synthetic,-110,-110,MIA,NE,2022_17_MIA_NE
@@ -80482,8 +80494,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037300,2022,18,carries,0.5,synthetic,-110,-110,CLE,PIT,2022_18_CLE_PIT
 00-0037300,2022,18,receiving_yards,2.5,synthetic,-110,-110,CLE,PIT,2022_18_CLE_PIT
 00-0037300,2022,18,receptions,0.5,synthetic,-110,-110,CLE,PIT,2022_18_CLE_PIT
+00-0037304,2022,18,carries,0.5,synthetic,-110,-110,PIT,CLE,2022_18_PIT_CLE
 00-0037304,2022,18,receiving_yards,3.5,synthetic,-110,-110,PIT,CLE,2022_18_PIT_CLE
 00-0037304,2022,18,receptions,0.5,synthetic,-110,-110,PIT,CLE,2022_18_PIT_CLE
+00-0037304,2022,18,rushing_yards,5.5,synthetic,-110,-110,PIT,CLE,2022_18_PIT_CLE
 00-0037327,2022,18,carries,2.5,synthetic,-110,-110,MIA,NYJ,2022_18_MIA_NYJ
 00-0037327,2022,18,completions,3.5,synthetic,-110,-110,MIA,NYJ,2022_18_MIA_NYJ
 00-0037327,2022,18,interceptions,0.5,synthetic,-110,-110,MIA,NYJ,2022_18_MIA_NYJ
@@ -82533,8 +82547,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037299,2023,1,carries,1.5,synthetic,-110,-110,ARI,WAS,2023_01_ARI_WAS
 00-0037299,2023,1,receptions,0.5,synthetic,-110,-110,ARI,WAS,2023_01_ARI_WAS
 00-0037299,2023,1,rushing_yards,2.5,synthetic,-110,-110,ARI,WAS,2023_01_ARI_WAS
+00-0037304,2023,1,carries,0.5,synthetic,-110,-110,PIT,SF,2023_01_PIT_SF
 00-0037304,2023,1,receiving_yards,11.5,synthetic,-110,-110,PIT,SF,2023_01_PIT_SF
 00-0037304,2023,1,receptions,0.5,synthetic,-110,-110,PIT,SF,2023_01_PIT_SF
+00-0037304,2023,1,rushing_yards,6.5,synthetic,-110,-110,PIT,SF,2023_01_PIT_SF
 00-0037382,2023,1,receiving_tds,0.5,synthetic,-110,-110,DEN,LV,2023_01_DEN_LV
 00-0037382,2023,1,receiving_yards,10.5,synthetic,-110,-110,DEN,LV,2023_01_DEN_LV
 00-0037382,2023,1,receptions,1.5,synthetic,-110,-110,DEN,LV,2023_01_DEN_LV
@@ -83514,8 +83530,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037299,2023,2,carries,2.5,synthetic,-110,-110,ARI,NYG,2023_02_ARI_NYG
 00-0037299,2023,2,receptions,0.5,synthetic,-110,-110,ARI,NYG,2023_02_ARI_NYG
 00-0037299,2023,2,rushing_yards,0.5,synthetic,-110,-110,ARI,NYG,2023_02_ARI_NYG
+00-0037304,2023,2,carries,0.5,synthetic,-110,-110,PIT,CLE,2023_02_PIT_CLE
 00-0037304,2023,2,receiving_yards,16.5,synthetic,-110,-110,PIT,CLE,2023_02_PIT_CLE
 00-0037304,2023,2,receptions,1.5,synthetic,-110,-110,PIT,CLE,2023_02_PIT_CLE
+00-0037304,2023,2,rushing_yards,6.5,synthetic,-110,-110,PIT,CLE,2023_02_PIT_CLE
 00-0037382,2023,2,receiving_yards,15.5,synthetic,-110,-110,DEN,WAS,2023_02_DEN_WAS
 00-0037382,2023,2,receptions,1.5,synthetic,-110,-110,DEN,WAS,2023_02_DEN_WAS
 00-0037475,2023,2,receiving_yards,5.5,synthetic,-110,-110,LAC,TEN,2023_02_LAC_TEN
@@ -83562,7 +83580,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037745,2023,2,carries,0.5,synthetic,-110,-110,CHI,TB,2023_02_CHI_TB
 00-0037745,2023,2,receiving_yards,20.5,synthetic,-110,-110,CHI,TB,2023_02_CHI_TB
 00-0037745,2023,2,receptions,1.5,synthetic,-110,-110,CHI,TB,2023_02_CHI_TB
-00-0037745,2023,2,rushing_tds,0.5,synthetic,-110,-110,CHI,TB,2023_02_CHI_TB
 00-0037745,2023,2,rushing_yards,13.5,synthetic,-110,-110,CHI,TB,2023_02_CHI_TB
 00-0037746,2023,2,carries,19.5,synthetic,-110,-110,WAS,DEN,2023_02_WAS_DEN
 00-0037746,2023,2,receiving_tds,0.5,synthetic,-110,-110,WAS,DEN,2023_02_WAS_DEN
@@ -84571,8 +84588,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037299,2023,3,carries,2.5,synthetic,-110,-110,ARI,DAL,2023_03_ARI_DAL
 00-0037299,2023,3,receptions,0.5,synthetic,-110,-110,ARI,DAL,2023_03_ARI_DAL
 00-0037299,2023,3,rushing_yards,2.5,synthetic,-110,-110,ARI,DAL,2023_03_ARI_DAL
+00-0037304,2023,3,carries,0.5,synthetic,-110,-110,PIT,LV,2023_03_PIT_LV
 00-0037304,2023,3,receiving_yards,16.5,synthetic,-110,-110,PIT,LV,2023_03_PIT_LV
 00-0037304,2023,3,receptions,1.5,synthetic,-110,-110,PIT,LV,2023_03_PIT_LV
+00-0037304,2023,3,rushing_yards,1.5,synthetic,-110,-110,PIT,LV,2023_03_PIT_LV
 00-0037382,2023,3,receiving_tds,0.5,synthetic,-110,-110,DEN,MIA,2023_03_DEN_MIA
 00-0037382,2023,3,receiving_yards,31.5,synthetic,-110,-110,DEN,MIA,2023_03_DEN_MIA
 00-0037382,2023,3,receptions,1.5,synthetic,-110,-110,DEN,MIA,2023_03_DEN_MIA
@@ -84608,7 +84627,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037745,2023,3,carries,0.5,synthetic,-110,-110,CHI,KC,2023_03_CHI_KC
 00-0037745,2023,3,receiving_yards,20.5,synthetic,-110,-110,CHI,KC,2023_03_CHI_KC
 00-0037745,2023,3,receptions,0.5,synthetic,-110,-110,CHI,KC,2023_03_CHI_KC
-00-0037745,2023,3,rushing_tds,0.5,synthetic,-110,-110,CHI,KC,2023_03_CHI_KC
 00-0037745,2023,3,rushing_yards,13.5,synthetic,-110,-110,CHI,KC,2023_03_CHI_KC
 00-0037746,2023,3,carries,20.5,synthetic,-110,-110,WAS,BUF,2023_03_WAS_BUF
 00-0037746,2023,3,receiving_tds,0.5,synthetic,-110,-110,WAS,BUF,2023_03_WAS_BUF
@@ -85666,7 +85684,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037745,2023,4,carries,0.5,synthetic,-110,-110,CHI,DEN,2023_04_CHI_DEN
 00-0037745,2023,4,receiving_yards,7.5,synthetic,-110,-110,CHI,DEN,2023_04_CHI_DEN
 00-0037745,2023,4,receptions,0.5,synthetic,-110,-110,CHI,DEN,2023_04_CHI_DEN
-00-0037745,2023,4,rushing_tds,0.5,synthetic,-110,-110,CHI,DEN,2023_04_CHI_DEN
 00-0037745,2023,4,rushing_yards,13.5,synthetic,-110,-110,CHI,DEN,2023_04_CHI_DEN
 00-0037746,2023,4,carries,17.5,synthetic,-110,-110,WAS,PHI,2023_04_WAS_PHI
 00-0037746,2023,4,receiving_tds,0.5,synthetic,-110,-110,WAS,PHI,2023_04_WAS_PHI
@@ -86656,8 +86673,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037292,2023,5,receiving_tds,0.5,synthetic,-110,-110,IND,TEN,2023_05_IND_TEN
 00-0037292,2023,5,receiving_yards,26.5,synthetic,-110,-110,IND,TEN,2023_05_IND_TEN
 00-0037292,2023,5,receptions,1.5,synthetic,-110,-110,IND,TEN,2023_05_IND_TEN
+00-0037304,2023,5,carries,0.5,synthetic,-110,-110,PIT,BAL,2023_05_PIT_BAL
 00-0037304,2023,5,receiving_yards,16.5,synthetic,-110,-110,PIT,BAL,2023_05_PIT_BAL
 00-0037304,2023,5,receptions,1.5,synthetic,-110,-110,PIT,BAL,2023_05_PIT_BAL
+00-0037304,2023,5,rushing_yards,1.5,synthetic,-110,-110,PIT,BAL,2023_05_PIT_BAL
 00-0037382,2023,5,receiving_tds,0.5,synthetic,-110,-110,DEN,NYJ,2023_05_DEN_NYJ
 00-0037382,2023,5,receiving_yards,28.5,synthetic,-110,-110,DEN,NYJ,2023_05_DEN_NYJ
 00-0037382,2023,5,receptions,1.5,synthetic,-110,-110,DEN,NYJ,2023_05_DEN_NYJ
@@ -87827,7 +87846,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037745,2023,6,carries,0.5,synthetic,-110,-110,CHI,MIN,2023_06_CHI_MIN
 00-0037745,2023,6,receiving_yards,7.5,synthetic,-110,-110,CHI,MIN,2023_06_CHI_MIN
 00-0037745,2023,6,receptions,0.5,synthetic,-110,-110,CHI,MIN,2023_06_CHI_MIN
-00-0037745,2023,6,rushing_tds,0.5,synthetic,-110,-110,CHI,MIN,2023_06_CHI_MIN
 00-0037745,2023,6,rushing_yards,12.5,synthetic,-110,-110,CHI,MIN,2023_06_CHI_MIN
 00-0037746,2023,6,carries,12.5,synthetic,-110,-110,WAS,ATL,2023_06_WAS_ATL
 00-0037746,2023,6,receiving_yards,20.5,synthetic,-110,-110,WAS,ATL,2023_06_WAS_ATL
@@ -88794,6 +88812,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037292,2023,7,receiving_tds,0.5,synthetic,-110,-110,IND,CLE,2023_07_IND_CLE
 00-0037292,2023,7,receiving_yards,18.5,synthetic,-110,-110,IND,CLE,2023_07_IND_CLE
 00-0037292,2023,7,receptions,1.5,synthetic,-110,-110,IND,CLE,2023_07_IND_CLE
+00-0037304,2023,7,carries,0.5,synthetic,-110,-110,PIT,LA,2023_07_PIT_LA
 00-0037304,2023,7,receiving_yards,10.5,synthetic,-110,-110,PIT,LA,2023_07_PIT_LA
 00-0037304,2023,7,receptions,1.5,synthetic,-110,-110,PIT,LA,2023_07_PIT_LA
 00-0037475,2023,7,receiving_yards,8.5,synthetic,-110,-110,LAC,KC,2023_07_LAC_KC
@@ -89922,6 +89941,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037299,2023,8,receiving_yards,4.5,synthetic,-110,-110,ARI,BAL,2023_08_ARI_BAL
 00-0037299,2023,8,receptions,0.5,synthetic,-110,-110,ARI,BAL,2023_08_ARI_BAL
 00-0037299,2023,8,rushing_yards,13.5,synthetic,-110,-110,ARI,BAL,2023_08_ARI_BAL
+00-0037304,2023,8,carries,0.5,synthetic,-110,-110,PIT,JAX,2023_08_PIT_JAX
 00-0037304,2023,8,receiving_yards,11.5,synthetic,-110,-110,PIT,JAX,2023_08_PIT_JAX
 00-0037304,2023,8,receptions,1.5,synthetic,-110,-110,PIT,JAX,2023_08_PIT_JAX
 00-0037429,2023,8,carries,2.5,synthetic,-110,-110,CAR,HOU,2023_08_CAR_HOU
@@ -90568,7 +90588,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034959,2023,9,carries,1.5,synthetic,-110,-110,HOU,TB,2023_09_HOU_TB
 00-0034959,2023,9,receiving_yards,2.5,synthetic,-110,-110,HOU,TB,2023_09_HOU_TB
 00-0034959,2023,9,receptions,0.5,synthetic,-110,-110,HOU,TB,2023_09_HOU_TB
-00-0034959,2023,9,rushing_tds,0.5,synthetic,-110,-110,HOU,TB,2023_09_HOU_TB
 00-0034959,2023,9,rushing_yards,0.5,synthetic,-110,-110,HOU,TB,2023_09_HOU_TB
 00-0034960,2023,9,carries,0.5,synthetic,-110,-110,LV,NYG,2023_09_LV_NYG
 00-0034960,2023,9,receiving_tds,0.5,synthetic,-110,-110,LV,NYG,2023_09_LV_NYG
@@ -91007,6 +91026,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037299,2023,9,receiving_yards,6.5,synthetic,-110,-110,ARI,CLE,2023_09_ARI_CLE
 00-0037299,2023,9,receptions,1.5,synthetic,-110,-110,ARI,CLE,2023_09_ARI_CLE
 00-0037299,2023,9,rushing_yards,17.5,synthetic,-110,-110,ARI,CLE,2023_09_ARI_CLE
+00-0037304,2023,9,carries,0.5,synthetic,-110,-110,PIT,TEN,2023_09_PIT_TEN
 00-0037304,2023,9,receiving_yards,17.5,synthetic,-110,-110,PIT,TEN,2023_09_PIT_TEN
 00-0037304,2023,9,receptions,2.5,synthetic,-110,-110,PIT,TEN,2023_09_PIT_TEN
 00-0037429,2023,9,carries,2.5,synthetic,-110,-110,CAR,IND,2023_09_CAR_IND
@@ -92685,7 +92705,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034959,2023,11,carries,0.5,synthetic,-110,-110,HOU,ARI,2023_11_HOU_ARI
 00-0034959,2023,11,receiving_yards,3.5,synthetic,-110,-110,HOU,ARI,2023_11_HOU_ARI
 00-0034959,2023,11,receptions,0.5,synthetic,-110,-110,HOU,ARI,2023_11_HOU_ARI
-00-0034959,2023,11,rushing_tds,0.5,synthetic,-110,-110,HOU,ARI,2023_11_HOU_ARI
 00-0034959,2023,11,rushing_yards,0.5,synthetic,-110,-110,HOU,ARI,2023_11_HOU_ARI
 00-0034960,2023,11,carries,0.5,synthetic,-110,-110,LV,MIA,2023_11_LV_MIA
 00-0034960,2023,11,receiving_tds,0.5,synthetic,-110,-110,LV,MIA,2023_11_LV_MIA
@@ -93798,7 +93817,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034959,2023,12,carries,0.5,synthetic,-110,-110,HOU,JAX,2023_12_HOU_JAX
 00-0034959,2023,12,receiving_yards,3.5,synthetic,-110,-110,HOU,JAX,2023_12_HOU_JAX
 00-0034959,2023,12,receptions,0.5,synthetic,-110,-110,HOU,JAX,2023_12_HOU_JAX
-00-0034959,2023,12,rushing_tds,0.5,synthetic,-110,-110,HOU,JAX,2023_12_HOU_JAX
 00-0034959,2023,12,rushing_yards,0.5,synthetic,-110,-110,HOU,JAX,2023_12_HOU_JAX
 00-0034960,2023,12,carries,0.5,synthetic,-110,-110,LV,KC,2023_12_LV_KC
 00-0034960,2023,12,receiving_yards,31.5,synthetic,-110,-110,LV,KC,2023_12_LV_KC
@@ -94934,7 +94952,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034959,2023,13,carries,0.5,synthetic,-110,-110,HOU,DEN,2023_13_HOU_DEN
 00-0034959,2023,13,receiving_yards,3.5,synthetic,-110,-110,HOU,DEN,2023_13_HOU_DEN
 00-0034959,2023,13,receptions,1.5,synthetic,-110,-110,HOU,DEN,2023_13_HOU_DEN
-00-0034959,2023,13,rushing_tds,0.5,synthetic,-110,-110,HOU,DEN,2023_13_HOU_DEN
 00-0034959,2023,13,rushing_yards,0.5,synthetic,-110,-110,HOU,DEN,2023_13_HOU_DEN
 00-0034970,2023,13,receiving_tds,0.5,synthetic,-110,-110,CIN,JAX,2023_13_CIN_JAX
 00-0034970,2023,13,receiving_yards,10.5,synthetic,-110,-110,CIN,JAX,2023_13_CIN_JAX
@@ -100656,7 +100673,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034869,2023,18,passing_tds,0.5,synthetic,-110,-110,SF,LA,2023_18_SF_LA
 00-0034869,2023,18,passing_yards,25.5,synthetic,-110,-110,SF,LA,2023_18_SF_LA
 00-0034869,2023,18,rushing_yards,1.5,synthetic,-110,-110,SF,LA,2023_18_SF_LA
-00-0034959,2023,18,receiving_tds,0.5,synthetic,-110,-110,HOU,IND,2023_18_HOU_IND
 00-0034959,2023,18,receiving_yards,8.5,synthetic,-110,-110,HOU,IND,2023_18_HOU_IND
 00-0034959,2023,18,receptions,1.5,synthetic,-110,-110,HOU,IND,2023_18_HOU_IND
 00-0034960,2023,18,receiving_tds,0.5,synthetic,-110,-110,LV,DEN,2023_18_LV_DEN
@@ -101027,6 +101043,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037077,2023,18,rushing_yards,10.5,synthetic,-110,-110,WAS,DAL,2023_18_WAS_DAL
 00-0037086,2023,18,receiving_yards,11.5,synthetic,-110,-110,PHI,NYG,2023_18_PHI_NYG
 00-0037086,2023,18,receptions,1.5,synthetic,-110,-110,PHI,NYG,2023_18_PHI_NYG
+00-0037091,2023,18,carries,0.5,synthetic,-110,-110,GB,CHI,2023_18_GB_CHI
+00-0037091,2023,18,receiving_tds,0.5,synthetic,-110,-110,GB,CHI,2023_18_GB_CHI
+00-0037091,2023,18,receiving_yards,52.5,synthetic,-110,-110,GB,CHI,2023_18_GB_CHI
+00-0037091,2023,18,receptions,3.5,synthetic,-110,-110,GB,CHI,2023_18_GB_CHI
+00-0037091,2023,18,rushing_yards,2.5,synthetic,-110,-110,GB,CHI,2023_18_GB_CHI
 00-0037093,2023,18,receiving_yards,8.5,synthetic,-110,-110,SEA,ARI,2023_18_SEA_ARI
 00-0037093,2023,18,receptions,0.5,synthetic,-110,-110,SEA,ARI,2023_18_SEA_ARI
 00-0037120,2023,18,carries,3.5,synthetic,-110,-110,IND,HOU,2023_18_IND_HOU
@@ -101577,7 +101598,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034857,2023,19,passing_yards,214.5,synthetic,-110,-110,BUF,PIT,2023_19_BUF_PIT
 00-0034857,2023,19,rushing_tds,1.5,synthetic,-110,-110,BUF,PIT,2023_19_BUF_PIT
 00-0034857,2023,19,rushing_yards,37.5,synthetic,-110,-110,BUF,PIT,2023_19_BUF_PIT
-00-0034959,2023,19,receiving_tds,0.5,synthetic,-110,-110,HOU,CLE,2023_19_HOU_CLE
 00-0034959,2023,19,receiving_yards,9.5,synthetic,-110,-110,HOU,CLE,2023_19_HOU_CLE
 00-0034959,2023,19,receptions,1.5,synthetic,-110,-110,HOU,CLE,2023_19_HOU_CLE
 00-0035125,2023,19,receiving_yards,10.5,synthetic,-110,-110,MIA,KC,2023_19_MIA_KC
@@ -101722,6 +101742,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036980,2023,19,receiving_tds,0.5,synthetic,-110,-110,CLE,HOU,2023_19_CLE_HOU
 00-0036980,2023,19,receiving_yards,34.5,synthetic,-110,-110,CLE,HOU,2023_19_CLE_HOU
 00-0036980,2023,19,receptions,3.5,synthetic,-110,-110,CLE,HOU,2023_19_CLE_HOU
+00-0037091,2023,19,carries,0.5,synthetic,-110,-110,GB,DAL,2023_19_GB_DAL
+00-0037091,2023,19,receiving_tds,0.5,synthetic,-110,-110,GB,DAL,2023_19_GB_DAL
+00-0037091,2023,19,receiving_yards,54.5,synthetic,-110,-110,GB,DAL,2023_19_GB_DAL
+00-0037091,2023,19,receptions,4.5,synthetic,-110,-110,GB,DAL,2023_19_GB_DAL
+00-0037091,2023,19,rushing_yards,5.5,synthetic,-110,-110,GB,DAL,2023_19_GB_DAL
 00-0037132,2023,19,receiving_yards,10.5,synthetic,-110,-110,PHI,TB,2023_19_PHI_TB
 00-0037132,2023,19,receptions,1.5,synthetic,-110,-110,PHI,TB,2023_19_PHI_TB
 00-0037197,2023,19,carries,15.5,synthetic,-110,-110,KC,MIA,2023_19_KC_MIA
@@ -102075,6 +102100,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036963,2023,20,receiving_yards,112.5,synthetic,-110,-110,DET,TB,2023_20_DET_TB
 00-0036963,2023,20,receptions,8.5,synthetic,-110,-110,DET,TB,2023_20_DET_TB
 00-0036963,2023,20,rushing_yards,2.5,synthetic,-110,-110,DET,TB,2023_20_DET_TB
+00-0037091,2023,20,carries,0.5,synthetic,-110,-110,GB,SF,2023_20_GB_SF
+00-0037091,2023,20,receiving_tds,0.5,synthetic,-110,-110,GB,SF,2023_20_GB_SF
+00-0037091,2023,20,receiving_yards,54.5,synthetic,-110,-110,GB,SF,2023_20_GB_SF
+00-0037091,2023,20,receptions,4.5,synthetic,-110,-110,GB,SF,2023_20_GB_SF
+00-0037091,2023,20,rushing_yards,5.5,synthetic,-110,-110,GB,SF,2023_20_GB_SF
 00-0037197,2023,20,carries,17.5,synthetic,-110,-110,KC,BUF,2023_20_KC_BUF
 00-0037197,2023,20,receiving_tds,0.5,synthetic,-110,-110,KC,BUF,2023_20_KC_BUF
 00-0037197,2023,20,receiving_yards,11.5,synthetic,-110,-110,KC,BUF,2023_20_KC_BUF
@@ -103136,6 +103166,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036997,2024,1,rushing_yards,31.5,synthetic,-110,-110,DEN,SEA,2024_01_DEN_SEA
 00-0037086,2024,1,receiving_yards,9.5,synthetic,-110,-110,PHI,GB,2024_01_PHI_GB
 00-0037086,2024,1,receptions,1.5,synthetic,-110,-110,PHI,GB,2024_01_PHI_GB
+00-0037091,2024,1,carries,0.5,synthetic,-110,-110,GB,PHI,2024_01_GB_PHI
+00-0037091,2024,1,receiving_tds,0.5,synthetic,-110,-110,GB,PHI,2024_01_GB_PHI
+00-0037091,2024,1,receiving_yards,48.5,synthetic,-110,-110,GB,PHI,2024_01_GB_PHI
+00-0037091,2024,1,receptions,3.5,synthetic,-110,-110,GB,PHI,2024_01_GB_PHI
+00-0037091,2024,1,rushing_yards,3.5,synthetic,-110,-110,GB,PHI,2024_01_GB_PHI
 00-0037093,2024,1,receiving_yards,8.5,synthetic,-110,-110,SEA,DEN,2024_01_SEA_DEN
 00-0037093,2024,1,receptions,0.5,synthetic,-110,-110,SEA,DEN,2024_01_SEA_DEN
 00-0037132,2024,1,receiving_yards,10.5,synthetic,-110,-110,PHI,GB,2024_01_PHI_GB
@@ -103705,6 +103740,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033375,2024,2,receiving_tds,0.5,synthetic,-110,-110,DET,TB,2024_02_DET_TB
 00-0033375,2024,2,receiving_yards,44.5,synthetic,-110,-110,DET,TB,2024_02_DET_TB
 00-0033375,2024,2,receptions,3.5,synthetic,-110,-110,DET,TB,2024_02_DET_TB
+00-0033376,2024,2,receiving_tds,0.5,synthetic,-110,-110,BAL,LV,2024_02_BAL_LV
 00-0033376,2024,2,receiving_yards,8.5,synthetic,-110,-110,BAL,LV,2024_02_BAL_LV
 00-0033376,2024,2,receptions,0.5,synthetic,-110,-110,BAL,LV,2024_02_BAL_LV
 00-0033526,2024,2,carries,2.5,synthetic,-110,-110,KC,CIN,2024_02_KC_CIN
@@ -104258,6 +104294,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037005,2024,2,receptions,2.5,synthetic,-110,-110,CAR,LAC,2024_02_CAR_LAC
 00-0037086,2024,2,receiving_yards,12.5,synthetic,-110,-110,PHI,ATL,2024_02_PHI_ATL
 00-0037086,2024,2,receptions,1.5,synthetic,-110,-110,PHI,ATL,2024_02_PHI_ATL
+00-0037091,2024,2,carries,0.5,synthetic,-110,-110,GB,IND,2024_02_GB_IND
+00-0037091,2024,2,receiving_tds,0.5,synthetic,-110,-110,GB,IND,2024_02_GB_IND
+00-0037091,2024,2,receiving_yards,22.5,synthetic,-110,-110,GB,IND,2024_02_GB_IND
+00-0037091,2024,2,receptions,1.5,synthetic,-110,-110,GB,IND,2024_02_GB_IND
+00-0037091,2024,2,rushing_yards,3.5,synthetic,-110,-110,GB,IND,2024_02_GB_IND
 00-0037120,2024,2,carries,3.5,synthetic,-110,-110,IND,GB,2024_02_IND_GB
 00-0037120,2024,2,receiving_yards,6.5,synthetic,-110,-110,IND,GB,2024_02_IND_GB
 00-0037120,2024,2,receptions,0.5,synthetic,-110,-110,IND,GB,2024_02_IND_GB
@@ -105358,6 +105399,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037005,2024,3,receptions,2.5,synthetic,-110,-110,CAR,LV,2024_03_CAR_LV
 00-0037086,2024,3,receiving_yards,17.5,synthetic,-110,-110,PHI,NO,2024_03_PHI_NO
 00-0037086,2024,3,receptions,1.5,synthetic,-110,-110,PHI,NO,2024_03_PHI_NO
+00-0037091,2024,3,carries,0.5,synthetic,-110,-110,GB,TEN,2024_03_GB_TEN
+00-0037091,2024,3,receiving_tds,0.5,synthetic,-110,-110,GB,TEN,2024_03_GB_TEN
+00-0037091,2024,3,receiving_yards,6.5,synthetic,-110,-110,GB,TEN,2024_03_GB_TEN
+00-0037091,2024,3,receptions,0.5,synthetic,-110,-110,GB,TEN,2024_03_GB_TEN
+00-0037091,2024,3,rushing_yards,2.5,synthetic,-110,-110,GB,TEN,2024_03_GB_TEN
 00-0037120,2024,3,carries,0.5,synthetic,-110,-110,IND,CHI,2024_03_IND_CHI
 00-0037120,2024,3,receiving_yards,4.5,synthetic,-110,-110,IND,CHI,2024_03_IND_CHI
 00-0037120,2024,3,receptions,0.5,synthetic,-110,-110,IND,CHI,2024_03_IND_CHI
@@ -105922,6 +105968,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033357,2024,4,receptions,2.5,synthetic,-110,-110,NO,ATL,2024_04_NO_ATL
 00-0033375,2024,4,receiving_yards,33.5,synthetic,-110,-110,DET,SEA,2024_04_DET_SEA
 00-0033375,2024,4,receptions,2.5,synthetic,-110,-110,DET,SEA,2024_04_DET_SEA
+00-0033376,2024,4,receiving_tds,0.5,synthetic,-110,-110,BAL,BUF,2024_04_BAL_BUF
 00-0033376,2024,4,receiving_yards,1.5,synthetic,-110,-110,BAL,BUF,2024_04_BAL_BUF
 00-0033376,2024,4,receptions,0.5,synthetic,-110,-110,BAL,BUF,2024_04_BAL_BUF
 00-0033439,2024,4,receiving_yards,9.5,synthetic,-110,-110,SEA,DET,2024_04_SEA_DET
@@ -106450,6 +106497,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2024,4,rushing_yards,28.5,synthetic,-110,-110,DEN,NYJ,2024_04_DEN_NYJ
 00-0037086,2024,4,receiving_yards,12.5,synthetic,-110,-110,PHI,TB,2024_04_PHI_TB
 00-0037086,2024,4,receptions,1.5,synthetic,-110,-110,PHI,TB,2024_04_PHI_TB
+00-0037091,2024,4,carries,0.5,synthetic,-110,-110,GB,MIN,2024_04_GB_MIN
+00-0037091,2024,4,receiving_tds,0.5,synthetic,-110,-110,GB,MIN,2024_04_GB_MIN
+00-0037091,2024,4,receiving_yards,4.5,synthetic,-110,-110,GB,MIN,2024_04_GB_MIN
+00-0037091,2024,4,receptions,0.5,synthetic,-110,-110,GB,MIN,2024_04_GB_MIN
+00-0037091,2024,4,rushing_yards,2.5,synthetic,-110,-110,GB,MIN,2024_04_GB_MIN
 00-0037093,2024,4,receiving_yards,8.5,synthetic,-110,-110,SEA,DET,2024_04_SEA_DET
 00-0037093,2024,4,receptions,0.5,synthetic,-110,-110,SEA,DET,2024_04_SEA_DET
 00-0037238,2024,4,receiving_tds,0.5,synthetic,-110,-110,ATL,NO,2024_04_ATL_NO
@@ -107056,6 +107108,9 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033319,2024,5,passing_tds,1.5,synthetic,-110,-110,MIN,NYJ,2024_05_MIN_NYJ
 00-0033319,2024,5,passing_yards,230.5,synthetic,-110,-110,MIN,NYJ,2024_05_MIN_NYJ
 00-0033319,2024,5,rushing_yards,3.5,synthetic,-110,-110,MIN,NYJ,2024_05_MIN_NYJ
+00-0033376,2024,5,receiving_tds,0.5,synthetic,-110,-110,BAL,CIN,2024_05_BAL_CIN
+00-0033376,2024,5,receiving_yards,1.5,synthetic,-110,-110,BAL,CIN,2024_05_BAL_CIN
+00-0033376,2024,5,receptions,0.5,synthetic,-110,-110,BAL,CIN,2024_05_BAL_CIN
 00-0033439,2024,5,receiving_yards,4.5,synthetic,-110,-110,SEA,NYG,2024_05_SEA_NYG
 00-0033439,2024,5,receptions,1.5,synthetic,-110,-110,SEA,NYG,2024_05_SEA_NYG
 00-0033526,2024,5,carries,2.5,synthetic,-110,-110,KC,NO,2024_05_KC_NO
@@ -107493,6 +107548,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036997,2024,5,rushing_yards,32.5,synthetic,-110,-110,DEN,LV,2024_05_DEN_LV
 00-0037005,2024,5,receiving_yards,17.5,synthetic,-110,-110,CAR,CHI,2024_05_CAR_CHI
 00-0037005,2024,5,receptions,2.5,synthetic,-110,-110,CAR,CHI,2024_05_CAR_CHI
+00-0037091,2024,5,carries,0.5,synthetic,-110,-110,GB,LA,2024_05_GB_LA
+00-0037091,2024,5,receiving_yards,7.5,synthetic,-110,-110,GB,LA,2024_05_GB_LA
+00-0037091,2024,5,receptions,0.5,synthetic,-110,-110,GB,LA,2024_05_GB_LA
+00-0037091,2024,5,rushing_yards,2.5,synthetic,-110,-110,GB,LA,2024_05_GB_LA
 00-0037120,2024,5,carries,0.5,synthetic,-110,-110,IND,JAX,2024_05_IND_JAX
 00-0037120,2024,5,receiving_yards,0.5,synthetic,-110,-110,IND,JAX,2024_05_IND_JAX
 00-0037120,2024,5,receptions,0.5,synthetic,-110,-110,IND,JAX,2024_05_IND_JAX
@@ -108149,7 +108208,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034857,2024,6,passing_yards,178.5,synthetic,-110,-110,BUF,NYJ,2024_06_BUF_NYJ
 00-0034857,2024,6,rushing_yards,30.5,synthetic,-110,-110,BUF,NYJ,2024_06_BUF_NYJ
 00-0034928,2024,6,carries,0.5,synthetic,-110,-110,HOU,NE,2024_06_HOU_NE
-00-0034959,2024,6,receiving_tds,0.5,synthetic,-110,-110,GB,ARI,2024_06_GB_ARI
 00-0034959,2024,6,receiving_yards,2.5,synthetic,-110,-110,GB,ARI,2024_06_GB_ARI
 00-0034959,2024,6,receptions,1.5,synthetic,-110,-110,GB,ARI,2024_06_GB_ARI
 00-0034972,2024,6,carries,6.5,synthetic,-110,-110,LV,PIT,2024_06_LV_PIT
@@ -108457,6 +108515,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0036997,2024,6,rushing_yards,41.5,synthetic,-110,-110,DEN,LAC,2024_06_DEN_LAC
 00-0037086,2024,6,receiving_yards,14.5,synthetic,-110,-110,PHI,CLE,2024_06_PHI_CLE
 00-0037086,2024,6,receptions,1.5,synthetic,-110,-110,PHI,CLE,2024_06_PHI_CLE
+00-0037091,2024,6,carries,0.5,synthetic,-110,-110,GB,ARI,2024_06_GB_ARI
+00-0037091,2024,6,receiving_yards,10.5,synthetic,-110,-110,GB,ARI,2024_06_GB_ARI
+00-0037091,2024,6,receptions,0.5,synthetic,-110,-110,GB,ARI,2024_06_GB_ARI
+00-0037091,2024,6,rushing_yards,2.5,synthetic,-110,-110,GB,ARI,2024_06_GB_ARI
 00-0037120,2024,6,carries,1.5,synthetic,-110,-110,IND,TEN,2024_06_IND_TEN
 00-0037120,2024,6,receiving_yards,8.5,synthetic,-110,-110,IND,TEN,2024_06_IND_TEN
 00-0037120,2024,6,receptions,1.5,synthetic,-110,-110,IND,TEN,2024_06_IND_TEN
@@ -108498,7 +108560,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037292,2024,6,receiving_tds,0.5,synthetic,-110,-110,IND,TEN,2024_06_IND_TEN
 00-0037292,2024,6,receiving_yards,8.5,synthetic,-110,-110,IND,TEN,2024_06_IND_TEN
 00-0037292,2024,6,receptions,0.5,synthetic,-110,-110,IND,TEN,2024_06_IND_TEN
-00-0037304,2024,6,receiving_tds,0.5,synthetic,-110,-110,PIT,LV,2024_06_PIT_LV
 00-0037304,2024,6,receiving_yards,6.5,synthetic,-110,-110,PIT,LV,2024_06_PIT_LV
 00-0037304,2024,6,receptions,0.5,synthetic,-110,-110,PIT,LV,2024_06_PIT_LV
 00-0037475,2024,6,receiving_yards,15.5,synthetic,-110,-110,LAC,DEN,2024_06_LAC_DEN
@@ -109036,6 +109097,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033307,2024,7,receptions,3.5,synthetic,-110,-110,NE,JAX,2024_07_NE_JAX
 00-0033375,2024,7,receiving_yards,35.5,synthetic,-110,-110,DET,MIN,2024_07_DET_MIN
 00-0033375,2024,7,receptions,2.5,synthetic,-110,-110,DET,MIN,2024_07_DET_MIN
+00-0033376,2024,7,receiving_tds,0.5,synthetic,-110,-110,BAL,TB,2024_07_BAL_TB
 00-0033376,2024,7,receiving_yards,1.5,synthetic,-110,-110,BAL,TB,2024_07_BAL_TB
 00-0033376,2024,7,receptions,0.5,synthetic,-110,-110,BAL,TB,2024_07_BAL_TB
 00-0033526,2024,7,carries,2.5,synthetic,-110,-110,KC,SF,2024_07_KC_SF
@@ -109552,6 +109614,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037004,2024,7,receptions,0.5,synthetic,-110,-110,LA,LV,2024_07_LA_LV
 00-0037086,2024,7,receiving_yards,28.5,synthetic,-110,-110,PHI,NYG,2024_07_PHI_NYG
 00-0037086,2024,7,receptions,1.5,synthetic,-110,-110,PHI,NYG,2024_07_PHI_NYG
+00-0037091,2024,7,carries,0.5,synthetic,-110,-110,GB,HOU,2024_07_GB_HOU
+00-0037091,2024,7,receiving_yards,11.5,synthetic,-110,-110,GB,HOU,2024_07_GB_HOU
+00-0037091,2024,7,receptions,0.5,synthetic,-110,-110,GB,HOU,2024_07_GB_HOU
+00-0037091,2024,7,rushing_yards,6.5,synthetic,-110,-110,GB,HOU,2024_07_GB_HOU
 00-0037120,2024,7,carries,3.5,synthetic,-110,-110,IND,MIA,2024_07_IND_MIA
 00-0037120,2024,7,receiving_yards,11.5,synthetic,-110,-110,IND,MIA,2024_07_IND_MIA
 00-0037120,2024,7,receptions,2.5,synthetic,-110,-110,IND,MIA,2024_07_IND_MIA
@@ -109607,7 +109673,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037292,2024,7,receiving_tds,0.5,synthetic,-110,-110,IND,MIA,2024_07_IND_MIA
 00-0037292,2024,7,receiving_yards,11.5,synthetic,-110,-110,IND,MIA,2024_07_IND_MIA
 00-0037292,2024,7,receptions,1.5,synthetic,-110,-110,IND,MIA,2024_07_IND_MIA
-00-0037304,2024,7,receiving_tds,0.5,synthetic,-110,-110,PIT,NYJ,2024_07_PIT_NYJ
 00-0037304,2024,7,receiving_yards,7.5,synthetic,-110,-110,PIT,NYJ,2024_07_PIT_NYJ
 00-0037304,2024,7,receptions,1.5,synthetic,-110,-110,PIT,NYJ,2024_07_PIT_NYJ
 00-0037311,2024,7,receiving_tds,0.5,synthetic,-110,-110,TB,BAL,2024_07_TB_BAL
@@ -110702,6 +110767,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037005,2024,8,receptions,2.5,synthetic,-110,-110,CAR,DEN,2024_08_CAR_DEN
 00-0037086,2024,8,receiving_yards,24.5,synthetic,-110,-110,PHI,CIN,2024_08_PHI_CIN
 00-0037086,2024,8,receptions,1.5,synthetic,-110,-110,PHI,CIN,2024_08_PHI_CIN
+00-0037091,2024,8,carries,0.5,synthetic,-110,-110,GB,JAX,2024_08_GB_JAX
+00-0037091,2024,8,receiving_yards,13.5,synthetic,-110,-110,GB,JAX,2024_08_GB_JAX
+00-0037091,2024,8,receptions,1.5,synthetic,-110,-110,GB,JAX,2024_08_GB_JAX
+00-0037091,2024,8,rushing_yards,6.5,synthetic,-110,-110,GB,JAX,2024_08_GB_JAX
 00-0037120,2024,8,carries,6.5,synthetic,-110,-110,IND,HOU,2024_08_IND_HOU
 00-0037120,2024,8,receiving_yards,11.5,synthetic,-110,-110,IND,HOU,2024_08_IND_HOU
 00-0037120,2024,8,receptions,1.5,synthetic,-110,-110,IND,HOU,2024_08_IND_HOU
@@ -111364,8 +111433,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033357,2024,9,receptions,1.5,synthetic,-110,-110,NO,CAR,2024_09_NO_CAR
 00-0033375,2024,9,receiving_yards,36.5,synthetic,-110,-110,DET,GB,2024_09_DET_GB
 00-0033375,2024,9,receptions,1.5,synthetic,-110,-110,DET,GB,2024_09_DET_GB
-00-0033376,2024,9,receiving_yards,1.5,synthetic,-110,-110,BAL,DEN,2024_09_BAL_DEN
-00-0033376,2024,9,receptions,0.5,synthetic,-110,-110,BAL,DEN,2024_09_BAL_DEN
 00-0033526,2024,9,carries,1.5,synthetic,-110,-110,KC,TB,2024_09_KC_TB
 00-0033526,2024,9,receiving_yards,19.5,synthetic,-110,-110,KC,TB,2024_09_KC_TB
 00-0033526,2024,9,receptions,1.5,synthetic,-110,-110,KC,TB,2024_09_KC_TB
@@ -111862,6 +111929,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037004,2024,9,receptions,1.5,synthetic,-110,-110,LA,SEA,2024_09_LA_SEA
 00-0037086,2024,9,receiving_yards,39.5,synthetic,-110,-110,PHI,JAX,2024_09_PHI_JAX
 00-0037086,2024,9,receptions,2.5,synthetic,-110,-110,PHI,JAX,2024_09_PHI_JAX
+00-0037091,2024,9,carries,0.5,synthetic,-110,-110,GB,DET,2024_09_GB_DET
+00-0037091,2024,9,receiving_yards,6.5,synthetic,-110,-110,GB,DET,2024_09_GB_DET
+00-0037091,2024,9,receptions,0.5,synthetic,-110,-110,GB,DET,2024_09_GB_DET
+00-0037091,2024,9,rushing_yards,6.5,synthetic,-110,-110,GB,DET,2024_09_GB_DET
 00-0037120,2024,9,carries,6.5,synthetic,-110,-110,IND,MIN,2024_09_IND_MIN
 00-0037120,2024,9,receiving_yards,11.5,synthetic,-110,-110,IND,MIN,2024_09_IND_MIN
 00-0037120,2024,9,receptions,1.5,synthetic,-110,-110,IND,MIN,2024_09_IND_MIN
@@ -112958,7 +113029,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037292,2024,10,receiving_tds,0.5,synthetic,-110,-110,IND,BUF,2024_10_IND_BUF
 00-0037292,2024,10,receiving_yards,11.5,synthetic,-110,-110,IND,BUF,2024_10_IND_BUF
 00-0037292,2024,10,receptions,1.5,synthetic,-110,-110,IND,BUF,2024_10_IND_BUF
-00-0037304,2024,10,receiving_tds,0.5,synthetic,-110,-110,PIT,WAS,2024_10_PIT_WAS
 00-0037304,2024,10,receiving_yards,6.5,synthetic,-110,-110,PIT,WAS,2024_10_PIT_WAS
 00-0037304,2024,10,receptions,0.5,synthetic,-110,-110,PIT,WAS,2024_10_PIT_WAS
 00-0037525,2024,10,carries,10.5,synthetic,-110,-110,SF,TB,2024_10_SF_TB
@@ -113522,6 +113592,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033357,2024,11,receptions,2.5,synthetic,-110,-110,NO,CLE,2024_11_NO_CLE
 00-0033375,2024,11,receiving_yards,26.5,synthetic,-110,-110,DET,JAX,2024_11_DET_JAX
 00-0033375,2024,11,receptions,1.5,synthetic,-110,-110,DET,JAX,2024_11_DET_JAX
+00-0033376,2024,11,receiving_tds,0.5,synthetic,-110,-110,BAL,PIT,2024_11_BAL_PIT
 00-0033376,2024,11,receiving_yards,0.5,synthetic,-110,-110,BAL,PIT,2024_11_BAL_PIT
 00-0033376,2024,11,receptions,0.5,synthetic,-110,-110,BAL,PIT,2024_11_BAL_PIT
 00-0033439,2024,11,receiving_yards,4.5,synthetic,-110,-110,SEA,SF,2024_11_SEA_SF
@@ -114060,7 +114131,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2024,11,receptions,2.5,synthetic,-110,-110,MIN,TEN,2024_11_MIN_TEN
 00-0037292,2024,11,receiving_yards,7.5,synthetic,-110,-110,IND,NYJ,2024_11_IND_NYJ
 00-0037292,2024,11,receptions,1.5,synthetic,-110,-110,IND,NYJ,2024_11_IND_NYJ
-00-0037304,2024,11,receiving_tds,0.5,synthetic,-110,-110,PIT,BAL,2024_11_PIT_BAL
 00-0037304,2024,11,receiving_yards,6.5,synthetic,-110,-110,PIT,BAL,2024_11_PIT_BAL
 00-0037304,2024,11,receptions,0.5,synthetic,-110,-110,PIT,BAL,2024_11_PIT_BAL
 00-0037525,2024,11,carries,7.5,synthetic,-110,-110,SF,SEA,2024_11_SF_SEA
@@ -114610,6 +114680,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033319,2024,12,rushing_yards,3.5,synthetic,-110,-110,MIN,CHI,2024_12_MIN_CHI
 00-0033375,2024,12,receiving_yards,15.5,synthetic,-110,-110,DET,IND,2024_12_DET_IND
 00-0033375,2024,12,receptions,1.5,synthetic,-110,-110,DET,IND,2024_12_DET_IND
+00-0033376,2024,12,receiving_tds,0.5,synthetic,-110,-110,BAL,LAC,2024_12_BAL_LAC
 00-0033376,2024,12,receiving_yards,2.5,synthetic,-110,-110,BAL,LAC,2024_12_BAL_LAC
 00-0033376,2024,12,receptions,0.5,synthetic,-110,-110,BAL,LAC,2024_12_BAL_LAC
 00-0033439,2024,12,receiving_yards,2.5,synthetic,-110,-110,SEA,ARI,2024_12_SEA_ARI
@@ -115022,6 +115093,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037012,2024,12,rushing_yards,28.5,synthetic,-110,-110,DAL,WAS,2024_12_DAL_WAS
 00-0037086,2024,12,receiving_yards,22.5,synthetic,-110,-110,PHI,LA,2024_12_PHI_LA
 00-0037086,2024,12,receptions,2.5,synthetic,-110,-110,PHI,LA,2024_12_PHI_LA
+00-0037091,2024,12,carries,0.5,synthetic,-110,-110,GB,SF,2024_12_GB_SF
+00-0037091,2024,12,receiving_yards,8.5,synthetic,-110,-110,GB,SF,2024_12_GB_SF
+00-0037091,2024,12,receptions,0.5,synthetic,-110,-110,GB,SF,2024_12_GB_SF
+00-0037091,2024,12,rushing_yards,6.5,synthetic,-110,-110,GB,SF,2024_12_GB_SF
 00-0037093,2024,12,receiving_yards,2.5,synthetic,-110,-110,SEA,ARI,2024_12_SEA_ARI
 00-0037093,2024,12,receptions,0.5,synthetic,-110,-110,SEA,ARI,2024_12_SEA_ARI
 00-0037120,2024,12,receiving_tds,0.5,synthetic,-110,-110,IND,DET,2024_12_IND_DET
@@ -118980,6 +119055,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033375,2024,16,receiving_tds,0.5,synthetic,-110,-110,DET,CHI,2024_16_DET_CHI
 00-0033375,2024,16,receiving_yards,44.5,synthetic,-110,-110,DET,CHI,2024_16_DET_CHI
 00-0033375,2024,16,receptions,4.5,synthetic,-110,-110,DET,CHI,2024_16_DET_CHI
+00-0033376,2024,16,receiving_tds,0.5,synthetic,-110,-110,BAL,PIT,2024_16_BAL_PIT
 00-0033376,2024,16,receiving_yards,2.5,synthetic,-110,-110,BAL,PIT,2024_16_BAL_PIT
 00-0033376,2024,16,receptions,0.5,synthetic,-110,-110,BAL,PIT,2024_16_BAL_PIT
 00-0033439,2024,16,receiving_yards,6.5,synthetic,-110,-110,SEA,MIN,2024_16_SEA_MIN
@@ -119162,7 +119238,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034869,2024,16,passing_tds,2.5,synthetic,-110,-110,MIN,SEA,2024_16_MIN_SEA
 00-0034869,2024,16,passing_yards,285.5,synthetic,-110,-110,MIN,SEA,2024_16_MIN_SEA
 00-0034869,2024,16,rushing_yards,7.5,synthetic,-110,-110,MIN,SEA,2024_16_MIN_SEA
-00-0034959,2024,16,receiving_tds,0.5,synthetic,-110,-110,HOU,KC,2024_16_HOU_KC
 00-0034959,2024,16,receiving_yards,3.5,synthetic,-110,-110,HOU,KC,2024_16_HOU_KC
 00-0034959,2024,16,receptions,1.5,synthetic,-110,-110,HOU,KC,2024_16_HOU_KC
 00-0034960,2024,16,receiving_yards,86.5,synthetic,-110,-110,LV,JAX,2024_16_LV_JAX
@@ -119491,6 +119566,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037005,2024,16,receiving_tds,0.5,synthetic,-110,-110,CAR,ARI,2024_16_CAR_ARI
 00-0037005,2024,16,receiving_yards,25.5,synthetic,-110,-110,CAR,ARI,2024_16_CAR_ARI
 00-0037005,2024,16,receptions,2.5,synthetic,-110,-110,CAR,ARI,2024_16_CAR_ARI
+00-0037091,2024,16,carries,0.5,synthetic,-110,-110,GB,NO,2024_16_GB_NO
+00-0037091,2024,16,receiving_yards,6.5,synthetic,-110,-110,GB,NO,2024_16_GB_NO
+00-0037091,2024,16,receptions,0.5,synthetic,-110,-110,GB,NO,2024_16_GB_NO
+00-0037091,2024,16,rushing_yards,1.5,synthetic,-110,-110,GB,NO,2024_16_GB_NO
 00-0037120,2024,16,carries,0.5,synthetic,-110,-110,IND,TEN,2024_16_IND_TEN
 00-0037120,2024,16,rushing_yards,0.5,synthetic,-110,-110,IND,TEN,2024_16_IND_TEN
 00-0037197,2024,16,carries,13.5,synthetic,-110,-110,KC,HOU,2024_16_KC_HOU
@@ -120171,6 +120250,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0033375,2024,17,receiving_tds,0.5,synthetic,-110,-110,DET,SF,2024_17_DET_SF
 00-0033375,2024,17,receiving_yards,30.5,synthetic,-110,-110,DET,SF,2024_17_DET_SF
 00-0033375,2024,17,receptions,3.5,synthetic,-110,-110,DET,SF,2024_17_DET_SF
+00-0033376,2024,17,receiving_tds,0.5,synthetic,-110,-110,BAL,HOU,2024_17_BAL_HOU
 00-0033376,2024,17,receiving_yards,2.5,synthetic,-110,-110,BAL,HOU,2024_17_BAL_HOU
 00-0033376,2024,17,receptions,0.5,synthetic,-110,-110,BAL,HOU,2024_17_BAL_HOU
 00-0033439,2024,17,receiving_yards,10.5,synthetic,-110,-110,SEA,CHI,2024_17_SEA_CHI
@@ -120687,6 +120767,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037086,2024,17,receiving_tds,0.5,synthetic,-110,-110,PHI,DAL,2024_17_PHI_DAL
 00-0037086,2024,17,receiving_yards,9.5,synthetic,-110,-110,PHI,DAL,2024_17_PHI_DAL
 00-0037086,2024,17,receptions,1.5,synthetic,-110,-110,PHI,DAL,2024_17_PHI_DAL
+00-0037091,2024,17,carries,0.5,synthetic,-110,-110,GB,MIN,2024_17_GB_MIN
+00-0037091,2024,17,receiving_yards,4.5,synthetic,-110,-110,GB,MIN,2024_17_GB_MIN
+00-0037091,2024,17,receptions,0.5,synthetic,-110,-110,GB,MIN,2024_17_GB_MIN
+00-0037091,2024,17,rushing_yards,4.5,synthetic,-110,-110,GB,MIN,2024_17_GB_MIN
 00-0037197,2024,17,carries,10.5,synthetic,-110,-110,KC,PIT,2024_17_KC_PIT
 00-0037197,2024,17,receiving_yards,6.5,synthetic,-110,-110,KC,PIT,2024_17_KC_PIT
 00-0037197,2024,17,receptions,1.5,synthetic,-110,-110,KC,PIT,2024_17_KC_PIT
@@ -121855,6 +121939,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037086,2024,18,receiving_tds,0.5,synthetic,-110,-110,PHI,NYG,2024_18_PHI_NYG
 00-0037086,2024,18,receiving_yards,18.5,synthetic,-110,-110,PHI,NYG,2024_18_PHI_NYG
 00-0037086,2024,18,receptions,1.5,synthetic,-110,-110,PHI,NYG,2024_18_PHI_NYG
+00-0037091,2024,18,carries,0.5,synthetic,-110,-110,GB,CHI,2024_18_GB_CHI
+00-0037091,2024,18,receiving_yards,9.5,synthetic,-110,-110,GB,CHI,2024_18_GB_CHI
+00-0037091,2024,18,receptions,1.5,synthetic,-110,-110,GB,CHI,2024_18_GB_CHI
+00-0037091,2024,18,rushing_yards,4.5,synthetic,-110,-110,GB,CHI,2024_18_GB_CHI
 00-0037120,2024,18,carries,1.5,synthetic,-110,-110,IND,JAX,2024_18_IND_JAX
 00-0037120,2024,18,rushing_yards,6.5,synthetic,-110,-110,IND,JAX,2024_18_IND_JAX
 00-0037228,2024,18,carries,9.5,synthetic,-110,-110,PIT,CIN,2024_18_PIT_CIN
@@ -122626,6 +122714,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037086,2024,19,receiving_tds,0.5,synthetic,-110,-110,PHI,GB,2024_19_PHI_GB
 00-0037086,2024,19,receiving_yards,20.5,synthetic,-110,-110,PHI,GB,2024_19_PHI_GB
 00-0037086,2024,19,receptions,1.5,synthetic,-110,-110,PHI,GB,2024_19_PHI_GB
+00-0037091,2024,19,carries,0.5,synthetic,-110,-110,GB,PHI,2024_19_GB_PHI
+00-0037091,2024,19,receiving_yards,4.5,synthetic,-110,-110,GB,PHI,2024_19_GB_PHI
+00-0037091,2024,19,receptions,0.5,synthetic,-110,-110,GB,PHI,2024_19_GB_PHI
+00-0037091,2024,19,rushing_yards,5.5,synthetic,-110,-110,GB,PHI,2024_19_GB_PHI
 00-0037228,2024,19,carries,8.5,synthetic,-110,-110,PIT,BAL,2024_19_PIT_BAL
 00-0037228,2024,19,receiving_yards,22.5,synthetic,-110,-110,PIT,BAL,2024_19_PIT_BAL
 00-0037228,2024,19,receptions,2.5,synthetic,-110,-110,PIT,BAL,2024_19_PIT_BAL
@@ -123932,6 +124024,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,1,carries,3.5,synthetic,-110,-110,DEN,TEN,2025_01_DEN_TEN
 00-0037085,2025,1,receptions,0.5,synthetic,-110,-110,DEN,TEN,2025_01_DEN_TEN
 00-0037085,2025,1,rushing_yards,23.5,synthetic,-110,-110,DEN,TEN,2025_01_DEN_TEN
+00-0037091,2025,1,carries,0.5,synthetic,-110,-110,GB,DET,2025_01_GB_DET
+00-0037091,2025,1,receiving_yards,8.5,synthetic,-110,-110,GB,DET,2025_01_GB_DET
+00-0037091,2025,1,receptions,1.5,synthetic,-110,-110,GB,DET,2025_01_GB_DET
+00-0037091,2025,1,rushing_yards,3.5,synthetic,-110,-110,GB,DET,2025_01_GB_DET
 00-0037197,2025,1,carries,4.5,synthetic,-110,-110,KC,LAC,2025_01_KC_LAC
 00-0037197,2025,1,receiving_yards,4.5,synthetic,-110,-110,KC,LAC,2025_01_KC_LAC
 00-0037197,2025,1,receptions,0.5,synthetic,-110,-110,KC,LAC,2025_01_KC_LAC
@@ -125750,7 +125846,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034955,2025,3,passing_tds,0.5,synthetic,-110,-110,CIN,MIN,2025_03_CIN_MIN
 00-0034955,2025,3,passing_yards,103.5,synthetic,-110,-110,CIN,MIN,2025_03_CIN_MIN
 00-0034955,2025,3,rushing_yards,4.5,synthetic,-110,-110,CIN,MIN,2025_03_CIN_MIN
-00-0034959,2025,3,receiving_tds,0.5,synthetic,-110,-110,NYJ,TB,2025_03_NYJ_TB
 00-0034959,2025,3,receiving_yards,2.5,synthetic,-110,-110,NYJ,TB,2025_03_NYJ_TB
 00-0034959,2025,3,receptions,0.5,synthetic,-110,-110,NYJ,TB,2025_03_NYJ_TB
 00-0034960,2025,3,receiving_tds,0.5,synthetic,-110,-110,LV,WAS,2025_03_LV_WAS
@@ -127110,6 +127205,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,4,rushing_yards,2.5,synthetic,-110,-110,DEN,CIN,2025_04_DEN_CIN
 00-0037086,2025,4,receiving_yards,5.5,synthetic,-110,-110,PHI,TB,2025_04_PHI_TB
 00-0037086,2025,4,receptions,1.5,synthetic,-110,-110,PHI,TB,2025_04_PHI_TB
+00-0037091,2025,4,carries,0.5,synthetic,-110,-110,GB,DAL,2025_04_GB_DAL
+00-0037091,2025,4,receiving_yards,8.5,synthetic,-110,-110,GB,DAL,2025_04_GB_DAL
+00-0037091,2025,4,receptions,1.5,synthetic,-110,-110,GB,DAL,2025_04_GB_DAL
+00-0037091,2025,4,rushing_yards,0.5,synthetic,-110,-110,GB,DAL,2025_04_GB_DAL
 00-0037093,2025,4,receiving_yards,3.5,synthetic,-110,-110,SEA,ARI,2025_04_SEA_ARI
 00-0037093,2025,4,receptions,0.5,synthetic,-110,-110,SEA,ARI,2025_04_SEA_ARI
 00-0037112,2025,4,receiving_tds,0.5,synthetic,-110,-110,SF,JAX,2025_04_SF_JAX
@@ -127681,8 +127780,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0040715,2025,4,receptions,3.5,synthetic,-110,-110,NYG,LAC,2025_04_NYG_LAC
 00-0040715,2025,4,rushing_tds,0.5,synthetic,-110,-110,NYG,LAC,2025_04_NYG_LAC
 00-0040715,2025,4,rushing_yards,34.5,synthetic,-110,-110,NYG,LAC,2025_04_NYG_LAC
-00-0040718,2025,4,receiving_yards,25.5,synthetic,-110,-110,JAX,SF,2025_04_JAX_SF
-00-0040718,2025,4,receptions,3.5,synthetic,-110,-110,JAX,SF,2025_04_JAX_SF
 00-0040719,2025,4,carries,5.5,synthetic,-110,-110,JAX,SF,2025_04_JAX_SF
 00-0040719,2025,4,receiving_tds,0.5,synthetic,-110,-110,JAX,SF,2025_04_JAX_SF
 00-0040719,2025,4,receiving_yards,10.5,synthetic,-110,-110,JAX,SF,2025_04_JAX_SF
@@ -128747,8 +128844,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0040715,2025,5,receptions,3.5,synthetic,-110,-110,NYG,NO,2025_05_NYG_NO
 00-0040715,2025,5,rushing_tds,0.5,synthetic,-110,-110,NYG,NO,2025_05_NYG_NO
 00-0040715,2025,5,rushing_yards,45.5,synthetic,-110,-110,NYG,NO,2025_05_NYG_NO
-00-0040718,2025,5,receiving_yards,29.5,synthetic,-110,-110,JAX,KC,2025_05_JAX_KC
-00-0040718,2025,5,receptions,3.5,synthetic,-110,-110,JAX,KC,2025_05_JAX_KC
 00-0040719,2025,5,carries,5.5,synthetic,-110,-110,JAX,KC,2025_05_JAX_KC
 00-0040719,2025,5,receiving_tds,0.5,synthetic,-110,-110,JAX,KC,2025_05_JAX_KC
 00-0040719,2025,5,receiving_yards,10.5,synthetic,-110,-110,JAX,KC,2025_05_JAX_KC
@@ -129022,7 +129117,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034869,2025,6,passing_tds,2.5,synthetic,-110,-110,SEA,JAX,2025_06_SEA_JAX
 00-0034869,2025,6,passing_yards,274.5,synthetic,-110,-110,SEA,JAX,2025_06_SEA_JAX
 00-0034869,2025,6,rushing_yards,6.5,synthetic,-110,-110,SEA,JAX,2025_06_SEA_JAX
-00-0034959,2025,6,receiving_tds,0.5,synthetic,-110,-110,NYJ,DEN,2025_06_NYJ_DEN
 00-0034959,2025,6,receiving_yards,0.5,synthetic,-110,-110,NYJ,DEN,2025_06_NYJ_DEN
 00-0034959,2025,6,receptions,0.5,synthetic,-110,-110,NYJ,DEN,2025_06_NYJ_DEN
 00-0034960,2025,6,receiving_yards,48.5,synthetic,-110,-110,LV,TEN,2025_06_LV_TEN
@@ -129304,6 +129398,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037005,2025,6,receiving_tds,0.5,synthetic,-110,-110,CAR,DAL,2025_06_CAR_DAL
 00-0037005,2025,6,receiving_yards,21.5,synthetic,-110,-110,CAR,DAL,2025_06_CAR_DAL
 00-0037005,2025,6,receptions,2.5,synthetic,-110,-110,CAR,DAL,2025_06_CAR_DAL
+00-0037091,2025,6,carries,0.5,synthetic,-110,-110,GB,CIN,2025_06_GB_CIN
+00-0037091,2025,6,receiving_yards,4.5,synthetic,-110,-110,GB,CIN,2025_06_GB_CIN
+00-0037091,2025,6,receptions,0.5,synthetic,-110,-110,GB,CIN,2025_06_GB_CIN
+00-0037091,2025,6,rushing_yards,0.5,synthetic,-110,-110,GB,CIN,2025_06_GB_CIN
 00-0037093,2025,6,receiving_yards,12.5,synthetic,-110,-110,SEA,JAX,2025_06_SEA_JAX
 00-0037093,2025,6,receptions,0.5,synthetic,-110,-110,SEA,JAX,2025_06_SEA_JAX
 00-0037112,2025,6,receiving_tds,0.5,synthetic,-110,-110,SF,TB,2025_06_SF_TB
@@ -129361,8 +129459,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037267,2025,6,receiving_yards,14.5,synthetic,-110,-110,CLE,PIT,2025_06_CLE_PIT
 00-0037267,2025,6,receptions,3.5,synthetic,-110,-110,CLE,PIT,2025_06_CLE_PIT
 00-0037267,2025,6,rushing_yards,12.5,synthetic,-110,-110,CLE,PIT,2025_06_CLE_PIT
+00-0037304,2025,6,carries,0.5,synthetic,-110,-110,PIT,CLE,2025_06_PIT_CLE
 00-0037304,2025,6,receiving_yards,1.5,synthetic,-110,-110,PIT,CLE,2025_06_PIT_CLE
 00-0037304,2025,6,receptions,0.5,synthetic,-110,-110,PIT,CLE,2025_06_PIT_CLE
+00-0037304,2025,6,rushing_yards,0.5,synthetic,-110,-110,PIT,CLE,2025_06_PIT_CLE
 00-0037348,2025,6,receiving_yards,12.5,synthetic,-110,-110,MIA,LAC,2025_06_MIA_LAC
 00-0037348,2025,6,receptions,1.5,synthetic,-110,-110,MIA,LAC,2025_06_MIA_LAC
 00-0037475,2025,6,receiving_yards,41.5,synthetic,-110,-110,NYJ,DEN,2025_06_NYJ_DEN
@@ -129854,8 +129954,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0040715,2025,6,receptions,4.5,synthetic,-110,-110,NYG,PHI,2025_06_NYG_PHI
 00-0040715,2025,6,rushing_tds,0.5,synthetic,-110,-110,NYG,PHI,2025_06_NYG_PHI
 00-0040715,2025,6,rushing_yards,60.5,synthetic,-110,-110,NYG,PHI,2025_06_NYG_PHI
-00-0040718,2025,6,receiving_yards,37.5,synthetic,-110,-110,JAX,SEA,2025_06_JAX_SEA
-00-0040718,2025,6,receptions,2.5,synthetic,-110,-110,JAX,SEA,2025_06_JAX_SEA
 00-0040719,2025,6,carries,5.5,synthetic,-110,-110,JAX,SEA,2025_06_JAX_SEA
 00-0040719,2025,6,receiving_tds,0.5,synthetic,-110,-110,JAX,SEA,2025_06_JAX_SEA
 00-0040719,2025,6,receiving_yards,11.5,synthetic,-110,-110,JAX,SEA,2025_06_JAX_SEA
@@ -130163,7 +130261,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034869,2025,7,passing_tds,2.5,synthetic,-110,-110,SEA,HOU,2025_07_SEA_HOU
 00-0034869,2025,7,passing_yards,274.5,synthetic,-110,-110,SEA,HOU,2025_07_SEA_HOU
 00-0034869,2025,7,rushing_yards,6.5,synthetic,-110,-110,SEA,HOU,2025_07_SEA_HOU
-00-0034959,2025,7,receiving_tds,0.5,synthetic,-110,-110,NYJ,CAR,2025_07_NYJ_CAR
 00-0034959,2025,7,receiving_yards,1.5,synthetic,-110,-110,NYJ,CAR,2025_07_NYJ_CAR
 00-0034959,2025,7,receptions,0.5,synthetic,-110,-110,NYJ,CAR,2025_07_NYJ_CAR
 00-0035208,2025,7,carries,0.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
@@ -130437,6 +130534,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,7,receiving_yards,11.5,synthetic,-110,-110,DEN,NYG,2025_07_DEN_NYG
 00-0037085,2025,7,receptions,1.5,synthetic,-110,-110,DEN,NYG,2025_07_DEN_NYG
 00-0037085,2025,7,rushing_yards,0.5,synthetic,-110,-110,DEN,NYG,2025_07_DEN_NYG
+00-0037091,2025,7,carries,0.5,synthetic,-110,-110,GB,ARI,2025_07_GB_ARI
+00-0037091,2025,7,receiving_yards,4.5,synthetic,-110,-110,GB,ARI,2025_07_GB_ARI
+00-0037091,2025,7,receptions,0.5,synthetic,-110,-110,GB,ARI,2025_07_GB_ARI
+00-0037091,2025,7,rushing_yards,0.5,synthetic,-110,-110,GB,ARI,2025_07_GB_ARI
 00-0037093,2025,7,receiving_yards,12.5,synthetic,-110,-110,SEA,HOU,2025_07_SEA_HOU
 00-0037093,2025,7,receptions,0.5,synthetic,-110,-110,SEA,HOU,2025_07_SEA_HOU
 00-0037157,2025,7,carries,3.5,synthetic,-110,-110,ARI,GB,2025_07_ARI_GB
@@ -130488,9 +130589,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,7,rushing_yards,3.5,synthetic,-110,-110,MIN,PHI,2025_07_MIN_PHI
 00-0037292,2025,7,receiving_yards,5.5,synthetic,-110,-110,IND,LAC,2025_07_IND_LAC
 00-0037292,2025,7,receptions,0.5,synthetic,-110,-110,IND,LAC,2025_07_IND_LAC
-00-0037304,2025,7,receiving_tds,0.5,synthetic,-110,-110,PIT,CIN,2025_07_PIT_CIN
+00-0037304,2025,7,carries,0.5,synthetic,-110,-110,PIT,CIN,2025_07_PIT_CIN
 00-0037304,2025,7,receiving_yards,4.5,synthetic,-110,-110,PIT,CIN,2025_07_PIT_CIN
 00-0037304,2025,7,receptions,0.5,synthetic,-110,-110,PIT,CIN,2025_07_PIT_CIN
+00-0037304,2025,7,rushing_yards,0.5,synthetic,-110,-110,PIT,CIN,2025_07_PIT_CIN
 00-0037306,2025,7,receiving_tds,0.5,synthetic,-110,-110,GB,ARI,2025_07_GB_ARI
 00-0037306,2025,7,receiving_yards,3.5,synthetic,-110,-110,GB,ARI,2025_07_GB_ARI
 00-0037306,2025,7,receptions,0.5,synthetic,-110,-110,GB,ARI,2025_07_GB_ARI
@@ -130878,7 +130980,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0039918,2025,7,passing_tds,2.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
 00-0039918,2025,7,passing_yards,242.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
 00-0039918,2025,7,rushing_tds,0.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
-00-0039918,2025,7,rushing_yards,12.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
+00-0039918,2025,7,rushing_yards,13.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
 00-0039919,2025,7,receiving_tds,1.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
 00-0039919,2025,7,receiving_yards,72.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
 00-0039919,2025,7,receptions,4.5,synthetic,-110,-110,CHI,NO,2025_07_CHI_NO
@@ -131024,8 +131126,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0040715,2025,7,receptions,4.5,synthetic,-110,-110,NYG,DEN,2025_07_NYG_DEN
 00-0040715,2025,7,rushing_tds,1.5,synthetic,-110,-110,NYG,DEN,2025_07_NYG_DEN
 00-0040715,2025,7,rushing_yards,74.5,synthetic,-110,-110,NYG,DEN,2025_07_NYG_DEN
-00-0040718,2025,7,receiving_yards,35.5,synthetic,-110,-110,JAX,LA,2025_07_JAX_LA
-00-0040718,2025,7,receptions,2.5,synthetic,-110,-110,JAX,LA,2025_07_JAX_LA
 00-0040719,2025,7,carries,4.5,synthetic,-110,-110,JAX,LA,2025_07_JAX_LA
 00-0040719,2025,7,receiving_yards,6.5,synthetic,-110,-110,JAX,LA,2025_07_JAX_LA
 00-0040719,2025,7,receptions,1.5,synthetic,-110,-110,JAX,LA,2025_07_JAX_LA
@@ -131264,7 +131364,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034857,2025,8,passing_yards,213.5,synthetic,-110,-110,BUF,CAR,2025_08_BUF_CAR
 00-0034857,2025,8,rushing_tds,0.5,synthetic,-110,-110,BUF,CAR,2025_08_BUF_CAR
 00-0034857,2025,8,rushing_yards,41.5,synthetic,-110,-110,BUF,CAR,2025_08_BUF_CAR
-00-0034959,2025,8,receiving_tds,0.5,synthetic,-110,-110,NYJ,CIN,2025_08_NYJ_CIN
 00-0034959,2025,8,receiving_yards,1.5,synthetic,-110,-110,NYJ,CIN,2025_08_NYJ_CIN
 00-0034959,2025,8,receptions,0.5,synthetic,-110,-110,NYJ,CIN,2025_08_NYJ_CIN
 00-0034975,2025,8,carries,2.5,synthetic,-110,-110,BAL,CHI,2025_08_BAL_CHI
@@ -131525,6 +131624,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037013,2025,8,rushing_yards,7.5,synthetic,-110,-110,MIA,ATL,2025_08_MIA_ATL
 00-0037085,2025,8,receiving_yards,11.5,synthetic,-110,-110,DEN,DAL,2025_08_DEN_DAL
 00-0037085,2025,8,receptions,1.5,synthetic,-110,-110,DEN,DAL,2025_08_DEN_DAL
+00-0037091,2025,8,carries,0.5,synthetic,-110,-110,GB,PIT,2025_08_GB_PIT
+00-0037091,2025,8,rushing_yards,0.5,synthetic,-110,-110,GB,PIT,2025_08_GB_PIT
 00-0037112,2025,8,receiving_tds,0.5,synthetic,-110,-110,SF,HOU,2025_08_SF_HOU
 00-0037112,2025,8,receiving_yards,44.5,synthetic,-110,-110,SF,HOU,2025_08_SF_HOU
 00-0037112,2025,8,receptions,4.5,synthetic,-110,-110,SF,HOU,2025_08_SF_HOU
@@ -131579,9 +131680,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,8,receiving_yards,25.5,synthetic,-110,-110,MIN,LAC,2025_08_MIN_LAC
 00-0037291,2025,8,receptions,2.5,synthetic,-110,-110,MIN,LAC,2025_08_MIN_LAC
 00-0037291,2025,8,rushing_yards,3.5,synthetic,-110,-110,MIN,LAC,2025_08_MIN_LAC
-00-0037304,2025,8,receiving_tds,0.5,synthetic,-110,-110,PIT,GB,2025_08_PIT_GB
+00-0037304,2025,8,carries,0.5,synthetic,-110,-110,PIT,GB,2025_08_PIT_GB
 00-0037304,2025,8,receiving_yards,4.5,synthetic,-110,-110,PIT,GB,2025_08_PIT_GB
 00-0037304,2025,8,receptions,0.5,synthetic,-110,-110,PIT,GB,2025_08_PIT_GB
+00-0037304,2025,8,rushing_yards,0.5,synthetic,-110,-110,PIT,GB,2025_08_PIT_GB
 00-0037306,2025,8,receiving_tds,0.5,synthetic,-110,-110,GB,PIT,2025_08_GB_PIT
 00-0037306,2025,8,receiving_yards,5.5,synthetic,-110,-110,GB,PIT,2025_08_GB_PIT
 00-0037306,2025,8,receptions,1.5,synthetic,-110,-110,GB,PIT,2025_08_GB_PIT
@@ -131885,7 +131987,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0039918,2025,8,passing_tds,1.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
 00-0039918,2025,8,passing_yards,233.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
 00-0039918,2025,8,rushing_tds,0.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
-00-0039918,2025,8,rushing_yards,5.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
+00-0039918,2025,8,rushing_yards,6.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
 00-0039919,2025,8,receiving_tds,0.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
 00-0039919,2025,8,receiving_yards,48.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
 00-0039919,2025,8,receptions,2.5,synthetic,-110,-110,CHI,BAL,2025_08_CHI_BAL
@@ -132577,9 +132679,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,9,receiving_yards,16.5,synthetic,-110,-110,MIN,DET,2025_09_MIN_DET
 00-0037291,2025,9,receptions,1.5,synthetic,-110,-110,MIN,DET,2025_09_MIN_DET
 00-0037291,2025,9,rushing_yards,3.5,synthetic,-110,-110,MIN,DET,2025_09_MIN_DET
-00-0037304,2025,9,receiving_tds,0.5,synthetic,-110,-110,PIT,IND,2025_09_PIT_IND
+00-0037304,2025,9,carries,0.5,synthetic,-110,-110,PIT,IND,2025_09_PIT_IND
 00-0037304,2025,9,receiving_yards,3.5,synthetic,-110,-110,PIT,IND,2025_09_PIT_IND
 00-0037304,2025,9,receptions,0.5,synthetic,-110,-110,PIT,IND,2025_09_PIT_IND
+00-0037304,2025,9,rushing_yards,0.5,synthetic,-110,-110,PIT,IND,2025_09_PIT_IND
 00-0037348,2025,9,receiving_yards,14.5,synthetic,-110,-110,MIA,BAL,2025_09_MIA_BAL
 00-0037348,2025,9,receptions,1.5,synthetic,-110,-110,MIA,BAL,2025_09_MIA_BAL
 00-0037525,2025,9,carries,12.5,synthetic,-110,-110,MIN,DET,2025_09_MIN_DET
@@ -132951,7 +133054,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0039918,2025,9,passing_tds,0.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
 00-0039918,2025,9,passing_yards,230.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
 00-0039918,2025,9,rushing_tds,0.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
-00-0039918,2025,9,rushing_yards,8.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
+00-0039918,2025,9,rushing_yards,9.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
 00-0039919,2025,9,receiving_tds,0.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
 00-0039919,2025,9,receiving_yards,61.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
 00-0039919,2025,9,receptions,3.5,synthetic,-110,-110,CHI,CIN,2025_09_CHI_CIN
@@ -133333,7 +133436,6 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0034869,2025,10,passing_tds,2.5,synthetic,-110,-110,SEA,ARI,2025_10_SEA_ARI
 00-0034869,2025,10,passing_yards,294.5,synthetic,-110,-110,SEA,ARI,2025_10_SEA_ARI
 00-0034869,2025,10,rushing_yards,0.5,synthetic,-110,-110,SEA,ARI,2025_10_SEA_ARI
-00-0034959,2025,10,receiving_tds,0.5,synthetic,-110,-110,NYJ,CLE,2025_10_NYJ_CLE
 00-0034959,2025,10,receiving_yards,4.5,synthetic,-110,-110,NYJ,CLE,2025_10_NYJ_CLE
 00-0034959,2025,10,receptions,0.5,synthetic,-110,-110,NYJ,CLE,2025_10_NYJ_CLE
 00-0034960,2025,10,receiving_yards,31.5,synthetic,-110,-110,JAX,HOU,2025_10_JAX_HOU
@@ -133608,6 +133710,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,10,rushing_yards,1.5,synthetic,-110,-110,DEN,LV,2025_10_DEN_LV
 00-0037086,2025,10,receiving_yards,10.5,synthetic,-110,-110,PHI,GB,2025_10_PHI_GB
 00-0037086,2025,10,receptions,1.5,synthetic,-110,-110,PHI,GB,2025_10_PHI_GB
+00-0037091,2025,10,carries,0.5,synthetic,-110,-110,GB,PHI,2025_10_GB_PHI
+00-0037091,2025,10,rushing_yards,0.5,synthetic,-110,-110,GB,PHI,2025_10_GB_PHI
 00-0037120,2025,10,carries,1.5,synthetic,-110,-110,IND,ATL,2025_10_IND_ATL
 00-0037120,2025,10,receiving_yards,2.5,synthetic,-110,-110,IND,ATL,2025_10_IND_ATL
 00-0037120,2025,10,receptions,0.5,synthetic,-110,-110,IND,ATL,2025_10_IND_ATL
@@ -133666,9 +133770,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,10,receiving_yards,20.5,synthetic,-110,-110,MIN,BAL,2025_10_MIN_BAL
 00-0037291,2025,10,receptions,1.5,synthetic,-110,-110,MIN,BAL,2025_10_MIN_BAL
 00-0037291,2025,10,rushing_yards,3.5,synthetic,-110,-110,MIN,BAL,2025_10_MIN_BAL
-00-0037304,2025,10,receiving_tds,0.5,synthetic,-110,-110,PIT,LAC,2025_10_PIT_LAC
+00-0037304,2025,10,carries,0.5,synthetic,-110,-110,PIT,LAC,2025_10_PIT_LAC
 00-0037304,2025,10,receiving_yards,3.5,synthetic,-110,-110,PIT,LAC,2025_10_PIT_LAC
 00-0037304,2025,10,receptions,0.5,synthetic,-110,-110,PIT,LAC,2025_10_PIT_LAC
+00-0037304,2025,10,rushing_yards,1.5,synthetic,-110,-110,PIT,LAC,2025_10_PIT_LAC
 00-0037475,2025,10,receiving_yards,27.5,synthetic,-110,-110,NYJ,CLE,2025_10_NYJ_CLE
 00-0037475,2025,10,receptions,2.5,synthetic,-110,-110,NYJ,CLE,2025_10_NYJ_CLE
 00-0037525,2025,10,carries,10.5,synthetic,-110,-110,MIN,BAL,2025_10_MIN_BAL
@@ -134006,7 +134111,7 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0039918,2025,10,passing_tds,1.5,synthetic,-110,-110,CHI,NYG,2025_10_CHI_NYG
 00-0039918,2025,10,passing_yards,247.5,synthetic,-110,-110,CHI,NYG,2025_10_CHI_NYG
 00-0039918,2025,10,rushing_tds,0.5,synthetic,-110,-110,CHI,NYG,2025_10_CHI_NYG
-00-0039918,2025,10,rushing_yards,18.5,synthetic,-110,-110,CHI,NYG,2025_10_CHI_NYG
+00-0039918,2025,10,rushing_yards,19.5,synthetic,-110,-110,CHI,NYG,2025_10_CHI_NYG
 00-0039919,2025,10,receiving_yards,44.5,synthetic,-110,-110,CHI,NYG,2025_10_CHI_NYG
 00-0039919,2025,10,receptions,2.5,synthetic,-110,-110,CHI,NYG,2025_10_CHI_NYG
 00-0039920,2025,10,carries,0.5,synthetic,-110,-110,CLE,NYJ,2025_10_CLE_NYJ
@@ -134709,6 +134814,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,11,receiving_yards,6.5,synthetic,-110,-110,DEN,KC,2025_11_DEN_KC
 00-0037085,2025,11,receptions,1.5,synthetic,-110,-110,DEN,KC,2025_11_DEN_KC
 00-0037085,2025,11,rushing_yards,1.5,synthetic,-110,-110,DEN,KC,2025_11_DEN_KC
+00-0037091,2025,11,carries,0.5,synthetic,-110,-110,GB,NYG,2025_11_GB_NYG
+00-0037091,2025,11,receiving_yards,7.5,synthetic,-110,-110,GB,NYG,2025_11_GB_NYG
+00-0037091,2025,11,receptions,0.5,synthetic,-110,-110,GB,NYG,2025_11_GB_NYG
+00-0037091,2025,11,rushing_yards,0.5,synthetic,-110,-110,GB,NYG,2025_11_GB_NYG
 00-0037112,2025,11,receiving_tds,0.5,synthetic,-110,-110,SF,ARI,2025_11_SF_ARI
 00-0037112,2025,11,receiving_yards,39.5,synthetic,-110,-110,SF,ARI,2025_11_SF_ARI
 00-0037112,2025,11,receptions,4.5,synthetic,-110,-110,SF,ARI,2025_11_SF_ARI
@@ -134758,6 +134867,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,11,receiving_tds,0.5,synthetic,-110,-110,MIN,CHI,2025_11_MIN_CHI
 00-0037291,2025,11,receiving_yards,44.5,synthetic,-110,-110,MIN,CHI,2025_11_MIN_CHI
 00-0037291,2025,11,receptions,2.5,synthetic,-110,-110,MIN,CHI,2025_11_MIN_CHI
+00-0037304,2025,11,carries,0.5,synthetic,-110,-110,PIT,CIN,2025_11_PIT_CIN
+00-0037304,2025,11,rushing_yards,1.5,synthetic,-110,-110,PIT,CIN,2025_11_PIT_CIN
 00-0037306,2025,11,receiving_tds,0.5,synthetic,-110,-110,GB,NYG,2025_11_GB_NYG
 00-0037306,2025,11,receiving_yards,5.5,synthetic,-110,-110,GB,NYG,2025_11_GB_NYG
 00-0037306,2025,11,receptions,1.5,synthetic,-110,-110,GB,NYG,2025_11_GB_NYG
@@ -135848,6 +135959,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,12,receiving_tds,0.5,synthetic,-110,-110,MIN,GB,2025_12_MIN_GB
 00-0037291,2025,12,receiving_yards,39.5,synthetic,-110,-110,MIN,GB,2025_12_MIN_GB
 00-0037291,2025,12,receptions,1.5,synthetic,-110,-110,MIN,GB,2025_12_MIN_GB
+00-0037304,2025,12,carries,0.5,synthetic,-110,-110,PIT,CHI,2025_12_PIT_CHI
+00-0037304,2025,12,rushing_yards,1.5,synthetic,-110,-110,PIT,CHI,2025_12_PIT_CHI
 00-0037306,2025,12,receiving_tds,0.5,synthetic,-110,-110,GB,MIN,2025_12_GB_MIN
 00-0037306,2025,12,receiving_yards,6.5,synthetic,-110,-110,GB,MIN,2025_12_GB_MIN
 00-0037306,2025,12,receptions,1.5,synthetic,-110,-110,GB,MIN,2025_12_GB_MIN
@@ -136861,6 +136974,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,13,receiving_yards,1.5,synthetic,-110,-110,DEN,WAS,2025_13_DEN_WAS
 00-0037085,2025,13,receptions,0.5,synthetic,-110,-110,DEN,WAS,2025_13_DEN_WAS
 00-0037085,2025,13,rushing_yards,1.5,synthetic,-110,-110,DEN,WAS,2025_13_DEN_WAS
+00-0037091,2025,13,carries,0.5,synthetic,-110,-110,GB,DET,2025_13_GB_DET
+00-0037091,2025,13,receiving_yards,7.5,synthetic,-110,-110,GB,DET,2025_13_GB_DET
+00-0037091,2025,13,receptions,0.5,synthetic,-110,-110,GB,DET,2025_13_GB_DET
+00-0037091,2025,13,rushing_yards,4.5,synthetic,-110,-110,GB,DET,2025_13_GB_DET
 00-0037120,2025,13,carries,0.5,synthetic,-110,-110,IND,HOU,2025_13_IND_HOU
 00-0037120,2025,13,receiving_yards,2.5,synthetic,-110,-110,IND,HOU,2025_13_IND_HOU
 00-0037120,2025,13,receptions,0.5,synthetic,-110,-110,IND,HOU,2025_13_IND_HOU
@@ -138014,6 +138131,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037013,2025,14,rushing_yards,3.5,synthetic,-110,-110,MIA,NYJ,2025_14_MIA_NYJ
 00-0037085,2025,14,receiving_yards,6.5,synthetic,-110,-110,DEN,LV,2025_14_DEN_LV
 00-0037085,2025,14,receptions,1.5,synthetic,-110,-110,DEN,LV,2025_14_DEN_LV
+00-0037091,2025,14,carries,0.5,synthetic,-110,-110,GB,CHI,2025_14_GB_CHI
+00-0037091,2025,14,receiving_yards,7.5,synthetic,-110,-110,GB,CHI,2025_14_GB_CHI
+00-0037091,2025,14,receptions,0.5,synthetic,-110,-110,GB,CHI,2025_14_GB_CHI
+00-0037091,2025,14,rushing_yards,8.5,synthetic,-110,-110,GB,CHI,2025_14_GB_CHI
 00-0037132,2025,14,receiving_yards,2.5,synthetic,-110,-110,PHI,LAC,2025_14_PHI_LAC
 00-0037132,2025,14,receptions,0.5,synthetic,-110,-110,PHI,LAC,2025_14_PHI_LAC
 00-0037157,2025,14,carries,9.5,synthetic,-110,-110,ARI,LA,2025_14_ARI_LA
@@ -138071,6 +138192,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037292,2025,14,receiving_tds,0.5,synthetic,-110,-110,IND,JAX,2025_14_IND_JAX
 00-0037292,2025,14,receiving_yards,4.5,synthetic,-110,-110,IND,JAX,2025_14_IND_JAX
 00-0037292,2025,14,receptions,0.5,synthetic,-110,-110,IND,JAX,2025_14_IND_JAX
+00-0037304,2025,14,carries,1.5,synthetic,-110,-110,PIT,BAL,2025_14_PIT_BAL
+00-0037304,2025,14,rushing_yards,1.5,synthetic,-110,-110,PIT,BAL,2025_14_PIT_BAL
 00-0037306,2025,14,receiving_yards,5.5,synthetic,-110,-110,GB,CHI,2025_14_GB_CHI
 00-0037306,2025,14,receptions,0.5,synthetic,-110,-110,GB,CHI,2025_14_GB_CHI
 00-0037475,2025,14,receiving_yards,15.5,synthetic,-110,-110,NYJ,MIA,2025_14_NYJ_MIA
@@ -139135,6 +139258,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,15,rushing_yards,4.5,synthetic,-110,-110,DEN,GB,2025_15_DEN_GB
 00-0037086,2025,15,receiving_yards,10.5,synthetic,-110,-110,PHI,LV,2025_15_PHI_LV
 00-0037086,2025,15,receptions,1.5,synthetic,-110,-110,PHI,LV,2025_15_PHI_LV
+00-0037091,2025,15,carries,0.5,synthetic,-110,-110,GB,DEN,2025_15_GB_DEN
+00-0037091,2025,15,receiving_tds,0.5,synthetic,-110,-110,GB,DEN,2025_15_GB_DEN
+00-0037091,2025,15,receiving_yards,18.5,synthetic,-110,-110,GB,DEN,2025_15_GB_DEN
+00-0037091,2025,15,receptions,0.5,synthetic,-110,-110,GB,DEN,2025_15_GB_DEN
+00-0037091,2025,15,rushing_yards,8.5,synthetic,-110,-110,GB,DEN,2025_15_GB_DEN
 00-0037120,2025,15,carries,0.5,synthetic,-110,-110,IND,SEA,2025_15_IND_SEA
 00-0037120,2025,15,receiving_yards,2.5,synthetic,-110,-110,IND,SEA,2025_15_IND_SEA
 00-0037120,2025,15,receptions,0.5,synthetic,-110,-110,IND,SEA,2025_15_IND_SEA
@@ -139191,6 +139319,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037263,2025,15,rushing_yards,27.5,synthetic,-110,-110,ATL,TB,2025_15_ATL_TB
 00-0037291,2025,15,receiving_yards,11.5,synthetic,-110,-110,MIN,DAL,2025_15_MIN_DAL
 00-0037291,2025,15,receptions,1.5,synthetic,-110,-110,MIN,DAL,2025_15_MIN_DAL
+00-0037304,2025,15,carries,1.5,synthetic,-110,-110,PIT,MIA,2025_15_PIT_MIA
+00-0037304,2025,15,rushing_yards,1.5,synthetic,-110,-110,PIT,MIA,2025_15_PIT_MIA
 00-0037306,2025,15,receiving_yards,7.5,synthetic,-110,-110,GB,DEN,2025_15_GB_DEN
 00-0037306,2025,15,receptions,1.5,synthetic,-110,-110,GB,DEN,2025_15_GB_DEN
 00-0037475,2025,15,receiving_yards,5.5,synthetic,-110,-110,NYJ,JAX,2025_15_NYJ_JAX
@@ -140350,6 +140480,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,16,receiving_yards,6.5,synthetic,-110,-110,DEN,JAX,2025_16_DEN_JAX
 00-0037085,2025,16,receptions,1.5,synthetic,-110,-110,DEN,JAX,2025_16_DEN_JAX
 00-0037085,2025,16,rushing_yards,4.5,synthetic,-110,-110,DEN,JAX,2025_16_DEN_JAX
+00-0037091,2025,16,carries,1.5,synthetic,-110,-110,GB,CHI,2025_16_GB_CHI
+00-0037091,2025,16,receiving_tds,0.5,synthetic,-110,-110,GB,CHI,2025_16_GB_CHI
+00-0037091,2025,16,receiving_yards,11.5,synthetic,-110,-110,GB,CHI,2025_16_GB_CHI
+00-0037091,2025,16,receptions,0.5,synthetic,-110,-110,GB,CHI,2025_16_GB_CHI
+00-0037091,2025,16,rushing_yards,8.5,synthetic,-110,-110,GB,CHI,2025_16_GB_CHI
 00-0037093,2025,16,receiving_yards,9.5,synthetic,-110,-110,SEA,LA,2025_16_SEA_LA
 00-0037093,2025,16,receptions,0.5,synthetic,-110,-110,SEA,LA,2025_16_SEA_LA
 00-0037112,2025,16,receiving_tds,0.5,synthetic,-110,-110,SF,IND,2025_16_SF_IND
@@ -141569,6 +141704,11 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,17,rushing_yards,4.5,synthetic,-110,-110,DEN,KC,2025_17_DEN_KC
 00-0037086,2025,17,receiving_yards,7.5,synthetic,-110,-110,PHI,BUF,2025_17_PHI_BUF
 00-0037086,2025,17,receptions,1.5,synthetic,-110,-110,PHI,BUF,2025_17_PHI_BUF
+00-0037091,2025,17,carries,0.5,synthetic,-110,-110,GB,BAL,2025_17_GB_BAL
+00-0037091,2025,17,receiving_tds,0.5,synthetic,-110,-110,GB,BAL,2025_17_GB_BAL
+00-0037091,2025,17,receiving_yards,11.5,synthetic,-110,-110,GB,BAL,2025_17_GB_BAL
+00-0037091,2025,17,receptions,0.5,synthetic,-110,-110,GB,BAL,2025_17_GB_BAL
+00-0037091,2025,17,rushing_yards,3.5,synthetic,-110,-110,GB,BAL,2025_17_GB_BAL
 00-0037093,2025,17,receiving_yards,9.5,synthetic,-110,-110,SEA,CAR,2025_17_SEA_CAR
 00-0037093,2025,17,receptions,0.5,synthetic,-110,-110,SEA,CAR,2025_17_SEA_CAR
 00-0037112,2025,17,receiving_tds,0.5,synthetic,-110,-110,SF,CHI,2025_17_SF_CHI
@@ -141628,6 +141768,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,17,receiving_tds,0.5,synthetic,-110,-110,MIN,DET,2025_17_MIN_DET
 00-0037291,2025,17,receiving_yards,19.5,synthetic,-110,-110,MIN,DET,2025_17_MIN_DET
 00-0037291,2025,17,receptions,1.5,synthetic,-110,-110,MIN,DET,2025_17_MIN_DET
+00-0037304,2025,17,carries,2.5,synthetic,-110,-110,PIT,CLE,2025_17_PIT_CLE
+00-0037304,2025,17,rushing_yards,2.5,synthetic,-110,-110,PIT,CLE,2025_17_PIT_CLE
 00-0037475,2025,17,receiving_yards,8.5,synthetic,-110,-110,NYJ,NE,2025_17_NYJ_NE
 00-0037475,2025,17,receptions,1.5,synthetic,-110,-110,NYJ,NE,2025_17_NYJ_NE
 00-0037487,2025,17,carries,0.5,synthetic,-110,-110,ATL,LA,2025_17_ATL_LA
@@ -142732,6 +142874,10 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037085,2025,18,rushing_yards,4.5,synthetic,-110,-110,DEN,LAC,2025_18_DEN_LAC
 00-0037086,2025,18,receiving_yards,3.5,synthetic,-110,-110,PHI,WAS,2025_18_PHI_WAS
 00-0037086,2025,18,receptions,0.5,synthetic,-110,-110,PHI,WAS,2025_18_PHI_WAS
+00-0037091,2025,18,carries,0.5,synthetic,-110,-110,GB,MIN,2025_18_GB_MIN
+00-0037091,2025,18,receiving_tds,0.5,synthetic,-110,-110,GB,MIN,2025_18_GB_MIN
+00-0037091,2025,18,receiving_yards,19.5,synthetic,-110,-110,GB,MIN,2025_18_GB_MIN
+00-0037091,2025,18,receptions,0.5,synthetic,-110,-110,GB,MIN,2025_18_GB_MIN
 00-0037098,2025,18,receiving_yards,4.5,synthetic,-110,-110,NO,ATL,2025_18_NO_ATL
 00-0037098,2025,18,receptions,1.5,synthetic,-110,-110,NO,ATL,2025_18_NO_ATL
 00-0037120,2025,18,carries,0.5,synthetic,-110,-110,IND,HOU,2025_18_IND_HOU
@@ -142781,6 +142927,8 @@ player_id,season,week,stat,line,book,over_odds,under_odds,recent_team,opponent_t
 00-0037291,2025,18,receiving_tds,0.5,synthetic,-110,-110,MIN,GB,2025_18_MIN_GB
 00-0037291,2025,18,receiving_yards,19.5,synthetic,-110,-110,MIN,GB,2025_18_MIN_GB
 00-0037291,2025,18,receptions,1.5,synthetic,-110,-110,MIN,GB,2025_18_MIN_GB
+00-0037304,2025,18,carries,2.5,synthetic,-110,-110,PIT,BAL,2025_18_PIT_BAL
+00-0037304,2025,18,rushing_yards,8.5,synthetic,-110,-110,PIT,BAL,2025_18_PIT_BAL
 00-0037324,2025,18,carries,1.5,synthetic,-110,-110,KC,LV,2025_18_KC_LV
 00-0037324,2025,18,completions,8.5,synthetic,-110,-110,KC,LV,2025_18_KC_LV
 00-0037324,2025,18,passing_tds,0.5,synthetic,-110,-110,KC,LV,2025_18_KC_LV

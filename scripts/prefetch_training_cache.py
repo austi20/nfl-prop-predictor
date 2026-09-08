@@ -22,10 +22,10 @@ from data.nflverse_loader import (
 )
 
 # Trailing-window props need the season before the earliest target year.
-WEEKLY_YEARS = list(range(2014, 2026))  # 2014–2025
-SCHEDULE_YEARS = list(range(2018, 2026))  # aligns with weather backfill default
-INJURY_YEARS = list(range(2015, 2026))
-WEATHER_JOIN_YEARS = list(range(2015, 2026))
+WEEKLY_YEARS = list(range(2014, 2026))  # 2014–2025 (2026 player data lands after Week 1)
+SCHEDULE_YEARS = list(range(2018, 2027))  # 2018–2026; 2026 schedule is published
+INJURY_YEARS = list(range(2015, 2027))  # 2015–2026
+WEATHER_JOIN_YEARS = list(range(2015, 2026))  # weather archive stops at 2025
 
 
 def main() -> None:

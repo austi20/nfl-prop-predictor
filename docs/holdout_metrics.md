@@ -5,19 +5,19 @@ Holdout years: 2025
 
 ## QB
 
-- `passing_yards`: n=692, MAE=80.261, RMSE=101.576, bias=25.537
-- `passing_tds`: n=692, MAE=0.976, RMSE=1.157, bias=0.098
-- `interceptions`: n=692, MAE=0.681, RMSE=0.804, bias=0.087
-- `completions`: n=692, MAE=6.608, RMSE=8.616, bias=1.960
+- `passing_yards`: n=692, MAE=79.403, RMSE=100.227, bias=24.761
+- `passing_tds`: n=692, MAE=0.956, RMSE=1.144, bias=0.090
+- `interceptions`: n=692, MAE=0.678, RMSE=0.804, bias=0.075
+- `completions`: n=692, MAE=6.586, RMSE=8.496, bias=1.869
 
 ## RB
 
-- `rushing_yards`: n=1653, MAE=24.554, RMSE=32.079, bias=1.099
-- `carries`: n=1653, MAE=4.847, RMSE=5.805, bias=0.347
-- `rushing_tds`: n=1653, MAE=0.374, RMSE=0.523, bias=0.009
+- `rushing_yards`: n=1650, MAE=22.668, RMSE=30.387, bias=1.081
+- `carries`: n=1650, MAE=4.227, RMSE=5.259, bias=0.440
+- `rushing_tds`: n=1650, MAE=0.362, RMSE=0.516, bias=0.006
 
 ## WR_TE
 
-- `receptions`: n=3981, MAE=1.657, RMSE=2.066, bias=0.265
-- `receiving_yards`: n=3981, MAE=22.553, RMSE=28.731, bias=3.984
-- `receiving_tds`: n=3981, MAE=0.314, RMSE=0.434, bias=0.019
+- `receptions`: n=3979, MAE=1.515, RMSE=1.944, bias=0.259
+- `receiving_yards`: n=3979, MAE=21.468, RMSE=27.941, bias=4.387
+- `receiving_tds`: n=3979, MAE=0.305, RMSE=0.430, bias=0.018

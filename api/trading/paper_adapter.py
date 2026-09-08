@@ -17,7 +17,7 @@ class FakePaperAdapter:
 
     def __init__(self) -> None:
         global _warned
-        if not _warned:
+        if not _warned and type(self) is FakePaperAdapter:
             _logger.warning("fake paper adapter active -- fills are not realistic.")
             _warned = True
         self._tripped = False

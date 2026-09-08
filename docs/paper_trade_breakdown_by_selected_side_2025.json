@@ -1,24 +1,24 @@
 [
   {
     "selected_side": "under",
-    "n_bets": 10259.0,
-    "wins": 7005.0,
-    "losses": 3254.0,
+    "n_bets": 11262.0,
+    "wins": 7618.0,
+    "losses": 3644.0,
     "pushes": 0.0,
-    "staked_units": 10259.0,
-    "profit_units": 3114.181818181818,
-    "roi": 0.3035560793626882,
-    "win_rate": 0.6828150891899796
+    "staked_units": 11262.0,
+    "profit_units": 3281.454545454545,
+    "roi": 0.2913740494987165,
+    "win_rate": 0.6764340259278991
   },
   {
     "selected_side": "over",
-    "n_bets": 8148.0,
-    "wins": 3170.0,
-    "losses": 4978.0,
+    "n_bets": 7539.0,
+    "wins": 2982.0,
+    "losses": 4557.0,
     "pushes": 0.0,
-    "staked_units": 8148.0,
-    "profit_units": -2096.181818181818,
-    "roi": -0.2572633552014995,
-    "win_rate": 0.38905252822778597
+    "staked_units": 7539.0,
+    "profit_units": -1846.090909090909,
+    "roi": -0.2448721195239301,
+    "win_rate": 0.3955431754874652
   }
 ]

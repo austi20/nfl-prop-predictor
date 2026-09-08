@@ -5,6 +5,26 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m3 - 2026-09-08
+
+**Season-eve activation: data brought current for 2026; training + paper-execution pipelines exercised end to end on refreshed 2025 data.**
+
+Full detail: `docs/season_eve_2026_dryrun.md`.
+
+- **Data current for 2026:** `ALL_YEARS` -> ..2026; schedule / injury / roster cache windows extended to 2026. Caches refreshed (weekly 217,490 rows; schedules incl. 2026's 272 games; rosters/injuries through 2026). `TRAIN_YEARS` stays 2015-2024 / `HOLDOUT_YEARS` [2025] — the two must stay disjoint (out-of-sample test set for `model_backtest` / `replay_pipeline`); production fits pass explicit `years=`. **nflverse has no 2026 player data yet (lands after Week 1) and no preseason box scores ever** — "train on preseason" is not possible from these sources; 2025 is the freshest complete season.
+- **`docs/training/synthetic_props_training.csv` regenerated:** 144,562 rows (2019-2025), all eligible; 2025 fully resolved (21,108 rows, 0 null outcomes).
+- **`scripts/capture_preseason_baseline.py` wired for real** (was a stub returning `[]`): fits the locked GLMs, scores per (position, stat) on 2025 -> `docs/preseason_baseline_2026.md`. Finding: **`rb/carries` is badly miscalibrated** (log_loss 2.35 / brier 0.46, worse than uninformed) despite fine point accuracy (MAE 4.2) — a tail/distribution problem for `use_calibration` once real lines exist. Other stats 0.49-0.80 log_loss.
+- **Training accuracy re-run** (`eval/model_backtest.py`, locked config, disjoint 2025 holdout): **every stat's MAE + RMSE improved vs the April baseline** on both walk-forward and holdout (data volume + upstream corrections, not leakage). QB `passing_yards` keeps a ~+25 yd/game positive bias (pre-existing).
+- **Paper-trade replay 2025** -> `docs/paper_trade_summary_2025.md`: 18,801 singles, ROI +7.6%, win rate 56.4% vs synthetic surrogate lines (model-vs-trend, not real edge).
+- **`scripts/dry_run_execution.py`** (new): first end-to-end exercise of `ExecutionService -> mapper -> ExposureRiskEngine -> RealisticPaperAdapter -> ledger`. 1,500 replay picks -> 1,500 filled, `docs/audit/` persistence verified.
+- **`scripts/dry_run_week1_2026.py`** (new): real Week-1 slate -> price -> paper-submit. Plumbing works (847/847 filled). **BLOCKER surfaced:** the `future_row` forward-scoring path is not season-ready — Week-1 predictions collapse to the league prior (`use_future_row=False`), and the decomposed passing-yards path over-projects to 600-1000+ yd when that collapse is removed. `use_future_row` stays `False`; nothing shipping for Week 1 depends on it.
+- **Fixes:** `generate_synthetic_props.py` + `capture_preseason_baseline.py` were un-runnable (missing repo-root `sys.path`); `RealisticPaperAdapter` no longer logs the misleading "fake paper adapter active" line; `.gitignore` for `docs/audit/` and dry-run scratch.
+- **Deferred:** full 144-config walk-forward grid re-validation (locked config is human-reviewed; ~hours, low value); calibration (still gated on real Kalshi quotes); live weather forecast for 2026 games.
+
+**Verification:** `uv run pytest -q` green.
+
+---
+
 ## v0.9-m2 - 2026-06-10
 
 **Modernization roadmap accepted + pre-work shipped: breakpoint Layer B gate, PR template, Kalshi NFL series discovery, preseason baseline scaffold.**

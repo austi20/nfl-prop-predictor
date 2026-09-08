@@ -11,6 +11,11 @@ dist/
 build/
 tmp/
 .tmp/
+docs/audit/
+docs/training/rerun_*/
+docs/week1_2026_signals.csv
+docs/dry_run_execution_2026-w1.*
+docs/dry_run_execution_*.json
 .DS_Store
 node_modules/
 desktop/dist/

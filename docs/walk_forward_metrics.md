@@ -5,19 +5,19 @@ Eval years: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024
 
 ## QB
 
-- `passing_yards`: n=5882, MAE=78.839, RMSE=100.383, bias=14.763
-- `passing_tds`: n=5882, MAE=0.956, RMSE=1.141, bias=0.097
-- `interceptions`: n=5882, MAE=0.719, RMSE=0.867, bias=0.051
-- `completions`: n=5882, MAE=6.616, RMSE=8.515, bias=1.004
+- `passing_yards`: n=5882, MAE=77.851, RMSE=98.458, bias=17.002
+- `passing_tds`: n=5882, MAE=0.930, RMSE=1.122, bias=0.094
+- `interceptions`: n=5882, MAE=0.715, RMSE=0.868, bias=0.046
+- `completions`: n=5882, MAE=6.466, RMSE=8.256, bias=1.128
 
 ## RB
 
-- `rushing_yards`: n=12436, MAE=25.553, RMSE=32.923, bias=0.243
-- `carries`: n=12436, MAE=4.967, RMSE=6.045, bias=0.198
-- `rushing_tds`: n=12436, MAE=0.400, RMSE=0.542, bias=-0.008
+- `rushing_yards`: n=12436, MAE=24.430, RMSE=31.779, bias=0.640
+- `carries`: n=12436, MAE=4.587, RMSE=5.693, bias=0.362
+- `rushing_tds`: n=12436, MAE=0.391, RMSE=0.537, bias=-0.008
 
 ## WR_TE
 
-- `receptions`: n=29416, MAE=1.742, RMSE=2.196, bias=0.100
-- `receiving_yards`: n=29416, MAE=24.762, RMSE=31.676, bias=1.911
-- `receiving_tds`: n=29416, MAE=0.361, RMSE=0.475, bias=0.016
+- `receptions`: n=29416, MAE=1.648, RMSE=2.103, bias=0.133
+- `receiving_yards`: n=29416, MAE=23.886, RMSE=30.862, bias=2.370
+- `receiving_tds`: n=29416, MAE=0.356, RMSE=0.472, bias=0.015

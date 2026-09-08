@@ -11,6 +11,7 @@
   },
   "policy": {
     "min_edge": 0.05,
+    "min_ev": 0.02,
     "stake": 1.0,
     "singles_evaluated_separately_from_parlays": true,
     "same_game_penalty": 0.97,
@@ -20,10 +21,11 @@
     "max_picks_per_game": null
   },
   "validation": {
-    "input_rows": 41508,
-    "rows_after_filters": 20947,
-    "rows_priced": 20947,
-    "selected_rows": 18407,
+    "input_rows": 144562,
+    "rows_after_filters": 21108,
+    "rows_priced": 21108,
+    "selected_rows": 18801,
+    "weather_archive_available": false,
     "applied_filters": {
       "replay_years": [
         2025
@@ -34,53 +36,54 @@
       "unsupported_stat": 0,
       "missing_odds": 0,
       "missing_actual_outcome": 0,
-      "no_selection_edge_threshold": 2540,
+      "no_selection_edge_threshold": 2307,
+      "no_bet": 2307,
       "max_picks_per_week": 0,
       "max_picks_per_player": 0,
       "max_picks_per_game": 0
     }
   },
   "singles": {
-    "n_bets": 18407.0,
-    "wins": 10175.0,
-    "losses": 8232.0,
+    "n_bets": 18801.0,
+    "wins": 10600.0,
+    "losses": 8201.0,
     "pushes": 0.0,
-    "staked_units": 18407.0,
-    "profit_units": 1018.0,
-    "roi": 0.055305046992991796,
-    "win_rate": 0.5527788341391862
+    "staked_units": 18801.0,
+    "profit_units": 1435.3636363636365,
+    "roi": 0.07634506868590163,
+    "win_rate": 0.5637997978830913
   },
   "parlays": {
     "n_parlays": 20.0,
-    "wins": 20.0,
-    "losses": 0.0,
+    "wins": 7.0,
+    "losses": 13.0,
     "pushes": 0.0,
     "staked_units": 20.0,
-    "profit_units": 52.892561983471076,
-    "roi": 2.644628099173554,
-    "win_rate": 1.0,
-    "avg_expected_value_units": 2.6445786130011792
+    "profit_units": 5.51239669421488,
+    "roi": 0.275619834710744,
+    "win_rate": 0.35,
+    "avg_expected_value_units": 2.644628099173554
   },
   "baselines": {
     "current_policy_singles": {
-      "n_bets": 18407.0,
-      "wins": 10175.0,
-      "losses": 8232.0,
+      "n_bets": 18801.0,
+      "wins": 10600.0,
+      "losses": 8201.0,
       "pushes": 0.0,
-      "staked_units": 18407.0,
-      "profit_units": 1018.0,
-      "roi": 0.055305046992991796,
-      "win_rate": 0.5527788341391862
+      "staked_units": 18801.0,
+      "profit_units": 1435.3636363636365,
+      "roi": 0.07634506868590163,
+      "win_rate": 0.5637997978830913
     },
     "no_threshold_singles": {
-      "n_bets": 20247.0,
-      "wins": 11143.0,
-      "losses": 9104.0,
+      "n_bets": 19689.0,
+      "wins": 11086.0,
+      "losses": 8603.0,
       "pushes": 0.0,
-      "staked_units": 20247.0,
-      "profit_units": 1026.0,
-      "roi": 0.05067417395169655,
-      "win_rate": 0.550353138736603
+      "staked_units": 19689.0,
+      "profit_units": 1475.1818181818182,
+      "roi": 0.07492416162231795,
+      "win_rate": 0.563055513230738
     },
     "top_edge_only_singles": {
       "n_bets": 22.0,
@@ -93,43 +96,43 @@
       "win_rate": 0.6363636363636364
     },
     "singles_plus_top_parlay_per_week": {
-      "n_bets": 18411.0,
-      "wins": 10179.0,
-      "losses": 8232.0,
+      "n_bets": 18802.0,
+      "wins": 10601.0,
+      "losses": 8201.0,
       "pushes": 0.0,
-      "staked_units": 18411.0,
-      "profit_units": 1028.5785123966941,
-      "roi": 0.055867606995638155,
-      "win_rate": 0.5528759980446473
+      "staked_units": 18802.0,
+      "profit_units": 1438.00826446281,
+      "roi": 0.07648166495387779,
+      "win_rate": 0.5638229975534518
     }
   },
   "leaders": {
     "stats": {
       "best": {
         "stat": "receiving_tds",
-        "profit_units": 1075.7272727272725,
-        "roi": 0.5171765734265733,
-        "n_bets": 2080.0
+        "profit_units": 1069.0,
+        "roi": 0.513695338779433,
+        "n_bets": 2081.0
       },
       "worst": {
         "stat": "carries",
-        "profit_units": -589.5454545454545,
-        "roi": -0.21168598008813447,
-        "n_bets": 2785.0
+        "profit_units": -541.1818181818181,
+        "roi": -0.19383302943474862,
+        "n_bets": 2792.0
       }
     },
     "books": {
       "best": {
         "book": "synthetic",
-        "profit_units": 1018.0,
-        "roi": 0.055305046992991796,
-        "n_bets": 18407.0
+        "profit_units": 1435.3636363636365,
+        "roi": 0.07634506868590163,
+        "n_bets": 18801.0
       },
       "worst": {
         "book": "synthetic",
-        "profit_units": 1018.0,
-        "roi": 0.055305046992991796,
-        "n_bets": 18407.0
+        "profit_units": 1435.3636363636365,
+        "roi": 0.07634506868590163,
+        "n_bets": 18801.0
       }
     }
   },

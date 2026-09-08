@@ -346,9 +346,11 @@ class TestCacheStaleness:
 def test_year_constants():
     assert TRAIN_YEARS == list(range(2015, 2025))
     assert HOLDOUT_YEARS == [2025]
-    assert ALL_YEARS == list(range(1999, 2026))
+    assert ALL_YEARS == list(range(1999, 2027))
     assert 2025 not in TRAIN_YEARS
     assert 2024 in TRAIN_YEARS
+    # TRAIN_YEARS and HOLDOUT_YEARS must stay disjoint (out-of-sample test set).
+    assert not set(TRAIN_YEARS) & set(HOLDOUT_YEARS)
 
 
 def test_dome_teams_constant():

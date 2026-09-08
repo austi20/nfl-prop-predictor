@@ -15,9 +15,14 @@ import pandas as pd
 # Year constants
 # ---------------------------------------------------------------------------
 
+# TRAIN_YEARS and HOLDOUT_YEARS must stay disjoint — model_backtest and
+# replay_pipeline treat HOLDOUT_YEARS as the out-of-sample test set for a fit on
+# TRAIN_YEARS. 2026 has no player-level nflverse data until Week 1 games are
+# played, so it is absent from weekly-loading year lists (schedules / injuries
+# / rosters do carry 2026).
 TRAIN_YEARS: list[int] = list(range(2015, 2025))
 HOLDOUT_YEARS: list[int] = [2025]
-ALL_YEARS: list[int] = list(range(1999, 2026))
+ALL_YEARS: list[int] = list(range(1999, 2027))
 
 # ---------------------------------------------------------------------------
 # Dome / retractable-roof teams (as of 2025 season)
