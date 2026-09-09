@@ -302,6 +302,22 @@ def _neutral_factor(
     )
 
 
+def _rows_before(weekly: pd.DataFrame, season: int, week: int, *, recent_seasons: int = 2) -> pd.DataFrame:
+    """Every row strictly before (season, week), spanning into prior seasons —
+    so a Week-1 request still sees last year's form instead of nothing. Trimmed
+    to the last ``recent_seasons`` distinct seasons present for stationarity."""
+    if "season" not in weekly.columns or "week" not in weekly.columns:
+        return weekly.iloc[0:0]
+    before = weekly[
+        (weekly["season"] < season)
+        | ((weekly["season"] == season) & (weekly["week"] < week))
+    ].copy()
+    if before.empty:
+        return before
+    keep = sorted(before["season"].unique())[-recent_seasons:]
+    return before[before["season"].isin(keep)]
+
+
 def _qb_support_factor(
     weekly: pd.DataFrame,
     *,
@@ -326,12 +342,12 @@ def _qb_support_factor(
             affected_stats,
         )
 
-    prior = weekly[(weekly["season"] == season) & (weekly["week"] < week)].copy()
+    prior = _rows_before(weekly, season, week)
     if prior.empty or "position" not in prior.columns:
         return _neutral_factor(
             "qb_support",
             "QB support",
-            "No prior-season QB form is available before this week.",
+            "No prior QB form is available before this game.",
             affected_stats,
         )
 
@@ -386,6 +402,61 @@ def _qb_support_factor(
     )
 
 
+def _opponent_matchup_factor(
+    weekly: pd.DataFrame,
+    *,
+    season: int,
+    week: int,
+    opponent_team: str,
+    position: str,
+    scoring_mode: ScoringMode,
+) -> FantasyContextFactor:
+    """Fantasy points this opponent allows to the position vs the league.
+
+    The GLM already carries an opponent-defense feature, but only on the stats
+    it covers and at ~35% blend weight. This applies the matchup to *every*
+    scoring stat, half-strength.
+    """
+    normalized = position.upper().strip()
+    positive = _positive_stats_for_position(normalized)
+    if not opponent_team or normalized not in {"QB", "RB", "WR", "TE"}:
+        return _neutral_factor(
+            "opponent_matchup", "Opponent matchup",
+            "Opponent or position unavailable.", positive,
+        )
+    prior = _rows_before(weekly, season, week)
+    if prior.empty or not {"position", "opponent_team"}.issubset(prior.columns):
+        return _neutral_factor(
+            "opponent_matchup", "Opponent matchup",
+            "No prior defense-allowed data before this game.", positive,
+        )
+    pos_rows = prior[prior["position"].astype(str).str.upper() == normalized].copy()
+    if pos_rows.empty:
+        return _neutral_factor(
+            "opponent_matchup", "Opponent matchup", "No positional data.", positive,
+        )
+    pos_rows["fp"] = _fantasy_points_from_rows(pos_rows, scoring_mode)
+    # points allowed to the position, per defense per game
+    per_def_game = pos_rows.groupby(["opponent_team", "season", "week"], as_index=False)["fp"].sum()
+    league_mean = per_def_game["fp"].mean()
+    opp_games = per_def_game[per_def_game["opponent_team"].astype(str) == opponent_team]
+    if opp_games.empty or league_mean <= 0:
+        return _neutral_factor(
+            "opponent_matchup", "Opponent matchup",
+            f"No games found for {opponent_team}'s defense.", positive,
+        )
+    ratio = float(opp_games["fp"].mean()) / float(league_mean)
+    multiplier = float(np.clip(1.0 + 0.5 * (ratio - 1.0), 0.88, 1.12))
+    return FantasyContextFactor(
+        name="opponent_matchup",
+        label="Opponent matchup",
+        multiplier=round(multiplier, 4),
+        applied=abs(multiplier - 1.0) > 5e-3,
+        affected_stats=positive,
+        reason=f"{opponent_team} allows {opp_games['fp'].mean():.1f} fantasy pts/game to {normalized}s ({ratio:.0%} of league) over {len(opp_games)} games.",
+    )
+
+
 def _position_group_factor(
     weekly: pd.DataFrame,
     *,
@@ -405,12 +476,12 @@ def _position_group_factor(
             affected_stats,
         )
 
-    prior = weekly[(weekly["season"] == season) & (weekly["week"] < week)].copy()
+    prior = _rows_before(weekly, season, week)
     if prior.empty or "position" not in prior.columns or "recent_team" not in prior.columns:
         return _neutral_factor(
             "position_group_form",
             "Team position form",
-            "No prior position-group production is available before this week.",
+            "No prior position-group production is available before this game.",
             affected_stats,
         )
 
@@ -462,9 +533,15 @@ def _position_group_factor(
 @lru_cache(maxsize=8)
 def _read_cached_injuries(cache_dir: str, season: int) -> pd.DataFrame:
     path = Path(cache_dir) / f"injuries_{season}.parquet"
-    if not path.exists():
+    if path.exists():
+        return pd.read_parquet(path)
+    # Not cached yet (e.g. a fresh in-progress season) — fetch + cache once.
+    try:
+        from data.nflverse_loader import load_injuries
+
+        return load_injuries([season])
+    except Exception:  # noqa: BLE001
         return pd.DataFrame()
-    return pd.read_parquet(path)
 
 
 def _injury_factor(
@@ -516,27 +593,29 @@ def _injury_factor(
 
     sort_cols = [col for col in ("season", "week") if col in matches.columns]
     latest = matches.sort_values(sort_cols).iloc[-1] if sort_cols else matches.iloc[-1]
-    status_text = " ".join(
-        str(latest.get(col, ""))
-        for col in (
-            "game_status",
-            "report_status",
-            "practice_status",
-            "status",
-            "injury_report_status",
-        )
-        if col in latest.index
-    ).lower()
+
+    def _field(*names: str) -> str:
+        return " ".join(
+            str(latest[c]) for c in names if c in latest.index and pd.notna(latest[c])
+        ).strip().lower()
+
+    game_status = _field("game_status", "report_status", "status", "injury_report_status")
+    practice = _field("practice_status")
 
     multiplier = 1.0
-    if "out" in status_text:
-        multiplier = 0.20
-    elif "doubtful" in status_text:
-        multiplier = 0.55
-    elif "questionable" in status_text:
-        multiplier = 0.90
-    elif "did not practice" in status_text or "limited" in status_text or "dnp" in status_text:
-        multiplier = 0.94
+    reason = "On the report but expected to play a normal workload."
+    # Game-status designations are the reliable signal; practice-only is weaker
+    # and dominant early in the week before the game report is filed.
+    if any(w in game_status for w in ("out", "injured reserve", " ir")):
+        multiplier, reason = 0.05, f"Ruled OUT ({game_status})."
+    elif "doubtful" in game_status:
+        multiplier, reason = 0.40, f"Doubtful ({game_status})."
+    elif "questionable" in game_status:
+        multiplier, reason = 0.92, f"Questionable ({game_status})."
+    elif "did not participate" in practice or "dnp" in practice or "did not practice" in practice:
+        multiplier, reason = 0.90, f"Did not practice ({practice}); no game status yet."
+    elif "limited" in practice:
+        multiplier, reason = 0.96, f"Limited in practice ({practice})."
 
     return FantasyContextFactor(
         name="injury_status",
@@ -544,7 +623,7 @@ def _injury_factor(
         multiplier=multiplier,
         applied=multiplier != 1.0,
         affected_stats=affected_stats,
-        reason="Latest cached injury report was interpreted as neutral." if multiplier == 1.0 else f"Latest cached injury text: {status_text}",
+        reason=reason,
     )
 
 
@@ -820,6 +899,14 @@ def _context_factors(
             season=season,
             week=week,
             team=recent_team,
+            position=position,
+            scoring_mode=scoring_mode,
+        ),
+        _opponent_matchup_factor(
+            weekly,
+            season=season,
+            week=week,
+            opponent_team=opponent_team,
             position=position,
             scoring_mode=scoring_mode,
         ),
