@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 import warnings
 from urllib.error import HTTPError
@@ -11,6 +12,18 @@ from typing import Literal
 
 import nfl_data_py as nfl
 import pandas as pd
+
+
+def app_root() -> Path:
+    """Repo root — walk up from this module (or the frozen exe) for the
+    ``pyproject.toml`` marker so ``cache/`` / ``docs/`` resolve regardless of
+    the process cwd (the Tauri shell runs the bundled sidecar from the app dir).
+    """
+    start = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+    for candidate in (start, *start.parents):
+        if (candidate / "pyproject.toml").is_file():
+            return candidate
+    return Path.cwd()
 
 # ---------------------------------------------------------------------------
 # Year constants
@@ -51,7 +64,7 @@ def is_dome(team_abbr: str) -> bool:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-_CACHE_DIR = Path(__file__).parent.parent / "cache"
+_CACHE_DIR = app_root() / "cache"
 _CACHE_MAX_AGE_SECONDS = 24 * 60 * 60  # 24 hours
 _NFLVERSE_STATS_PLAYER_RELEASE = (
     "https://github.com/nflverse/nflverse-data/releases/download/stats_player/"

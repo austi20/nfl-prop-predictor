@@ -6,7 +6,11 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from data.nflverse_loader import TRAIN_YEARS
+from data.nflverse_loader import TRAIN_YEARS, app_root
+
+# Repo root — so docs/ cache/ models/ resolve no matter the process cwd. The
+# Tauri shell spawns the bundled sidecar from the app dir, not the repo root.
+_ROOT = app_root()
 
 
 class AppSettings(BaseSettings):
@@ -21,10 +25,10 @@ class AppSettings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
-    docs_dir: Path = Field(default_factory=lambda: Path("docs"))
-    cache_dir: Path = Field(default_factory=lambda: Path("cache"))
-    model_dir: Path = Field(default_factory=lambda: Path("models"))
-    sample_props_path: Path = Field(default_factory=lambda: Path("docs") / "synthetic_replay_props.csv")
+    docs_dir: Path = Field(default_factory=lambda: _ROOT / "docs")
+    cache_dir: Path = Field(default_factory=lambda: _ROOT / "cache")
+    model_dir: Path = Field(default_factory=lambda: _ROOT / "models")
+    sample_props_path: Path = Field(default_factory=lambda: _ROOT / "docs" / "synthetic_replay_props.csv")
 
     default_train_years: tuple[int, ...] = tuple(TRAIN_YEARS[:-1])
     default_replay_years: tuple[int, ...] = (2024,)
@@ -53,7 +57,7 @@ class AppSettings(BaseSettings):
     max_no_inventory_per_market: float = 100.0
 
     default_calibrator_path: str = ""
-    training_props_path: Path = Field(default_factory=lambda: Path("docs") / "training" / "synthetic_props_training.csv")
+    training_props_path: Path = Field(default_factory=lambda: _ROOT / "docs" / "training" / "synthetic_props_training.csv")
     llama_cpp_base_url: str = "http://127.0.0.1:8080"
     weather_source: str = "open-meteo"
     use_live_forecast: bool = False
