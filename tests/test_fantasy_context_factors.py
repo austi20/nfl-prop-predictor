@@ -134,10 +134,10 @@ def test_stat_multiplier_product_is_clamped_but_injury_escapes():
                              affected_stats=["rushing_yards"]),
     ]
     mult = _stat_multipliers(stacked)["rushing_yards"]
-    assert mult == 1.25  # 1.12*1.05*1.04*1.03 ~ 1.26 -> clamped to 1.25
+    assert mult == 1.22  # 1.12*1.05*1.04*1.03 ~ 1.26 -> clamped
 
     with_out = stacked + [
         FantasyContextFactor(name="injury_status", label="", multiplier=0.20, applied=True,
                              affected_stats=["rushing_yards"]),
     ]
-    assert _stat_multipliers(with_out)["rushing_yards"] == 1.25 * 0.20  # injury applied after clamp
+    assert _stat_multipliers(with_out)["rushing_yards"] == 1.22 * 0.20  # injury applied after clamp

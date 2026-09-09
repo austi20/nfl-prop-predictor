@@ -809,7 +809,9 @@ def _usage_factor(
     try:
         from data.usage import usage_trend
 
-        trend = usage_trend(player_id, int(season), int(week), seasons)
+        # only completed seasons — snap/NGS files for an in-progress season 404
+        completed = tuple(s for s in seasons if s < int(season)) or seasons
+        trend = usage_trend(player_id, int(season), int(week), completed)
     except Exception:  # noqa: BLE001
         trend = None
     if not trend:
@@ -1069,7 +1071,7 @@ def _context_factors(
 
 # Injury "Out"/"Doubtful" are deliberate near-zeros; every other factor is a
 # nudge. Clamp the *product* of the nudges so a stack of them can't run away.
-_STAT_MULT_LO, _STAT_MULT_HI = 0.75, 1.25
+_STAT_MULT_LO, _STAT_MULT_HI = 0.78, 1.22
 
 
 def _stat_multipliers(context_factors: list[FantasyContextFactor]) -> dict[str, float]:

@@ -34,7 +34,13 @@ def snap_share_frame(seasons: tuple[int, ...]) -> pd.DataFrame:
     """(gsis_id, season, week, snap_pct) for offensive players, 0..1."""
     if not seasons:
         return pd.DataFrame(columns=["gsis_id", "season", "week", "snap_pct"])
-    snaps = load_snap_counts(list(seasons))
+    try:
+        snaps = load_snap_counts(list(seasons))
+    except Exception:  # noqa: BLE001 - an in-progress season with no file yet
+        try:
+            snaps = load_snap_counts([s for s in seasons if s < max(seasons)])
+        except Exception:  # noqa: BLE001
+            return pd.DataFrame(columns=["gsis_id", "season", "week", "snap_pct"])
     if snaps.empty:
         return pd.DataFrame(columns=["gsis_id", "season", "week", "snap_pct"])
     snaps = snaps[snaps["position"].astype(str).str.upper().isin(_OFFENSE_SNAP_POSITIONS)].copy()
@@ -54,8 +60,11 @@ def air_yards_share_frame(seasons: tuple[int, ...]) -> pd.DataFrame:
         return empty
     try:
         ngs = load_ngs("receiving", list(seasons))
-    except Exception:  # noqa: BLE001
-        return empty
+    except Exception:  # noqa: BLE001 - retry without an unpublished in-progress season
+        try:
+            ngs = load_ngs("receiving", [s for s in seasons if s < max(seasons)])
+        except Exception:  # noqa: BLE001
+            return empty
     if ngs.empty or "player_gsis_id" not in ngs.columns:
         return empty
     ngs = ngs[pd.to_numeric(ngs["week"], errors="coerce").fillna(0) > 0].copy()
