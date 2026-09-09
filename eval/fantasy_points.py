@@ -106,11 +106,16 @@ def project_fantasy_points(
     stat_multipliers: dict[str, float] | None = None,
     seed: int | None = None,
     simulations: int = 5000,
+    calib=None,
 ) -> FantasyProjection:
     weights = scoring_weights(scoring_mode)
     boom_cutoff, bust_cutoff = position_cutoffs(position)
     multipliers = stat_multipliers or {}
     rng = np.random.default_rng(seed)
+
+    cv_floor_frac = float(getattr(calib, "cv_floor_frac", 0.0)) if calib is not None else 0.0
+    yard_cv = float(getattr(calib, "yard_cv", 0.55)) if calib is not None else 0.55
+    count_cv = float(getattr(calib, "count_cv", 0.85)) if calib is not None else 0.85
 
     total_samples = np.zeros(simulations, dtype=float)
     components: list[dict[str, float | str]] = []
@@ -126,9 +131,14 @@ def project_fantasy_points(
             continue
 
         multiplier = max(float(multipliers.get(stat, 1.0)), 0.0)
+        adj_mean = float(distribution.mean) * multiplier
+        adj_std = float(distribution.std) * multiplier
+        if calib is not None and cv_floor_frac > 0 and adj_mean > 0:
+            cv = yard_cv if stat in ("passing_yards", "rushing_yards", "receiving_yards") else count_cv
+            adj_std = max(adj_std, cv * cv_floor_frac * adj_mean)
         adjusted = StatDistribution(
-            mean=float(distribution.mean) * multiplier,
-            std=float(distribution.std) * multiplier,
+            mean=adj_mean,
+            std=adj_std,
             dist_type=distribution.dist_type,
         )
         component_points = float(adjusted.mean) * weight

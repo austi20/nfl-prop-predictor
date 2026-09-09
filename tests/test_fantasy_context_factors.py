@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import pandas as pd
 
 from api.schemas import FantasyContextFactor
@@ -140,4 +141,4 @@ def test_stat_multiplier_product_is_clamped_but_injury_escapes():
         FantasyContextFactor(name="injury_status", label="", multiplier=0.20, applied=True,
                              affected_stats=["rushing_yards"]),
     ]
-    assert _stat_multipliers(with_out)["rushing_yards"] == 1.22 * 0.20  # injury applied after clamp
+    assert _stat_multipliers(with_out)["rushing_yards"] == pytest.approx(1.22 * 0.20)  # injury after clamp

@@ -23,6 +23,12 @@ from data.game_context import (
 from data.nflverse_loader import is_dome
 from data.weather import load_forecast
 from eval.calibration_pipeline import STAT_SPECS
+from eval.fantasy_calibration import (
+    FantasyCalibration,
+    OFFENSE_STACK_FACTORS,
+    default_calibration,
+    load_calibration,
+)
 from eval.fantasy_points import (
     SCORING_PROFILES,
     ScoringMode,
@@ -192,6 +198,15 @@ _TRAILING_STATS_BY_POSITION: dict[str, tuple[str, ...]] = {
     "TE": ("receptions", "receiving_yards", "receiving_tds"),
 }
 _YARDAGE_STATS = frozenset({"passing_yards", "rushing_yards", "receiving_yards"})
+
+
+@lru_cache(maxsize=4)
+def _calibration(path: str) -> FantasyCalibration:
+    return load_calibration(path or None)
+
+
+def _settings_calibration(settings: AppSettings) -> FantasyCalibration:
+    return _calibration(getattr(settings, "fantasy_calibration_path", "") or "")
 _TRAILING_WINDOW = 8          # most recent games that inform the projection
 _TRAILING_REGRESS_GAMES = 4.0  # pseudo-count pulling a thin sample to the baseline
 _MODEL_BLEND_WEIGHT = 0.35     # how much the GLM mean moves a covered stat
@@ -234,7 +249,9 @@ def _trailing_fantasy_distributions(
     week: int,
     position: str,
     model_distributions: dict[str, StatDistribution],
+    calib: FantasyCalibration | None = None,
 ) -> dict[str, StatDistribution]:
+    calib = calib or default_calibration()
     normalized = position.upper().strip()
     stats = _TRAILING_STATS_BY_POSITION.get(normalized)
     if not stats:
@@ -261,27 +278,34 @@ def _trailing_fantasy_distributions(
             recent = base
         trailing = form_weight * recent + (1.0 - form_weight) * base
 
+        cv = calib.yard_cv if stat in _YARDAGE_STATS else calib.count_cv
+        cv_floor = cv * calib.cv_floor_frac  # 0 at default -> no change to today's spread
+
         model_dist = model_distributions.get(stat)
         if model_dist is not None and model_dist.mean > 0:
-            mean = (1.0 - _MODEL_BLEND_WEIGHT) * trailing + _MODEL_BLEND_WEIGHT * float(model_dist.mean)
+            glm_bias = calib.glm_bias.get(f"{normalized}/{stat}", 1.0)
+            model_mean = float(model_dist.mean) * glm_bias
+            mean = (1.0 - calib.glm_blend_weight) * trailing + calib.glm_blend_weight * model_mean
         else:
             mean = trailing
 
         anchor = max(recent, base, 1e-6)
-        mean = float(np.clip(mean, _STAT_MEAN_LO * anchor, _STAT_MEAN_HI * anchor))
+        mean = float(np.clip(mean, calib.stat_mean_lo * anchor, calib.stat_mean_hi * anchor))
         if mean <= 0:
             continue
 
         if model_dist is not None and model_dist.mean > 0 and model_dist.std > 0:
+            vinf = calib.glm_var_inflation.get(f"{normalized}/{stat}", 1.0)
+            glm_std = float(model_dist.std) * (mean / float(model_dist.mean)) * vinf
             distributions[stat] = StatDistribution(
                 mean=mean,
-                std=float(model_dist.std) * (mean / float(model_dist.mean)),
+                std=max(glm_std, cv_floor * mean, 1e-3),
                 dist_type=model_dist.dist_type,
             )
         elif stat in _YARDAGE_STATS:
-            distributions[stat] = StatDistribution(mean=mean, std=max(_YARD_CV * mean, 1e-3), dist_type="gamma")
+            distributions[stat] = StatDistribution(mean=mean, std=max(cv * mean, 1e-3), dist_type="gamma")
         else:
-            distributions[stat] = StatDistribution(mean=mean, std=max(_COUNT_CV * mean, 1e-3), dist_type="poisson")
+            distributions[stat] = StatDistribution(mean=mean, std=max(cv * mean, 1e-3), dist_type="poisson")
 
     return distributions
 
@@ -1005,6 +1029,7 @@ def _context_factors(
     opponent_team: str,
     scoring_mode: ScoringMode,
     game_id: str = "",
+    calib: FantasyCalibration | None = None,  # accepted for signature stability; scaling is in _stat_multipliers
 ) -> list[FantasyContextFactor]:
     seasons = tuple(sorted({int(s) for s in weekly["season"].unique()} | {int(season)})) if "season" in weekly.columns else (int(season),)
     context = context_for(seasons, season=season, week=week, team=recent_team) if recent_team else None
@@ -1071,23 +1096,39 @@ def _context_factors(
 
 # Injury "Out"/"Doubtful" are deliberate near-zeros; every other factor is a
 # nudge. Clamp the *product* of the nudges so a stack of them can't run away.
+# Defaults live in FantasyCalibration; these names kept for back-compat readers.
 _STAT_MULT_LO, _STAT_MULT_HI = 0.78, 1.22
 
+_OFFENSE_STACK_SET = frozenset(OFFENSE_STACK_FACTORS)
 
-def _stat_multipliers(context_factors: list[FantasyContextFactor]) -> dict[str, float]:
+
+def _stat_multipliers(
+    context_factors: list[FantasyContextFactor],
+    calib: FantasyCalibration | None = None,
+) -> dict[str, float]:
+    calib = calib or default_calibration()
     multipliers = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
     injury_hit = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
+    offense = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}  # jointly sub-capped
     for factor in context_factors:
         if not factor.applied:
             continue
-        target = injury_hit if factor.name == "injury_status" else multipliers
+        scaled = 1.0 + calib.strength(factor.name) * (factor.multiplier - 1.0)
+        if factor.name == "injury_status":
+            target = injury_hit
+        elif factor.name in _OFFENSE_STACK_SET:
+            target = offense
+        else:
+            target = multipliers
         for stat in factor.affected_stats:
             if stat in target:
-                target[stat] *= factor.multiplier
-    return {
-        stat: float(np.clip(multipliers[stat], _STAT_MULT_LO, _STAT_MULT_HI)) * injury_hit[stat]
-        for stat in multipliers
-    }
+                target[stat] *= scaled
+    out: dict[str, float] = {}
+    for stat in multipliers:
+        stack = min(offense[stat], calib.offense_stack_cap)
+        combined = float(np.clip(multipliers[stat] * stack, calib.context_clamp_lo, calib.context_clamp_hi))
+        out[stat] = combined * injury_hit[stat]
+    return out
 
 
 def build_fantasy_summary(
@@ -1107,6 +1148,7 @@ def build_fantasy_summary(
     # Every complete season through the one being scored — so a 2026 request
     # still sees 2024/2025 form (the configured window lags the calendar).
     weekly = scoring_weekly(settings, season)
+    calib = _settings_calibration(settings)
 
     model_distributions = _predict_distributions(
         settings,
@@ -1124,6 +1166,7 @@ def build_fantasy_summary(
         week=week,
         position=normalized_position,
         model_distributions=model_distributions,
+        calib=calib,
     )
     factors = _context_factors(
         settings,
@@ -1136,14 +1179,16 @@ def build_fantasy_summary(
         opponent_team=opponent_team,
         scoring_mode=mode,
         game_id=game_id,
+        calib=calib,
     )
     seed = stable_simulation_seed(player_id, season, week, mode)
     projection = project_fantasy_points(
         distributions,
         position=normalized_position,
         scoring_mode=mode,
-        stat_multipliers=_stat_multipliers(factors),
+        stat_multipliers=_stat_multipliers(factors, calib),
         seed=seed,
+        calib=calib,
     )
     return FantasySummary(
         projected_points=projection.projected_points,

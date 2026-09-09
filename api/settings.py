@@ -88,6 +88,10 @@ class AppSettings(BaseSettings):
     # (~70% of cores). 1 disables the pool (serial). Env NFL_APP_FANTASY_SLATE_WORKERS.
     fantasy_slate_workers: int = 0
 
+    # Tuned downstream-of-anchor projection parameters (eval/fantasy_calibration).
+    # Empty -> built-in defaults (today's board). Env NFL_APP_FANTASY_CALIBRATION_PATH.
+    fantasy_calibration_path: str = ""
+
     # Kalshi market data — refreshes the game-script total when a game's market
     # is priced (thin until near kickoff; falls back to the schedule line).
     # Reads the bare KALSHI_* names so the .pem/key can be shared with NBABets v2.

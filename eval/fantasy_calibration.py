@@ -31,6 +31,7 @@ class FantasyCalibration:
     stat_mean_hi: float = 1.70
     yard_cv: float = 0.55
     count_cv: float = 0.85
+    cv_floor_frac: float = 0.0  # min game-to-game std as this fraction of (yard/count)_cv * mean; 0 = today
     context_clamp_lo: float = 0.78
     context_clamp_hi: float = 1.22
     offense_stack_cap: float = 1.30  # >= context_clamp_hi -> no-op at the default
@@ -53,6 +54,7 @@ class FantasyCalibration:
             "stat_mean_hi": self.stat_mean_hi,
             "yard_cv": self.yard_cv,
             "count_cv": self.count_cv,
+            "cv_floor_frac": self.cv_floor_frac,
             "context_clamp_lo": self.context_clamp_lo,
             "context_clamp_hi": self.context_clamp_hi,
             "offense_stack_cap": self.offense_stack_cap,
@@ -75,6 +77,7 @@ def _from_dict(d: dict) -> FantasyCalibration:
         stat_mean_hi=float(d.get("stat_mean_hi", base.stat_mean_hi)),
         yard_cv=float(d.get("yard_cv", base.yard_cv)),
         count_cv=float(d.get("count_cv", base.count_cv)),
+        cv_floor_frac=float(d.get("cv_floor_frac", base.cv_floor_frac)),
         context_clamp_lo=float(d.get("context_clamp_lo", base.context_clamp_lo)),
         context_clamp_hi=float(d.get("context_clamp_hi", base.context_clamp_hi)),
         offense_stack_cap=float(d.get("offense_stack_cap", base.offense_stack_cap)),
