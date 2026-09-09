@@ -82,6 +82,9 @@ class AppSettings(BaseSettings):
     # Tests and one-off scripts pass this False. Disable via
     # NFL_APP_PREWARM_FANTASY_SLATE=0.
     prewarm_fantasy_slate: bool = True
+    # Process-pool size for the fantasy-slate player loop. 0 = auto
+    # (~70% of cores). 1 disables the pool (serial). Env NFL_APP_FANTASY_SLATE_WORKERS.
+    fantasy_slate_workers: int = 0
 
 
 @lru_cache(maxsize=1)

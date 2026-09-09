@@ -1,16 +1,27 @@
 """Week-level fantasy board: project every rostered skill player for a slate.
 
-`build_fantasy_summary` is per-player and runs a 5000-sim Monte Carlo plus four
-context-factor passes, so projecting a whole week naively is minutes of work. We
-keep it tractable by (1) enumerating only skill players on the rosters of teams
-that actually play the requested week, (2) ranking them with a cheap trailing
-fantasy-points/game estimate (no MC), and (3) running the full projection for the
-top ``limit`` only. The response is cached per (season, week, scoring, limit) so
-the ~30s first hit is paid once per process.
+`build_fantasy_summary` is per-player (~0.8s: model predict + 5000-sim Monte
+Carlo + four context passes), so a whole week serially is a minute-plus. We
+keep it fast by:
+  1. enumerating only skill players on the rosters of teams that play the week;
+  2. ranking them with a cheap trailing fantasy-points/game estimate (no MC),
+     dropping thin-sample players and capping per team+position;
+  3. projecting the survivors across a process pool (see _run_projection_tasks) —
+     ~2.4x over serial, output byte-identical (each player's MC seed is fixed);
+  4. caching the response per (season, week, scoring, limit), behind a lock so
+     only one build runs at a time.
+
+The sidecar prewarms the Week-1 board at startup so the first GUI open is a
+cache hit; a mid-session week/scoring switch is a ~30s build with a polling
+"building" state in the UI.
 """
 from __future__ import annotations
 
+import logging
+import multiprocessing
+import os
 import threading
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -27,6 +38,8 @@ from api.services.fantasy_service import (
 from api.services.nflverse_service import get_roster, get_schedule
 from api.settings import AppSettings
 from eval.fantasy_points import SCORING_PROFILES, ScoringMode
+
+_log = logging.getLogger(__name__)
 
 _SKILL_POSITIONS = ("QB", "RB", "WR", "TE")
 
@@ -99,6 +112,78 @@ def _prescore(
         base = float(baselines.get((position, stat), 0.0))
         points += weight * (form_weight * recent + (1.0 - form_weight) * base)
     return points
+
+
+# ---------------------------------------------------------------------------
+# Parallel projection
+#
+# Each player's `build_fantasy_summary` is ~0.8s of GIL-bound NumPy/statsmodels
+# work; ~65 of them serially is a minute. Fan out across processes (spawn), each
+# lazily fitting its own model bundle once via the existing lru_cache. BLAS is
+# pinned to one thread per worker in api/sidecar.py so the pool does not
+# oversubscribe. Any pool failure (pickle, frozen-exe spawn quirk) falls back to
+# the serial loop — slower, never broken.
+# ---------------------------------------------------------------------------
+
+# (settings, season, week, scoring_mode, pid, name, position, team, opp, gid, kickoff)
+_ProjTask = tuple
+
+
+def _worker_count(settings: AppSettings, n_tasks: int) -> int:
+    configured = int(getattr(settings, "fantasy_slate_workers", 0) or 0)
+    if configured < 0:
+        configured = 0
+    auto = max(1, round(0.7 * (os.cpu_count() or 4)))
+    workers = configured or auto
+    return max(1, min(workers, n_tasks))
+
+
+def _project_player(task: _ProjTask) -> dict | None:
+    (settings, season, week, scoring_mode, pid, name, position, team, opp, gid, kickoff) = task
+    try:
+        summary = build_fantasy_summary(
+            settings,
+            player_id=pid,
+            season=season,
+            week=week,
+            position=position,
+            recent_team=team,
+            opponent_team=opp,
+            game_id=gid,
+            scoring_mode=scoring_mode,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    return {
+        "player_id": pid,
+        "player_name": name,
+        "position": position,
+        "recent_team": team,
+        "opponent_team": opp,
+        "game_id": gid,
+        "kickoff": kickoff,
+        "projected_points": summary.projected_points,
+        "floor_points": summary.p10_points,
+        "ceiling_points": summary.p90_points,
+        "boom_probability": summary.boom_probability,
+        "bust_probability": summary.bust_probability,
+    }
+
+
+def _run_projection_tasks(settings: AppSettings, tasks: list[_ProjTask]) -> list[dict]:
+    if not tasks:
+        return []
+    workers = _worker_count(settings, len(tasks))
+    if workers <= 1 or len(tasks) <= 4:
+        return [r for r in map(_project_player, tasks) if r is not None]
+    try:
+        ctx = multiprocessing.get_context("spawn")
+        with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
+            results = list(pool.map(_project_player, tasks, chunksize=1))
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("fantasy slate: process pool unavailable (%s); running serially", exc)
+        results = list(map(_project_player, tasks))
+    return [r for r in results if r is not None]
 
 
 def build_fantasy_slate(
@@ -212,40 +297,13 @@ def _compute_slate(
     candidates.sort(key=lambda row: row[0], reverse=True)
 
     # `candidates` is already the position-budgeted union (~limit + slack); the
-    # per-position takes above are what `limit` actually sizes.
-    entries: list[FantasySlateEntry] = []
-    for _, pid, name, position, team, opponent, game_id, kickoff in candidates:
-        try:
-            summary = build_fantasy_summary(
-                settings,
-                player_id=pid,
-                season=season,
-                week=week,
-                position=position,
-                recent_team=team,
-                opponent_team=opponent,
-                game_id=game_id,
-                scoring_mode=scoring_mode,
-            )
-        except Exception:  # noqa: BLE001
-            continue
-        entries.append(
-            FantasySlateEntry(
-                player_id=pid,
-                player_name=name,
-                position=position,
-                recent_team=team,
-                opponent_team=opponent,
-                game_id=game_id,
-                kickoff=kickoff,
-                projected_points=summary.projected_points,
-                floor_points=summary.p10_points,
-                ceiling_points=summary.p90_points,
-                boom_probability=summary.boom_probability,
-                bust_probability=summary.bust_probability,
-            )
-        )
-
+    # per-position takes above are what `limit` actually sizes. Project them in
+    # parallel — this is the whole cost of a cold slate.
+    tasks: list[_ProjTask] = [
+        (settings, season, week, scoring_mode, pid, name, position, team, opponent, game_id, kickoff)
+        for _, pid, name, position, team, opponent, game_id, kickoff in candidates
+    ]
+    entries = [FantasySlateEntry(**row) for row in _run_projection_tasks(settings, tasks)]
     entries.sort(key=lambda entry: entry.projected_points, reverse=True)
     return FantasySlateResponse(
         season=season,

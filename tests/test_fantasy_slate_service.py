@@ -87,6 +87,13 @@ def _fake_summary(_settings, *, player_id, **_kwargs) -> FantasySummary:
 def _wire(monkeypatch):
     svc._SLATE_CACHE.clear()
     monkeypatch.setattr(svc, "_SLATE_LOCK", __import__("threading").Lock())  # per-test isolation
+    # Keep projection serial in-process so the build_fantasy_summary monkeypatch
+    # below is honoured (spawned workers would re-import the real one).
+    monkeypatch.setattr(
+        svc,
+        "_run_projection_tasks",
+        lambda settings, tasks: [r for r in map(svc._project_player, tasks) if r is not None],
+    )
     games = [
         GameRow(
             game_id="2026_01_TB_ATL",
@@ -145,6 +152,27 @@ def test_slate_response_is_cached_per_key():
 def test_slate_rejects_unknown_scoring_mode():
     with pytest.raises(ValueError):
         svc.build_fantasy_slate(AppSettings(), season=2026, week=1, scoring_mode="ppr")  # type: ignore[arg-type]
+
+
+def test_worker_count_respects_config_and_task_ceiling():
+    auto = svc._worker_count(AppSettings(fantasy_slate_workers=0), n_tasks=100)
+    assert auto >= 1
+    assert svc._worker_count(AppSettings(fantasy_slate_workers=8), n_tasks=100) == 8
+    assert svc._worker_count(AppSettings(fantasy_slate_workers=8), n_tasks=3) == 3  # never exceed tasks
+    assert svc._worker_count(AppSettings(fantasy_slate_workers=1), n_tasks=100) == 1
+
+
+def test_project_player_returns_row_dict_and_swallows_failures():
+    task = (AppSettings(), 2026, 1, "full_ppr", "rb-star", "R.Star", "RB", "ATL", "TB", "g", "kick")
+    row = svc._project_player(task)
+    assert row is not None
+    assert row["player_id"] == "rb-star" and row["kickoff"] == "kick"
+    assert row["projected_points"] == _SUMMARY_POINTS["rb-star"]
+    assert set(row) == {
+        "player_id", "player_name", "position", "recent_team", "opponent_team",
+        "game_id", "kickoff", "projected_points", "floor_points", "ceiling_points",
+        "boom_probability", "bust_probability",
+    }
 
 
 def test_concurrent_builds_compute_once(monkeypatch):
