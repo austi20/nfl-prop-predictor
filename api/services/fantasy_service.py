@@ -892,6 +892,76 @@ def _coach_factor(
     )
 
 
+# Headlines that, tagged to a team, move its whole offense. Deliberately short
+# and high-confidence — player-level benchings are the injury / usage factors.
+_NEWS_OFFENSE_DOWN_PHRASES = (
+    "3rd-string", "third-string", "third string", "benched", "benching",
+    "demoted", "backup quarterback will start", "named the starter over",
+)
+_NEWS_DEF_WEAK_PHRASES = (
+    "secondary decimated", "without their top corner", "shorthanded secondary",
+)
+# (subject phrase, action words) — fires when both appear in the blob.
+_NEWS_COORDINATOR_OUT = (
+    ("offensive coordinator", ("fire", "fired", "fires", "out", "let go")),
+)
+_NEWS_DEF_COORDINATOR_OUT = (
+    ("defensive coordinator", ("fire", "fired", "fires", "out", "let go")),
+)
+
+
+def _blob_matches_pair(blob: str, pairs: tuple[tuple[str, tuple[str, ...]], ...]) -> str:
+    for subject, actions in pairs:
+        if subject in blob and any(a in blob for a in actions):
+            return f"{subject} {next(a for a in actions if a in blob)}"
+    return ""
+
+
+def _news_factor(*, team: str, opponent_team: str, position: str) -> FantasyContextFactor:
+    """Fast keyword gate over the last hour of ESPN team headlines. Catches a
+    mid-week scheme/QB shakeup the historical + injury factors can't see."""
+    positive = _positive_stats_for_position(position)
+    try:
+        from data.news import team_headlines
+
+        own = " || ".join(team_headlines(team)) if team else ""
+        opp = " || ".join(team_headlines(opponent_team)) if opponent_team else ""
+    except Exception:  # noqa: BLE001
+        own = opp = ""
+    if not own and not opp:
+        return _neutral_factor(
+            "news", "News", "No recent team headlines to gate on.", positive
+        )
+
+    multiplier = 1.0
+    reasons: list[str] = []
+    hit_down = next((p for p in _NEWS_OFFENSE_DOWN_PHRASES if p in own), "") or _blob_matches_pair(
+        own, _NEWS_COORDINATOR_OUT
+    )
+    if hit_down:
+        multiplier *= 0.96
+        reasons.append(f"own-offense news: “{hit_down}”")
+    hit_def = next((p for p in _NEWS_DEF_WEAK_PHRASES if p in opp), "") or _blob_matches_pair(
+        opp, _NEWS_DEF_COORDINATOR_OUT
+    )
+    if hit_def:
+        multiplier *= 1.03
+        reasons.append(f"opponent defense news: “{hit_def}”")
+
+    if not reasons:
+        return _neutral_factor(
+            "news", "News", "Recent headlines carry no scheme/role signal.", positive
+        )
+    return FantasyContextFactor(
+        name="news",
+        label="News",
+        multiplier=round(multiplier, 4),
+        applied=abs(multiplier - 1.0) > 1e-3,
+        affected_stats=positive,
+        reason="; ".join(reasons),
+    )
+
+
 def _rest_factor(context: dict | None, *, position: str) -> FantasyContextFactor:
     """Bye-week bump / short-week (Thursday) drag from the schedule rest days."""
     positive = _positive_stats_for_position(position)
@@ -981,6 +1051,7 @@ def _context_factors(
             position=position,
             seasons=seasons,
         ),
+        _news_factor(team=recent_team, opponent_team=opponent_team, position=position),
         _coach_factor(context, coach_ppg, position=position),
         _rest_factor(context, position=position),
     ]

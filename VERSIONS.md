@@ -5,6 +5,43 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m3.4 - 2026-09-09
+
+**Situational factors — wire the "team / coaching / opponent / weather" goal.**
+
+Projections were ~80% "player's own recent form". Ten context factors now feed
+the fantasy projection (product of non-injury nudges clamped to [0.75, 1.25]).
+Detail: `docs/season_eve_2026_dryrun.md` §10.
+
+- **Home/away** back in the GLM — `data/game_context.attach_is_home()` joins
+  the schedule's home/away onto the weekly frame; `is_home` restored to
+  `feature_cols` in qb/rb/wr_te; refit, holdout MAE flat.
+- **Game environment / game script** — schedule `total_line`/`spread_line` →
+  implied team points + favourite/underdog run-pass tilt.
+- **Opponent matchup** — fantasy points allowed to the position vs league, on
+  every scoring stat (`_rows_before()` spans 2 seasons so Week 1 works).
+- **Weather** — `data/weather.load_forecast()` implemented against Open-Meteo
+  (free, no key); `_weather_factors()` trims passing in wind/precip/cold.
+  `use_live_forecast` default True.
+- **Coaching** (schedule coach → career PPG, outliers only) and **rest**
+  (bye / short week).
+- **Usage trend** — `data/usage.py`: snap % (nflverse snap counts + `import_ids`
+  crosswalk) and NGS air-yards share, recent-3 vs games-4-8-back.
+- **Injury factor fixed** — "Did Not Participate" now matches; game-status vs
+  practice-status split; Out 0.20→0.05; self-fetches the season parquet.
+- **QB-support / position-group** factors fixed — were neutral all of Week 1
+  (only looked at the current season).
+- **News gate** — `data/news.py` ESPN public news API; keyword scan for QB
+  shakeup / coordinator firing, hourly cache, no LLM in the loop.
+- **Kalshi** — `api/trading/kalshi/client.py` real market-data reads (signing
+  salt fixed 32); `kalshi_odds_service.nfl_game_lines()` inverts the
+  `KXNFLTOTAL` ladder to an implied total and overrides the schedule total when
+  the market is priced (thin pre-kickoff, so W1 uses the schedule line).
+
+New: `data/{game_context,usage,news}.py`, `api/services/kalshi_odds_service.py`.
+Tests: ~40 new across `test_{game_context,fantasy_context_factors,usage,
+news_factor,kalshi_odds_service}.py`. `docs/holdout_metrics.md` regenerated.
+
 ## v0.9-m3.3 - 2026-09-09
 
 **Fantasy-slate: kill the request pile-up, parallelise the build.**

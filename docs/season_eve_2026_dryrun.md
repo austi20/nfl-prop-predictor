@@ -345,3 +345,35 @@ Tests: `tests/test_fantasy_slate_service.py` (8 — prescore ranking, min-histor
 gate, per-position budget floor, scoring-mode guard, concurrent-build collapse,
 worker-count math, `_project_player` row shape). Backend 376 pass. Desktop
 `tsc -b` + 17 vitest pass.
+
+## §10. Situational factors — the original "team / coaching / opponent / weather" goal
+
+The projection was ~80% "what the player has done lately". This batch wires the
+situational inputs the project was meant to have, all as multiplicative context
+factors on top of the trailing anchor + GLM blend (the product of the non-injury
+nudges is clamped to `[0.75, 1.25]`; injury near-zeros apply after the clamp).
+
+| Factor | Source | Effect |
+|---|---|---|
+| **Home/away** | schedule `home_team` joined onto the weekly frame → `is_home` back in the GLM `feature_cols`; refit. Holdout MAE flat. | real 0/1 in the GLM; upcoming games get it automatically |
+| **Game environment** | schedule `total_line`/`spread_line` → implied team points vs the ~22.6 league avg | ¼-strength volume scaler; DET (28 implied) +6%, ATL road dog −3% |
+| **Game script** | schedule spread | favourite runs / passes-less late (rush ×1.04, pass ×0.985), underdog the reverse; only ≥4-pt spreads |
+| **Opponent matchup** | fantasy points the opponent allows to the position vs league (`_rows_before` spans 2 seasons so Week 1 works) | ½-strength, on **every** scoring stat (the GLM's opp feature is covered-stats-only at 35% blend) |
+| **Weather** | `data/weather.load_forecast` — Open-Meteo forecast (free, no key), home-stadium coords, dome/roof short-circuit | wind ≥15/20/25 mph trims passing (×0.96/0.91/0.86) + nudges rushing; heavy precip / snow codes / hard cold shave passing |
+| **Coaching** | schedule `home_coach`/`away_coach` → career points/game | ¼-strength, and only for outliers (>10% off league) since Vegas already prices most of it |
+| **Rest** | schedule `home_rest`/`away_rest` | bye +2%, Thursday short week −2% |
+| **Usage trend** | nflverse snap counts (`pfr_id`→`gsis_id` via `import_ids`) + NGS receiving air-yards share; last 3 games vs games 4-8 back | ⅓-strength; corrects the trailing average when a role is trending, neutral for ~90% of players |
+| **Injury** (fixed) | cached injury parquet; game-status split from practice-status | "Did Not Participate" now matches; Out 0.20→0.05; self-fetches the season file if missing |
+| **QB support / position-group form** (fixed) | were empty-and-neutral for all of Week 1 (only looked at the current season) — now span the prior 2 seasons |
+| **News gate** | ESPN public news API (free) — team-tagged headlines, hourly cache | keyword scan for a QB shakeup / coordinator firing → ±3-4%, no LLM in the loop |
+| **Vegas via Kalshi** | `KXNFLTOTAL`/`KXNFLSPREAD` open events, unauthenticated, ladder inverted to an implied total | overrides the schedule total when the market is priced (thin until kickoff, so W1 still uses the schedule line) |
+
+Still not modeled: play-by-play pace / PROE, snap-share as a GLM feature (vs the
+current multiplier), a real weather feature in the GLM (the training frame has
+no game_id to join weather on — the multiplier is the pragmatic path).
+
+New modules: `data/game_context.py`, `data/weather.py::load_forecast`,
+`data/usage.py`, `data/news.py`, `api/services/kalshi_odds_service.py`,
+`api/trading/kalshi/client.py` (real market-data reads). Tests: `test_game_context`,
+`test_fantasy_context_factors`, `test_usage`, `test_news_factor`,
+`test_kalshi_odds_service` (~40 new). `docs/holdout_metrics.md` regenerated.
