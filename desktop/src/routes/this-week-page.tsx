@@ -46,7 +46,8 @@ function SlateRow({ rank, entry }: { rank: number; entry: FantasySlateEntry }) {
   return (
     <Link
       to={`/player/${encodeURIComponent(entry.player_id)}`}
-      className="grid grid-cols-[2rem_1fr_auto] items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition-colors hover:border-emerald-400/30 hover:bg-white/10 sm:grid-cols-[2rem_1.4fr_1.1fr_auto]"
+      aria-label={`${rank}. ${entry.player_name || entry.player_id}, ${entry.position} ${entry.recent_team} vs ${entry.opponent_team}. Projected ${num(entry.projected_points)} points, range ${num(entry.floor_points)} to ${num(entry.ceiling_points)}.`}
+      className="grid grid-cols-[2rem_1fr_auto] items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition-colors hover:border-emerald-400/30 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300 sm:grid-cols-[2rem_1.4fr_1.1fr_auto]"
     >
       <div className="font-mono text-sm text-slate-500">{rank}</div>
 
