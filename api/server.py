@@ -43,7 +43,13 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     # the response, which surfaces as the frontend "Failed to fetch" for cross-origin calls.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://tauri.localhost", "tauri://localhost", "http://localhost:1420"],
+        allow_origins=[
+            "http://tauri.localhost",
+            "tauri://localhost",
+            # Vite dev server (desktop/vite.config.ts server.port); both host forms.
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
