@@ -14,6 +14,12 @@ from api.schemas import (
 )
 from api.settings import AppSettings
 from api.services.evaluation_service import _model_bundle, _weekly_cache, scoring_weekly
+from data.game_context import (
+    LEAGUE_IMPLIED_POINTS,
+    LEAGUE_POINTS_PER_GAME,
+    coach_points_per_game,
+    context_for,
+)
 from data.nflverse_loader import is_dome
 from eval.calibration_pipeline import STAT_SPECS
 from eval.fantasy_points import (
@@ -26,6 +32,8 @@ from eval.fantasy_points import (
 from models.base import StatDistribution
 
 _RECEIVING_STATS = ("receptions", "receiving_yards", "receiving_tds")
+_RUSH_STATS = ("rushing_yards", "rushing_tds")
+_PASS_GAME_STATS = ("passing_yards", "passing_tds", *_RECEIVING_STATS)
 _POSITIVE_SCORING_STATS = tuple(
     stat for stat, weight in SCORING_PROFILES["full_ppr"].items() if weight > 0
 )
@@ -561,6 +569,156 @@ def _weather_factor(
     )
 
 
+_GAME_SCRIPT_SPREAD_CUTOFF = 4.0  # points; below this the pass/run tilt is neutral
+
+
+def _game_script_factors(
+    context: dict | None,
+    *,
+    position: str,
+) -> list[FantasyContextFactor]:
+    """Vegas-implied game environment + script from the closing line.
+
+    - `game_environment`: scale every scoring stat by the team's implied points
+      relative to the league average (a 28-point team is a richer environment
+      than a 19-point team).
+    - `game_script_run` / `game_script_pass`: a favourite runs more and passes
+      less late; an underdog does the reverse. Only when the spread is >= 4.
+    """
+    positive = _positive_stats_for_position(position)
+    if not context or context.get("team_implied") is None:
+        return [
+            _neutral_factor(
+                "game_environment",
+                "Game environment",
+                "No Vegas line is posted for this game yet, so game script is neutral.",
+                positive,
+            )
+        ]
+
+    implied = float(context["team_implied"])
+    env_ratio = implied / LEAGUE_IMPLIED_POINTS if LEAGUE_IMPLIED_POINTS else 1.0
+    # Half-strength: the trailing anchor + GLM already carry some of this, and a
+    # good offense is partly priced by the coaching factor too.
+    volume = float(np.clip(1.0 + 0.25 * (env_ratio - 1.0), 0.90, 1.12))
+
+    factors = [
+        FantasyContextFactor(
+            name="game_environment",
+            label="Game environment",
+            multiplier=volume,
+            applied=abs(volume - 1.0) > 1e-3,
+            affected_stats=positive,
+            reason=f"Vegas implies {implied:.1f} team points ({env_ratio:.0%} of the {LEAGUE_IMPLIED_POINTS:.0f}-pt league average).",
+        )
+    ]
+
+    spread = context.get("team_spread")
+    if spread is None or abs(float(spread)) < _GAME_SCRIPT_SPREAD_CUTOFF:
+        return factors
+
+    spread = float(spread)
+    favourite = spread < 0  # team perspective: negative = favoured
+    run_stats = [s for s in _RUSH_STATS if s in positive]
+    pass_stats = [s for s in _PASS_GAME_STATS if s in positive]
+    run_mult = 1.04 if favourite else 0.95
+    pass_mult = 0.985 if favourite else 1.03
+    side = "favoured" if favourite else "underdog"
+    if run_stats:
+        factors.append(
+            FantasyContextFactor(
+                name="game_script_run",
+                label="Game script (run)",
+                multiplier=run_mult,
+                applied=True,
+                affected_stats=run_stats,
+                reason=f"Team is a {abs(spread):.1f}-pt {side}; positive/negative game script shifts rushing volume.",
+            )
+        )
+    if pass_stats:
+        factors.append(
+            FantasyContextFactor(
+                name="game_script_pass",
+                label="Game script (pass)",
+                multiplier=pass_mult,
+                applied=True,
+                affected_stats=pass_stats,
+                reason=f"Team is a {abs(spread):.1f}-pt {side}; script shifts pass volume the other way.",
+            )
+        )
+    return factors
+
+
+def _coach_factor(
+    context: dict | None,
+    coach_ppg: dict[str, tuple[float, int]],
+    *,
+    position: str,
+) -> FantasyContextFactor:
+    """Offensive-system prior from the head coach's career points/game."""
+    positive = _positive_stats_for_position(position)
+    coach = (context or {}).get("coach", "")
+    entry = coach_ppg.get(coach) if coach else None
+    if not entry or entry[1] < 16:
+        return _neutral_factor(
+            "coaching",
+            "Coaching / scheme",
+            "Not enough head-coach history to form an offensive-system prior."
+            if coach
+            else "Head coach unknown for this game.",
+            positive,
+        )
+    ppg, games = entry
+    ratio = ppg / LEAGUE_POINTS_PER_GAME if LEAGUE_POINTS_PER_GAME else 1.0
+    # Vegas already prices most offensive quality; only move for genuine
+    # outliers (Joe Judge / Bruce Arians tier), and then only quarter-strength.
+    if abs(ratio - 1.0) < 0.10:
+        return _neutral_factor(
+            "coaching",
+            "Coaching / scheme",
+            f"{coach} offenses are near league average ({ratio:.0%}); Vegas already reflects it.",
+            positive,
+        )
+    multiplier = float(np.clip(1.0 + 0.25 * (ratio - 1.0), 0.96, 1.05))
+    return FantasyContextFactor(
+        name="coaching",
+        label="Coaching / scheme",
+        multiplier=multiplier,
+        applied=abs(multiplier - 1.0) > 1e-3,
+        affected_stats=positive,
+        reason=f"{coach} offenses average {ppg:.1f} pts/game over {games} games ({ratio:.0%} of league) — outlier system.",
+    )
+
+
+def _rest_factor(context: dict | None, *, position: str) -> FantasyContextFactor:
+    """Bye-week bump / short-week (Thursday) drag from the schedule rest days."""
+    positive = _positive_stats_for_position(position)
+    rest = (context or {}).get("rest")
+    opp_rest = (context or {}).get("opp_rest")
+    if rest is None:
+        return _neutral_factor("rest", "Rest", "Rest days unavailable.", positive)
+    rest = float(rest)
+    multiplier = 1.0
+    reason = "Normal week of rest."
+    if rest >= 10:
+        multiplier = 1.02
+        reason = f"Coming off a bye ({rest:.0f} days), slight freshness bump."
+    elif rest <= 4:
+        multiplier = 0.98
+        reason = f"Short week ({rest:.0f} days), slight drag."
+    if opp_rest is not None and float(opp_rest) <= 4 < rest:
+        multiplier *= 1.01  # opponent on a short week
+        reason += " Opponent is on a short week."
+    return FantasyContextFactor(
+        name="rest",
+        label="Rest",
+        multiplier=round(multiplier, 4),
+        applied=abs(multiplier - 1.0) > 1e-3,
+        affected_stats=positive,
+        reason=reason,
+    )
+
+
 def _context_factors(
     settings: AppSettings,
     weekly: pd.DataFrame,
@@ -573,7 +731,11 @@ def _context_factors(
     opponent_team: str,
     scoring_mode: ScoringMode,
 ) -> list[FantasyContextFactor]:
-    return [
+    seasons = tuple(sorted({int(s) for s in weekly["season"].unique()} | {int(season)})) if "season" in weekly.columns else (int(season),)
+    context = context_for(seasons, season=season, week=week, team=recent_team) if recent_team else None
+    coach_ppg = coach_points_per_game(tuple(s for s in seasons if s < season) or seasons)
+
+    factors: list[FantasyContextFactor] = [
         _qb_support_factor(
             weekly,
             season=season,
@@ -602,18 +764,32 @@ def _context_factors(
             opponent_team=opponent_team,
             position=position,
         ),
+        _coach_factor(context, coach_ppg, position=position),
+        _rest_factor(context, position=position),
     ]
+    factors.extend(_game_script_factors(context, position=position))
+    return factors
+
+
+# Injury "Out"/"Doubtful" are deliberate near-zeros; every other factor is a
+# nudge. Clamp the *product* of the nudges so a stack of them can't run away.
+_STAT_MULT_LO, _STAT_MULT_HI = 0.75, 1.25
 
 
 def _stat_multipliers(context_factors: list[FantasyContextFactor]) -> dict[str, float]:
     multipliers = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
+    injury_hit = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
     for factor in context_factors:
         if not factor.applied:
             continue
+        target = injury_hit if factor.name == "injury_status" else multipliers
         for stat in factor.affected_stats:
-            if stat in multipliers:
-                multipliers[stat] *= factor.multiplier
-    return multipliers
+            if stat in target:
+                target[stat] *= factor.multiplier
+    return {
+        stat: float(np.clip(multipliers[stat], _STAT_MULT_LO, _STAT_MULT_HI)) * injury_hit[stat]
+        for stat in multipliers
+    }
 
 
 def build_fantasy_summary(
