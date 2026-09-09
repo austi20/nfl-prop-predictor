@@ -92,19 +92,26 @@ export function ThisWeekPage() {
   const [scoring, setScoring] = useState<Scoring>('full_ppr')
   const [position, setPosition] = useState<PositionFilter>('ALL')
 
-  const { data, isLoading, isError, error, isFetching } = useQuery({
+  const { data, isError, error } = useQuery({
     queryKey: ['fantasy-slate', SEASON, week, scoring],
     // limit matches the sidecar's startup prewarm key so the first open is a cache hit.
-    queryFn: () => getFantasySlate({ season: SEASON, week, scoring, limit: 48 }),
+    queryFn: ({ signal }) => getFantasySlate({ season: SEASON, week, scoring, limit: 48 }, signal),
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60,
-    retry: 1,
+    // The board is one slow build per key. Never fan out: no retry, no refetch
+    // on focus/reconnect. While the sidecar reports not-ready, poll every 8s.
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: (query) => (query.state.data && !query.state.data.ready ? 8000 : false),
   })
 
+  const building = !data || !data.ready
+
   const rows = useMemo(() => {
-    const entries = data?.entries ?? []
+    const entries = data?.ready ? data.entries : []
     return position === 'ALL' ? entries : entries.filter((e) => e.position === position)
-  }, [data?.entries, position])
+  }, [data, position])
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),linear-gradient(180deg,#07111b_0%,#0c1724_100%)] text-slate-50">
@@ -174,23 +181,22 @@ export function ThisWeekPage() {
               </div>
             </div>
 
-            {data && (
+            {data?.ready && (
               <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
                 {data.games} games · {rows.length} shown · {data.players_considered} players ranked
-                {isFetching ? ' · refreshing' : ''}
               </p>
             )}
           </CardContent>
         </Card>
 
-        {isLoading && (
+        {building && !isError && (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-400/30 border-t-emerald-300" />
               <div className="text-sm text-slate-300">Building Week {week} projections…</div>
               <div className="max-w-sm text-xs text-slate-500">
                 The first load of a slate runs a full simulation for every player and can take a
-                couple of minutes. It is cached after that.
+                couple of minutes. It is cached after that, and refreshes here automatically.
               </div>
             </CardContent>
           </Card>
@@ -204,7 +210,7 @@ export function ThisWeekPage() {
           </Card>
         )}
 
-        {data && !isLoading && (
+        {data?.ready && (
           <div className="flex flex-col gap-2">
             {rows.length === 0 ? (
               <Card>

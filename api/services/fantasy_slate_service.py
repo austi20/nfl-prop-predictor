@@ -10,6 +10,8 @@ the ~30s first hit is paid once per process.
 """
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 import pandas as pd
 
@@ -43,6 +45,18 @@ _BUDGET_SHARE: dict[str, float] = {"QB": 0.18, "RB": 0.33, "WR": 0.37, "TE": 0.1
 _MIN_TRAILING_GAMES = 3
 
 _SLATE_CACHE: dict[tuple[int, int, str, int, tuple[str, ...]], FantasySlateResponse] = {}
+
+# One slate build at a time per process. Each build is minutes of GIL-bound
+# NumPy/statsmodels work; letting N requests (the startup prewarm + every GUI
+# refetch/StrictMode remount) each recompute the same key in the threadpool
+# thrashes all of them and blows up memory. A request that finds a build already
+# running gets SlateBuilding (-> HTTP 202) instead of parking a threadpool
+# thread; only the prewarm waits.
+_SLATE_LOCK = threading.Lock()
+
+
+class SlateBuilding(Exception):
+    """Raised when a slate build is already in progress for another caller."""
 
 
 def _player_history_index(weekly: pd.DataFrame) -> dict[str, pd.DataFrame]:
@@ -95,15 +109,46 @@ def build_fantasy_slate(
     scoring_mode: ScoringMode = "full_ppr",
     limit: int = 80,
     positions: tuple[str, ...] = _SKILL_POSITIONS,
+    wait: bool = False,
 ) -> FantasySlateResponse:
     if scoring_mode not in SCORING_PROFILES:
         raise ValueError(f"Unsupported fantasy scoring mode: {scoring_mode}")
     positions = tuple(p.upper().strip() for p in positions if p.strip())
     cache_key = (season, week, scoring_mode, limit, positions)
+
     cached = _SLATE_CACHE.get(cache_key)
     if cached is not None:
         return cached
 
+    if not _SLATE_LOCK.acquire(blocking=wait):
+        raise SlateBuilding
+    try:
+        cached = _SLATE_CACHE.get(cache_key)  # the prior holder may have built this key
+        if cached is not None:
+            return cached
+        response = _compute_slate(
+            settings,
+            season=season,
+            week=week,
+            scoring_mode=scoring_mode,
+            limit=limit,
+            positions=positions,
+        )
+        _SLATE_CACHE[cache_key] = response
+        return response
+    finally:
+        _SLATE_LOCK.release()
+
+
+def _compute_slate(
+    settings: AppSettings,
+    *,
+    season: int,
+    week: int,
+    scoring_mode: ScoringMode,
+    limit: int,
+    positions: tuple[str, ...],
+) -> FantasySlateResponse:
     games = get_schedule(season, week)
     if not games:
         raise ValueError(f"No schedule rows for {season} week {week}")
@@ -202,7 +247,7 @@ def build_fantasy_slate(
         )
 
     entries.sort(key=lambda entry: entry.projected_points, reverse=True)
-    response = FantasySlateResponse(
+    return FantasySlateResponse(
         season=season,
         week=week,
         scoring_mode=scoring_mode,
@@ -210,8 +255,6 @@ def build_fantasy_slate(
         players_considered=len(candidates),
         entries=entries,
     )
-    _SLATE_CACHE[cache_key] = response
-    return response
 
 
 # The live slate the desktop app opens on. Bump at the season rollover (the GUI
@@ -231,6 +274,7 @@ def prewarm_current_slate(settings: AppSettings) -> None:
             week=_PREWARM_WEEK,
             scoring_mode="full_ppr",
             limit=_PREWARM_LIMIT,
+            wait=True,
         )
     except Exception:  # noqa: BLE001
         pass

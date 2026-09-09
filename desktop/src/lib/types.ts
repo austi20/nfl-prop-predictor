@@ -231,6 +231,7 @@ export type FantasySlateResponse = {
   season: number
   week: number
   scoring_mode: 'full_ppr' | 'half_ppr'
+  ready: boolean
   games: number
   players_considered: number
   entries: FantasySlateEntry[]

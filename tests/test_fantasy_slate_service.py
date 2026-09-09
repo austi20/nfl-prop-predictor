@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from api.schemas import FantasySummary, GameRow, RosterPlayer
+from api.schemas import FantasySlateResponse, FantasySummary, GameRow, RosterPlayer
 from api.services import fantasy_slate_service as svc
 from api.settings import AppSettings
 
@@ -86,6 +86,7 @@ def _fake_summary(_settings, *, player_id, **_kwargs) -> FantasySummary:
 @pytest.fixture(autouse=True)
 def _wire(monkeypatch):
     svc._SLATE_CACHE.clear()
+    monkeypatch.setattr(svc, "_SLATE_LOCK", __import__("threading").Lock())  # per-test isolation
     games = [
         GameRow(
             game_id="2026_01_TB_ATL",
@@ -144,3 +145,47 @@ def test_slate_response_is_cached_per_key():
 def test_slate_rejects_unknown_scoring_mode():
     with pytest.raises(ValueError):
         svc.build_fantasy_slate(AppSettings(), season=2026, week=1, scoring_mode="ppr")  # type: ignore[arg-type]
+
+
+def test_concurrent_builds_compute_once(monkeypatch):
+    """The lock must collapse N concurrent callers of the same key into one
+    _compute_slate; a wait=True caller blocks and gets the cached result, a
+    wait=False caller raises SlateBuilding rather than pile a second build."""
+    import threading
+
+    calls = {"n": 0}
+    inside_compute = threading.Event()
+    may_finish = threading.Event()
+    real_response = FantasySlateResponse(season=2026, week=1, games=1)
+
+    def _gated_compute(*_args, **_kwargs):
+        calls["n"] += 1
+        inside_compute.set()
+        assert may_finish.wait(timeout=5)
+        return real_response
+
+    monkeypatch.setattr(svc, "_compute_slate", _gated_compute)
+
+    waiter_result: list[object] = []
+    nonwaiter_error: list[BaseException] = []
+
+    def _waiter():
+        waiter_result.append(
+            svc.build_fantasy_slate(AppSettings(), season=2026, week=1, limit=25, wait=True)
+        )
+
+    t1 = threading.Thread(target=_waiter)
+    t1.start()
+    assert inside_compute.wait(timeout=5)  # t1 now holds the lock, parked in _compute_slate
+
+    try:
+        svc.build_fantasy_slate(AppSettings(), season=2026, week=1, limit=25)
+    except BaseException as exc:  # noqa: BLE001
+        nonwaiter_error.append(exc)
+
+    may_finish.set()
+    t1.join(timeout=5)
+
+    assert calls["n"] == 1  # only one build ran
+    assert waiter_result == [real_response]
+    assert len(nonwaiter_error) == 1 and isinstance(nonwaiter_error[0], svc.SlateBuilding)

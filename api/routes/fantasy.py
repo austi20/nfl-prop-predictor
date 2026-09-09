@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from api.schemas import FantasyPredictionRequest, FantasyPredictionResponse, FantasySlateResponse
 from api.services.fantasy_service import predict_fantasy
-from api.services.fantasy_slate_service import build_fantasy_slate
+from api.services.fantasy_slate_service import SlateBuilding, build_fantasy_slate
 
 router = APIRouter(tags=["fantasy"])
 
@@ -38,6 +38,10 @@ def get_fantasy_slate(
             scoring_mode=scoring,
             limit=limit,
         )
+    except SlateBuilding:
+        # A build (this key or another) is already running. Return a not-ready
+        # body rather than blocking a threadpool thread; the client polls.
+        return FantasySlateResponse(season=season, week=week, scoring_mode=scoring, ready=False)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001

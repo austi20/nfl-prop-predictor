@@ -427,6 +427,9 @@ class FantasySlateResponse(BaseModel):
     season: int
     week: int
     scoring_mode: Literal["full_ppr", "half_ppr"] = "full_ppr"
+    # False while a build is in progress and no cached result exists yet — the
+    # board is minutes to compute on a cold cache, so the client polls.
+    ready: bool = True
     games: int = 0
     players_considered: int = 0
     entries: list[FantasySlateEntry] = Field(default_factory=list)

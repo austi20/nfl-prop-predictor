@@ -41,16 +41,21 @@ export async function buildParlays(picks: Pick[], legs = 2, stake = 1.0) {
   })
 }
 
-export async function getFantasySlate(params: {
-  season: number
-  week: number
-  scoring?: 'full_ppr' | 'half_ppr'
-  limit?: number
-}) {
+export async function getFantasySlate(
+  params: {
+    season: number
+    week: number
+    scoring?: 'full_ppr' | 'half_ppr'
+    limit?: number
+  },
+  signal?: AbortSignal,
+) {
   const query = new URLSearchParams({ week: String(params.week) })
   if (params.scoring) query.set('scoring', params.scoring)
   if (params.limit) query.set('limit', String(params.limit))
-  return request<FantasySlateResponse>(`/api/fantasy/slate/${params.season}?${query.toString()}`)
+  return request<FantasySlateResponse>(`/api/fantasy/slate/${params.season}?${query.toString()}`, {
+    signal,
+  })
 }
 
 export async function predictFantasy(payload: {
