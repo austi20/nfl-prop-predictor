@@ -162,3 +162,59 @@ yд) and the paper-execution economics are unaffected.
 - **Modernization Phases 2-7** (`docs/modernization_plan.md`) — untouched;
   the uncommitted Phase 0-1 SQL-ledger / kill-switch scaffold in the working
   tree stays uncommitted (self-contained, unwired, out of scope here).
+
+## §6. Post-review pass
+
+A separate review + debug session went over the whole `271cc0b..HEAD` delta.
+No bugs in the shipped commits; invariants #1-5 hold (backtest holdout +
+preseason baseline reproduce, TRAIN ⊥ HOLDOUT, locked config untouched).
+
+**Applied:**
+
+- **`_model_bundle` now widens the fit window internally** for a future-season
+  request (`api/services/evaluation_service.py`). It previously only widened
+  when the caller pre-widened — so `evaluate_prop` (2026 request) trained on
+  2015-2025 but `fantasy_service` trained only on 2015-2023 for the same
+  player. Both paths now fit the same models under one lru_cache key /
+  one weekly load.
+- New unit tests: `tests/test_spread_recalibration.py` (15 — `residual_cv`
+  bounds + `recalibrate_spread` across all four distribution representations,
+  incl. quantile-knot monotonicity), `tests/test_effective_train_years.py`
+  (6 — locks "season S never folds S into training").
+- `scripts/dry_run_week1_2026.py` docstring corrected (still claimed
+  `use_future_row` was off / the path unfixed).
+
+**Evaluated and rejected:**
+
+- **Trailing-anchor fallback for role-change players** (2025 mop-up back who
+  is a 2026 starter gets clamped to a mop-up-usage ceiling). Prototyped:
+  fall back to the league prior when the trailing average is implausibly low
+  or the prior-season sample is tiny. It made the *aggregate* Week-1 realism
+  worse — a genuine low-volume player then gets the position prior (RB
+  rushing-yards ~33) against a recent form of ~1-5, i.e. the 30×+ ratios the
+  trailing clamp was added to kill. The narrow role-change case needs
+  depth-chart / snap-share data, not a heuristic. Kept the trailing clamp.
+- **Multiplicative mean-bias correction** for the ~+24yd forward gap. Fit on
+  2025 held out of a 2018-2023 fit, applied `future_row`-gated. It shifts the
+  PIT *center* toward 0.5 for yardage stats but degrades reliability deviation
+  ~2× on every stat and leaves KS-vs-uniform unchanged — the miscalibration is
+  shape/variance, not location. `use_calibration=False` stays deferred as
+  planned.
+
+**Noted for later (LOW):**
+
+- `load_weekly` cache for a year list containing an in-progress season: after
+  `stats_player_week_2026` publishes, force a refresh (or bump
+  `scripts/prefetch_training_cache.py::WEEKLY_YEARS` to `..2027` and re-run) —
+  otherwise a <24h-old stale cache serves a 2026-less frame and every 2026
+  prediction stays on the cold-start path for up to a day.
+- `/api/slate` now ~30s: `_load_artifacts_from_docs` picks the newest
+  `paper_trade_summary_*.json` by mtime = the regenerated 18.8k-row 2025 set.
+  Pin the slate season instead of mtime.
+- Player-detail game log still ends at the 2024 playoffs (`get_player_detail`
+  uses `default_train_years ∪ default_replay_years`, not the widened window).
+- Orphaned modernization scaffold (`api/db/`, `api/trading/{sql_ledger,
+  kill_switch}.py`, `tests/trading/test_sql_ledger.py`): stays untracked. It
+  is a closed import set with 0 edges from committed code and 3 passing tests;
+  `git clean` would drop it silently. If zero-ambiguity is wanted, land all
+  five files in one commit on a `modernization-phase-0` branch — not `master`.

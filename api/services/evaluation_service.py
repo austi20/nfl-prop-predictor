@@ -88,10 +88,14 @@ def _effective_train_years(
 
 @lru_cache(maxsize=8)
 def _model_bundle(train_years: tuple[int, ...], eval_season: int) -> dict[str, QBModel | RBModel | WRTEModel]:
-    years = tuple(sorted(set(train_years + (eval_season,))))
-    weekly = _weekly_cache(years)
-    train_years = _effective_train_years(train_years, eval_season, weekly)
-    return _fit_models(train_years, eval_season, weekly)
+    # Load every complete season through the one being scored (same window as
+    # scoring_weekly) so _effective_train_years can actually widen — otherwise
+    # `train_years + (eval_season,)` skips the intermediate seasons and a
+    # future-season request silently trains only through the configured window.
+    lo = min(train_years) if train_years else eval_season
+    weekly = _weekly_cache(tuple(range(lo, eval_season + 1)))
+    fit_years = _effective_train_years(train_years, eval_season, weekly)
+    return _fit_models(fit_years, eval_season, weekly)
 
 
 def _calibrator_from_request(settings: AppSettings, calibrator_path: str) -> PropCalibrator | None:
@@ -112,10 +116,10 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
     if request.stat not in STAT_SPECS:
         raise ValueError(f"Unsupported prop stat: {request.stat}")
 
-    base_train_years = tuple(settings.default_train_years)
+    # _model_bundle widens the fit window internally; pass the configured window
+    # unchanged so its lru_cache key matches the fantasy_service call path.
     weekly = scoring_weekly(settings, request.season)
-    train_years = _effective_train_years(base_train_years, request.season, weekly)
-    models = _model_bundle(train_years, request.season)
+    models = _model_bundle(tuple(settings.default_train_years), request.season)
 
     spec = STAT_SPECS[request.stat]
     model = models[spec.model_name]

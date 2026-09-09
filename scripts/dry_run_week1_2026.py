@@ -12,12 +12,12 @@ It proves the season-open prediction -> pricing -> execution path runs against
 the real upcoming schedule. It is NOT a profitability signal: the lines are
 synthetic, so "edge" here only measures model vs. 2025 trend.
 
-KNOWN LIMITATION (see docs/season_eve_2026_dryrun.md): the model's
-``future_row`` scoring path is not season-ready. With ``use_future_row`` off
-(the default) a Week-1 prediction has no same-season prior weeks, so shrinkage
-collapses every projection to the position's league prior; and the decomposed
-passing-yards path over-projects badly when that collapse is removed. Treat the
-signal CSV this writes as a plumbing exercise only, not a slate.
+The ``future_row`` scoring path (fixed in v0.9-m3.1, `use_future_row=True`)
+produces realistic means and informative probabilities, but the lines here are
+still synthetic and the 2018-2024 GLMs carry a documented forward mean bias
+(docs/season_eve_2026_dryrun.md §5), so the signal CSV this writes is a
+pipeline check, not a bettable slate. It also fits on 2018-2025 for speed,
+where the live API path (`_effective_train_years`) fits on 2015-2025.
 
 Usage:
   uv run python scripts/dry_run_week1_2026.py
