@@ -103,3 +103,100 @@ def save_calibration(calib: FantasyCalibration, path: str | Path) -> None:
     Path(path).write_text(
         json.dumps(calib.to_dict(), indent=2, sort_keys=True), encoding="utf-8"
     )
+
+
+# ---------------------------------------------------------------------------
+# Backtest evaluation cache
+#
+# Precompute, once, the raw ingredients for a sample of `score_year` player-weeks:
+# the pure trailing-anchor distributions (GLM blend OFF), the raw GLM
+# distributions, the actual fantasy points, and every context factor at
+# strength 1.0. The sweep then re-applies only the parametric transform, so a
+# config eval is milliseconds instead of a model fit.
+# ---------------------------------------------------------------------------
+import pickle  # noqa: E402
+
+_SAMPLE_PER_POSITION = 700
+_MIN_CAREER_GAMES = 3
+_EVAL_CACHE_PATH = Path(__file__).resolve().parent.parent / "cache" / "fantasy_eval_cache_2025.pkl"
+
+
+def build_eval_cache(score_year: int = 2025, path: Path | None = None, seed: int = 7) -> Path:
+    import warnings
+
+    warnings.simplefilter("ignore")
+    import numpy as np
+
+    from api.settings import AppSettings
+    from api.services.evaluation_service import scoring_weekly
+    from api.services.fantasy_service import (
+        _context_factors,
+        _predict_distributions,
+        _trailing_fantasy_distributions,
+    )
+    from data.nflverse_loader import load_weekly
+    from eval.fantasy_points import SCORING_PROFILES
+
+    settings = AppSettings(
+        default_train_years=tuple(range(2015, score_year - 1)), prewarm_fantasy_slate=False
+    )
+    weekly = scoring_weekly(settings, score_year)
+    wk = load_weekly(list(range(2015, score_year + 1)))
+    scored = wk[(wk.season == score_year) & (wk.position.isin(["QB", "RB", "WR", "TE"]))].copy()
+    scored["career_games"] = scored.groupby("player_id")["week"].transform("size")
+    scored = scored[(scored.week >= 2) & (scored.career_games >= _MIN_CAREER_GAMES)]
+
+    rng = np.random.default_rng(seed)
+    picks: list[int] = []
+    for _pos, grp in scored.groupby("position"):
+        idx = grp.index.to_numpy()
+        take = rng.choice(idx, size=min(_SAMPLE_PER_POSITION, len(idx)), replace=False)
+        picks.extend(int(i) for i in take)
+
+    weights = SCORING_PROFILES["full_ppr"]
+    dc = default_calibration()
+    rows: list[dict] = []
+    for i in picks:
+        r = scored.loc[i]
+        pid, season, week = str(r.player_id), int(r.season), int(r.week)
+        pos = str(r.position).upper()
+        team = str(r.get("recent_team", "") or "")
+        opp = str(r.get("opponent_team", "") or "")
+        try:
+            glm = _predict_distributions(
+                settings, player_id=pid, season=season, week=week,
+                opponent_team=opp, position=pos, recent_team=team,
+            )
+            anchor_d = _trailing_fantasy_distributions(
+                weekly, player_id=pid, season=season, week=week, position=pos,
+                model_distributions={}, calib=dc,
+            )
+            ctx = _context_factors(
+                settings, weekly, player_id=pid, season=season, week=week, position=pos,
+                recent_team=team, opponent_team=opp, scoring_mode="full_ppr",
+                game_id="", calib=dc,
+            )
+        except Exception:  # noqa: BLE001
+            continue
+        actual_fp = float(sum((r.get(s, 0.0) or 0.0) * w for s, w in weights.items() if s in r.index))
+        rows.append(
+            {
+                "player_id": pid, "season": season, "week": week, "position": pos,
+                "anchor": {s: (d.mean, d.std, d.dist_type) for s, d in anchor_d.items()},
+                "glm": {s: (d.mean, d.std, d.dist_type) for s, d in glm.items()},
+                "factors": [
+                    (f.name, float(f.multiplier), tuple(f.affected_stats)) for f in ctx if f.applied
+                ],
+                "actual_fp": actual_fp,
+            }
+        )
+    out = path or _EVAL_CACHE_PATH
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "wb") as fh:
+        pickle.dump({"score_year": score_year, "rows": rows}, fh)
+    return out
+
+
+def load_eval_cache(path: Path | None = None) -> dict:
+    with open(path or _EVAL_CACHE_PATH, "rb") as fh:
+        return pickle.load(fh)

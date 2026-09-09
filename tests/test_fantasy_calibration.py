@@ -43,6 +43,18 @@ def test_load_missing_file_returns_default(tmp_path):
     assert load_calibration(tmp_path / "nope.json") == default_calibration()
 
 
+def test_build_eval_cache_smoke(tmp_path, monkeypatch):
+    import eval.fantasy_calibration as fc
+
+    monkeypatch.setattr(fc, "_SAMPLE_PER_POSITION", 3)
+    p = fc.build_eval_cache(2025, path=tmp_path / "c.pkl")
+    data = fc.load_eval_cache(p)
+    assert data["score_year"] == 2025 and 4 <= len(data["rows"]) <= 12
+    r = data["rows"][0]
+    assert {"anchor", "glm", "factors", "actual_fp"} <= set(r)
+    assert isinstance(r["actual_fp"], float)
+
+
 def test_default_calibration_reproduces_current_projection():
     """A player projected under the built-in default must land where it did
     before the calibration refactor (Bijan 2026 W1 was 17.9)."""
