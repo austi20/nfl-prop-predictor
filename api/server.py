@@ -14,6 +14,7 @@ from api.routes.secrets import router as secrets_router
 from api.telemetry import setup_telemetry
 from api.routes.fantasy import router as fantasy_router
 from api.routes.health import router as health_router
+from api.routes.nflverse import router as nflverse_router
 from api.routes.parlays import router as parlays_router
 from api.routes.players import router as players_router
 from api.routes.props import router as props_router
@@ -105,6 +106,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(health_router, prefix=app_settings.api_prefix)
     app.include_router(slate_router, prefix=app_settings.api_prefix)
     app.include_router(players_router, prefix=app_settings.api_prefix)
+    app.include_router(nflverse_router, prefix=app_settings.api_prefix)
     app.include_router(props_router, prefix=app_settings.api_prefix)
     app.include_router(fantasy_router, prefix=app_settings.api_prefix)
     app.include_router(parlays_router, prefix=app_settings.api_prefix)

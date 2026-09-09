@@ -368,3 +368,41 @@ class AnalystStreamEvent(BaseModel):
     tool_call: dict[str, Any] | None = None
     complete: bool = False
     error: str = ""
+
+
+class GameRow(BaseModel):
+    game_id: str
+    week: int
+    gameday: str = ""
+    weekday: str = ""
+    gametime: str = ""
+    away_team: str
+    home_team: str
+    roof: str = ""
+    surface: str = ""
+    stadium: str = ""
+    away_score: float | None = None
+    home_score: float | None = None
+
+
+class ScheduleResponse(BaseModel):
+    season: int
+    games: list[GameRow] = Field(default_factory=list)
+
+
+class RosterPlayer(BaseModel):
+    player_id: str
+    player_name: str = ""
+    team: str = ""
+    position: str = ""
+    depth_chart_position: str = ""
+    jersey_number: int | None = None
+    status: str = ""
+    years_exp: int | None = None
+    headshot_url: str = ""
+
+
+class RosterResponse(BaseModel):
+    season: int
+    week: int | None = None
+    players: list[RosterPlayer] = Field(default_factory=list)

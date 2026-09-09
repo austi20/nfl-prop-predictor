@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from api.schemas import (
@@ -12,7 +13,7 @@ from api.schemas import (
     FantasySummary,
 )
 from api.settings import AppSettings
-from api.services.evaluation_service import _model_bundle, _weekly_cache
+from api.services.evaluation_service import _model_bundle, _weekly_cache, scoring_weekly
 from data.nflverse_loader import is_dome
 from eval.calibration_pipeline import STAT_SPECS
 from eval.fantasy_points import (
@@ -160,6 +161,119 @@ def _predict_distributions(
         )
         if stat in predicted:
             distributions[stat] = predicted[stat]
+    return distributions
+
+
+# ---------------------------------------------------------------------------
+# Trailing-form fantasy projection
+#
+# The per-position GLMs only cover a slice of the scoring stats (RB: rushing
+# only, QB: passing only), and their `future_row` point estimates regress hard
+# toward the pooled positional mean — an elite goal-line back or a rushing QB
+# comes out looking like a replacement player. For fantasy we instead anchor on
+# the player's own recent per-game production for EVERY scoring stat, regressed
+# toward a positional baseline by sample size, and fold the model in only
+# lightly where it has a distribution. See docs/season_eve_2026_dryrun.md §7.
+# ---------------------------------------------------------------------------
+
+_TRAILING_STATS_BY_POSITION: dict[str, tuple[str, ...]] = {
+    "QB": ("passing_yards", "passing_tds", "interceptions", "rushing_yards", "rushing_tds"),
+    "RB": ("rushing_yards", "rushing_tds", "receptions", "receiving_yards", "receiving_tds"),
+    "WR": ("receptions", "receiving_yards", "receiving_tds", "rushing_yards", "rushing_tds"),
+    "TE": ("receptions", "receiving_yards", "receiving_tds"),
+}
+_YARDAGE_STATS = frozenset({"passing_yards", "rushing_yards", "receiving_yards"})
+_TRAILING_WINDOW = 8          # most recent games that inform the projection
+_TRAILING_REGRESS_GAMES = 4.0  # pseudo-count pulling a thin sample to the baseline
+_MODEL_BLEND_WEIGHT = 0.35     # how much the GLM mean moves a covered stat
+_STAT_MEAN_LO, _STAT_MEAN_HI = 0.45, 1.7  # clamp band around the trailing mean
+_YARD_CV, _COUNT_CV = 0.55, 0.85          # spread when the model gives no distribution
+
+
+_BASELINE_CACHE: dict[tuple[int, ...], dict[tuple[str, str], float]] = {}
+
+
+def _baselines_for(weekly: pd.DataFrame) -> dict[tuple[str, str], float]:
+    """Per-(position, stat) league mean over the frame — the regression target.
+    Cached on the frame's season span (the frame itself is content-stable per
+    `scoring_weekly`'s own cache)."""
+    if "season" not in weekly.columns or not len(weekly):
+        return {}
+    key = tuple(sorted(int(s) for s in weekly["season"].unique()))
+    cached = _BASELINE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    out: dict[tuple[str, str], float] = {}
+    if "position" in weekly.columns:
+        pos_upper = weekly["position"].astype(str).str.upper()
+        for position, stats in _TRAILING_STATS_BY_POSITION.items():
+            rows = weekly[pos_upper == position]
+            for stat in stats:
+                out[(position, stat)] = (
+                    float(rows[stat].fillna(0.0).mean())
+                    if stat in rows.columns and len(rows) else 0.0
+                )
+    _BASELINE_CACHE[key] = out
+    return out
+
+
+def _trailing_fantasy_distributions(
+    weekly: pd.DataFrame,
+    *,
+    player_id: str,
+    season: int,
+    week: int,
+    position: str,
+    model_distributions: dict[str, StatDistribution],
+) -> dict[str, StatDistribution]:
+    normalized = position.upper().strip()
+    stats = _TRAILING_STATS_BY_POSITION.get(normalized)
+    if not stats:
+        return dict(model_distributions)
+
+    baselines = _baselines_for(weekly)
+    hist = _player_rows(weekly, player_id)
+    if not hist.empty:
+        hist = hist[
+            (hist["season"] < season)
+            | ((hist["season"] == season) & (hist["week"] < week))
+        ].sort_values(["season", "week"]).tail(_TRAILING_WINDOW)
+
+    n = len(hist)
+    recency = np.linspace(0.5, 1.0, n) if n else np.array([])
+    form_weight = n / (n + _TRAILING_REGRESS_GAMES) if n else 0.0
+
+    distributions: dict[str, StatDistribution] = {}
+    for stat in stats:
+        base = float(baselines.get((normalized, stat), 0.0))
+        if n and stat in hist.columns:
+            recent = float(np.average(hist[stat].fillna(0.0).to_numpy(dtype=float), weights=recency))
+        else:
+            recent = base
+        trailing = form_weight * recent + (1.0 - form_weight) * base
+
+        model_dist = model_distributions.get(stat)
+        if model_dist is not None and model_dist.mean > 0:
+            mean = (1.0 - _MODEL_BLEND_WEIGHT) * trailing + _MODEL_BLEND_WEIGHT * float(model_dist.mean)
+        else:
+            mean = trailing
+
+        anchor = max(recent, base, 1e-6)
+        mean = float(np.clip(mean, _STAT_MEAN_LO * anchor, _STAT_MEAN_HI * anchor))
+        if mean <= 0:
+            continue
+
+        if model_dist is not None and model_dist.mean > 0 and model_dist.std > 0:
+            distributions[stat] = StatDistribution(
+                mean=mean,
+                std=float(model_dist.std) * (mean / float(model_dist.mean)),
+                dist_type=model_dist.dist_type,
+            )
+        elif stat in _YARDAGE_STATS:
+            distributions[stat] = StatDistribution(mean=mean, std=max(_YARD_CV * mean, 1e-3), dist_type="gamma")
+        else:
+            distributions[stat] = StatDistribution(mean=mean, std=max(_COUNT_CV * mean, 1e-3), dist_type="poisson")
+
     return distributions
 
 
@@ -516,11 +630,11 @@ def build_fantasy_summary(
 ) -> FantasySummary:
     mode = _as_scoring_mode(scoring_mode)
     normalized_position = position.upper().strip()
-    train_years = tuple(settings.default_train_years)
-    weekly_years = tuple(sorted(set(train_years + (season,))))
-    weekly = _weekly_cache(weekly_years)
+    # Every complete season through the one being scored — so a 2026 request
+    # still sees 2024/2025 form (the configured window lags the calendar).
+    weekly = scoring_weekly(settings, season)
 
-    distributions = _predict_distributions(
+    model_distributions = _predict_distributions(
         settings,
         player_id=player_id,
         season=season,
@@ -528,6 +642,14 @@ def build_fantasy_summary(
         opponent_team=opponent_team,
         position=normalized_position,
         recent_team=recent_team,
+    )
+    distributions = _trailing_fantasy_distributions(
+        weekly,
+        player_id=player_id,
+        season=season,
+        week=week,
+        position=normalized_position,
+        model_distributions=model_distributions,
     )
     factors = _context_factors(
         settings,
@@ -568,9 +690,7 @@ def predict_fantasy(
     settings: AppSettings,
     request: FantasyPredictionRequest,
 ) -> FantasyPredictionResponse:
-    train_years = tuple(settings.default_train_years)
-    weekly_years = tuple(sorted(set(train_years + (request.season,))))
-    weekly = _weekly_cache(weekly_years)
+    weekly = scoring_weekly(settings, request.season)
     identity = _identity_from_weekly(weekly, request)
     position = identity["position"]
     if not position:

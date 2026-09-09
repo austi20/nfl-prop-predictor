@@ -163,6 +163,60 @@ yд) and the paper-execution economics are unaffected.
   the uncommitted Phase 0-1 SQL-ledger / kill-switch scaffold in the working
   tree stays uncommitted (self-contained, unwired, out of scope here).
 
+## §7. Fantasy projection rebuild
+
+The app's primary job is fantasy projections. The old `fantasy_service` path
+produced nonsense for that: **Derrick Henry and Saquon Barkley projected 8-9
+PPR points.** Five distinct bugs, all confirmed by
+`fantasy_repro.py` (2026-W1 projection vs each player's 2025 per-game FP):
+
+| Bug | Evidence |
+|---|---|
+| RBs got **zero receiving projection** — `_MODEL_STATS_BY_POSITION["RB"]` was rushing-only and the RB GLM has no receiving targets. | Gibbs lost ~10 PPR/g (4.5 rec + 3.6 rec yд + 1.8 rec TD, all "no model distribution"). |
+| QBs got **zero rushing projection** — passing-only. | J.Allen 2025 **23.6 FP/g → model 11.2** (his ~9 FP of rushing gone). |
+| TD rates **regressed to the pooled positional mean** — the count GLM can't tell an elite goal-line back from a scatback, and the cold-start blend weighted it ~83%. | Gibbs `rushing_tds` 2025 **0.76 → model 0.24** (exactly the RB prior). |
+| Rushing yards **under-projected** for high-volume backs (same structural GLM + 83% weight). | Gibbs 71.9 → 44.1. |
+| WR/TE receiving **over-projected** — the `1.8 × recent-4-game` clamp is far too loose for a *mean*. | St. Brown `receiving_yards` mean **175.9** vs 82.4 actual. |
+
+**Fix (`api/services/fantasy_service.py`):** a trailing-form projector,
+`_trailing_fantasy_distributions`, replaces `_predict_distributions` as the
+fantasy input. For **every** scoring stat the position actually uses (RB now
+includes receptions/receiving_yards/receiving_tds; QB now includes
+rushing_yards/rushing_tds):
+
+- anchor on the player's **recency-weighted last-8-game per-game average**,
+  regressed toward the positional baseline by `n / (n + 4)`;
+- fold the GLM in at only `0.35` weight where it has a distribution for that
+  stat (it still contributes shape + a signal);
+- clamp the mean to `[0.45, 1.7] × max(recent, baseline)`;
+- wrap yards as Gamma, counts as Poisson (or reuse the model's dist_type).
+
+Context factors (QB support, position-group form, injury, weather) still apply
+as multipliers. `build_fantasy_summary` / `predict_fantasy` now use
+`scoring_weekly` so a 2026 request sees 2024/2025 form (they were on the narrow
+window — the same F6 bug).
+
+**Result — 2026-W1 projected FP (old → new, vs 2025 actual):**
+
+| | 2025 actual | old | new |
+|---|---|---|---|
+| D.Henry | 16.8 | 8.6 | **17.9** |
+| S.Barkley | 14.6 | 8.1 | **14.5** |
+| J.Gibbs | 21.7 | 5.8 | **16.5** |
+| J.Allen | 23.6 | 11.2 | **19.1** |
+| A.St. Brown | 19.1 | 35.0 | **21.9** |
+| J.Chase | 19.7 | 27.9 | **19.6** |
+| T.McBride | 18.6 | 22.9 | **17.6** |
+
+Holdout (predict each 2025 week from prior games): FP MAE ≈ 4.8 across
+QB/RB/WR/TE — in line with public weekly projections; weekly fantasy is
+irreducibly noisy. The props / replay / backtest paths are untouched.
+
+**New endpoints:** `GET /api/schedule/{season}?week=` and
+`GET /api/roster/{season}?team=&position=&status=&skill_only=` expose the
+nflverse schedule + roster tables so the fantasy views can enumerate the
+week's matchups and rostered players (previously no endpoint did).
+
 ## §6. Post-review pass
 
 A separate review + debug session went over the whole `271cc0b..HEAD` delta.
