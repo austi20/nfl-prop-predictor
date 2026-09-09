@@ -19,11 +19,12 @@ from models.qb import QBModel
 
 
 def _qb_training_fixture(seed: int = 17) -> pd.DataFrame:
-    """8 weeks × 6 QBs with a strong opp-defense gradient.
+    """2 seasons × ~9 weeks × 7 QBs with a strong opp-defense gradient.
 
     BUF defense: weak (allows ~410 yds/wk).
     MIA defense: strong (allows ~150 yds/wk).
     The GLM should learn opp_pass_allowed_passing_yards as a positive driver.
+    Two seasons keep the 27-feature GLM from being underdetermined.
     """
     rng = np.random.default_rng(seed)
     rows: list[dict] = []
@@ -48,17 +49,18 @@ def _qb_training_fixture(seed: int = 17) -> pd.DataFrame:
             "dakota": 0.0,
         })
 
-    # Strong gradient: weeks 1..8, two QBs hammer BUF (weak D), two starve at MIA (strong D)
-    for week in range(1, 9):
-        emit("QB-A", "KC", 2023, week, "BUF", 400 + rng.normal(0, 15), 3, 0, 28, 38)
-        emit("QB-E", "PIT", 2023, week, "BUF", 410 + rng.normal(0, 15), 3, 0, 28, 38)
-        emit("QB-B", "GB", 2023, week, "MIA", 150 + rng.normal(0, 10), 1, 1, 14, 28)
-        emit("QB-F", "TEN", 2023, week, "MIA", 145 + rng.normal(0, 10), 1, 1, 14, 28)
-        # Filler so all teams have offensive context
-        emit("QB-C", "DEN", 2023, week, "LAC", 250 + rng.normal(0, 20), 2, 1, 22, 33)
-        emit("QB-D", "DAL", 2023, week, "NYJ", 260 + rng.normal(0, 20), 2, 1, 22, 33)
-        # Target QB-X on SF, plays neutral opps
-        emit("QB-X", "SF", 2023, week, "DEN", 280 + rng.normal(0, 20), 2, 1, 24, 35)
+    # Strong gradient: two QBs hammer BUF (weak D), two starve at MIA (strong D)
+    for season in (2022, 2023):
+        for week in range(1, 10):
+            emit("QB-A", "KC", season, week, "BUF", 400 + rng.normal(0, 15), 3, 0, 28, 38)
+            emit("QB-E", "PIT", season, week, "BUF", 410 + rng.normal(0, 15), 3, 0, 28, 38)
+            emit("QB-B", "GB", season, week, "MIA", 150 + rng.normal(0, 10), 1, 1, 14, 28)
+            emit("QB-F", "TEN", season, week, "MIA", 145 + rng.normal(0, 10), 1, 1, 14, 28)
+            # Filler so all teams have offensive context
+            emit("QB-C", "DEN", season, week, "LAC", 250 + rng.normal(0, 20), 2, 1, 22, 33)
+            emit("QB-D", "DAL", season, week, "NYJ", 260 + rng.normal(0, 20), 2, 1, 22, 33)
+            # Target QB-X on SF, plays neutral opps
+            emit("QB-X", "SF", season, week, "DEN", 280 + rng.normal(0, 20), 2, 1, 24, 35)
 
     return pd.DataFrame(rows)
 
@@ -68,7 +70,7 @@ def test_future_row_with_different_opponent_changes_distribution():
 
     with patch("data.nflverse_loader.load_weekly", return_value=weekly):
         model = QBModel()
-        model.fit([2023])
+        model.fit([2022, 2023])
 
     row_buf = build_upcoming_row(
         "QB-X", season=2023, week=10, position="QB",
@@ -97,7 +99,7 @@ def test_future_row_with_same_opponent_is_stable():
     weekly = _qb_training_fixture()
     with patch("data.nflverse_loader.load_weekly", return_value=weekly):
         model = QBModel()
-        model.fit([2023])
+        model.fit([2022, 2023])
 
     row = build_upcoming_row(
         "QB-X", season=2023, week=10, position="QB",
@@ -114,7 +116,7 @@ def test_legacy_opp_team_path_still_works_with_deprecation_warning():
     weekly = _qb_training_fixture()
     with patch("data.nflverse_loader.load_weekly", return_value=weekly):
         model = QBModel()
-        model.fit([2023])
+        model.fit([2022, 2023])
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -149,7 +151,7 @@ def test_future_row_overrides_legacy_opp_team():
     weekly = _qb_training_fixture()
     with patch("data.nflverse_loader.load_weekly", return_value=weekly):
         model = QBModel()
-        model.fit([2023])
+        model.fit([2022, 2023])
 
     row = build_upcoming_row(
         "QB-X", season=2023, week=10, position="QB",

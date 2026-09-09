@@ -5,6 +5,49 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m3.1 - 2026-09-08
+
+**Upcoming-game scoring fixed; app prices the 2026 slate. `use_future_row` on.**
+
+The v0.9-m3 Week-1 dry run flagged the `future_row` path as a blocker. A
+systematic-debugging pass fixed it. Full detail: `docs/season_eve_2026_dryrun.md` §5.
+
+- **`is_home` dropped from all three models' features** — it is a constant 0.5
+  in real nflverse data (no home/away column), collinear with the intercept,
+  and the unregularised GLM gave it an arbitrary coefficient (+2.0 on
+  passing_yards) that swung `future_row` means 3-7×. Historical-path
+  predictions are **numerically unchanged** (constant absorbed by the refit
+  intercept — `model_backtest` holdout + `preseason_baseline_2026.md` reproduce
+  exactly).
+- **Cold-start shrinkage redesigned** (`future_row`, no same-season priors):
+  blend the GLM point estimate with the player's trailing average, weighting
+  the GLM by the prior-season game count (capped 10); clamp to `[0.4, 1.8] ×
+  trailing`; no history ⇒ league prior. Kills the 600-1000 yд projections —
+  Week-1 slate proj / recent-form ratio median 0.93, max 1.88, 5% outside
+  [0.5, 2.0].
+- **`recalibrate_spread()` + `residual_cv()`** in `models/dist_family.py`:
+  rescale each stat's distribution to a robust residual CV so `P(over)` is
+  informative rather than stuck at ~0.5. **`future_row`-gated** — historical /
+  replay / backtest path untouched.
+- **`use_future_row` False -> True.** `data/nflverse_loader.py` now skips a
+  404 (unpublished) weekly year instead of crashing;
+  `evaluation_service.scoring_weekly()` widens the fit + history window to
+  every complete season through the scored one (a 2026 request was training
+  only through ~2023). `POST /api/props/evaluate` for a Week-1 2026 prop
+  returns a realistic mean + informative probability.
+- **Known residual gap:** the 2018-2024-locked GLMs over-project 2025/2026
+  yardage ~+24yd (QB) / ~+4yd (WR) because 2025 was a lower-output environment;
+  the cold-start blend dampens but does not remove it. Full probability
+  calibration still needs real market lines or a held-out-actuals calibration
+  layer — not an eve-of-season change.
+- `tests/test_predict_with_future_row.py` fixture widened to 2 seasons.
+
+**Verification:** `uv run pytest -q` -> 351 passed; `model_backtest` holdout +
+`preseason_baseline_2026.md` byte-identical to v0.9-m3 (historical path
+unchanged); 2026 Week-1 realism + live `/api/props/evaluate` spot-checked.
+
+---
+
 ## v0.9-m3 - 2026-09-08
 
 **Season-eve activation: data brought current for 2026; training + paper-execution pipelines exercised end to end on refreshed 2025 data.**

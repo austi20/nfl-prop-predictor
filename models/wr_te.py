@@ -29,6 +29,8 @@ from models.dist_family import (
     make_count_distribution,
     make_quantile_distribution,
     predict_quantiles,
+    recalibrate_spread,
+    residual_cv,
 )
 from models.feature_utils import (
     add_group_rolling_mean,
@@ -60,6 +62,10 @@ _TARGET_STATS = ["receptions", "receiving_yards", "receiving_tds"]
 _COUNT_STATS = {"receptions", "receiving_tds"}
 
 _MIN_MEAN = 1e-3
+# Cold-start (Week-1 / future season) shrinkage guards. See models/qb.py.
+_COLD_START_MAX_N = 10
+_COLD_START_LO = 0.4
+_COLD_START_HI = 1.8
 
 _DIST_TYPES: dict[str, str] = {
     "receptions": "poisson",
@@ -145,8 +151,10 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
     )
     feature_cols.extend(opponent_feature_cols)
 
+    # `is_home` column retained for build_upcoming_row / back-compat but NOT a
+    # model feature — constant 0.5 in real nflverse data, collinear with the
+    # intercept. See models/qb.py for the full rationale.
     df["is_home"] = safe_col(df, "is_home", 0.5)
-    feature_cols.append("is_home")
 
     df["week_num"] = df["week"].astype(float)
     feature_cols.append("week_num")
@@ -173,6 +181,7 @@ class WRTEModel:
         self._prior_means: dict[str, float] = {}
         self._prior_stds: dict[str, float] = {}
         self._residual_stds: dict[str, float] = {}
+        self._resid_cv: dict[str, float] = {}
         self._player_stats: pd.DataFrame | None = None
         self._use_weather: bool = False
         self._dist_family: str = "legacy"
@@ -302,6 +311,17 @@ class WRTEModel:
                 self._targets_spec = CountFamilySpec("poisson")
             self._catch_rate_model = fit_beta_rate_model(receptions, targets, X_const, maxiter=500)
 
+        # Spread calibration — see models/qb.py.
+        for stat in _TARGET_STATS:
+            model = self._models.get(stat)
+            if model is None:
+                continue
+            try:
+                fitted = np.asarray(model.predict(X_const), dtype=float).ravel()
+            except Exception:
+                continue
+            self._resid_cv[stat] = residual_cv(train_receivers[stat].values.astype(float), fitted)
+
     def predict(
         self,
         player_id: str,
@@ -341,6 +361,18 @@ class WRTEModel:
                 result[stat] = StatDistribution(mean=mean, std=std, dist_type=_DIST_TYPES[stat])
             return result
 
+        # Cold-start sample size: for a forward / Week-1 prediction there are no
+        # same-season prior weeks, so use the player's most-recent-season game
+        # count (capped) to weight the GLM estimate against their trailing
+        # average in the loop below. Only the future_row path is affected.
+        cold_start_n = 0
+        if future_row is not None and player_rows.empty:
+            history = self._player_stats[self._player_stats["player_id"] == player_id]
+            if not history.empty:
+                last_season = int(history["season"].max())
+                games = int((history["season"] == last_season).sum())
+                cold_start_n = min(games, _COLD_START_MAX_N)
+
         if future_row is not None:
             X = np.array(
                 [[float(future_row.get(col, 0.0) or 0.0) for col in self._feature_cols]],
@@ -364,8 +396,26 @@ class WRTEModel:
             ceiling = max(prior_mean + (6.0 * prior_std), prior_mean * 5.0, 1.0)
             pred_mean = float(np.clip(pred_mean, _MIN_MEAN, ceiling))
 
-            n = len(player_rows)
-            shrunk_mean = prior_mean + (n / (n + self._k)) * (pred_mean - prior_mean)
+            trailing = (
+                float(future_row.get(f"roll_{stat}", 0.0) or 0.0)
+                if future_row is not None else 0.0
+            )
+            if future_row is not None and player_rows.empty:
+                # Cold start (Week 1 / future season): blend the GLM point
+                # estimate with the player's own trailing average, trusting the
+                # GLM more as the prior-season sample grows. No usable history
+                # falls back to the league prior. See models/qb.py.
+                if trailing > _MIN_MEAN:
+                    w_glm = cold_start_n / (cold_start_n + self._k)
+                    shrunk_mean = (1.0 - w_glm) * trailing + w_glm * pred_mean
+                    shrunk_mean = float(
+                        np.clip(shrunk_mean, _COLD_START_LO * trailing, _COLD_START_HI * trailing)
+                    )
+                else:
+                    shrunk_mean = prior_mean
+            else:
+                n = len(player_rows)
+                shrunk_mean = prior_mean + (n / (n + self._k)) * (pred_mean - prior_mean)
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
             if self._dist_family == "decomposed" and stat == "receptions":
@@ -392,6 +442,13 @@ class WRTEModel:
                     dist = self._legacy_distribution(stat, shrunk_mean)
             else:
                 dist = self._legacy_distribution(stat, shrunk_mean)
+
+            cv = self._resid_cv.get(stat, 0.0)
+            if future_row is not None and cv > 0.0 and dist.mean > _MIN_MEAN:
+                target_std = float(
+                    np.clip(cv * dist.mean, 0.30 * dist.mean, 1.40 * dist.mean)
+                )
+                dist = recalibrate_spread(dist, target_std)
 
             result[stat] = dist
 

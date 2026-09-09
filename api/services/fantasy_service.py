@@ -135,9 +135,9 @@ def _predict_distributions(
         future_row = None
         if settings.use_future_row and recent_team:
             try:
-                train_years = tuple(settings.default_train_years)
-                weekly_years = tuple(sorted(set(train_years + (season,))))
-                weekly = _weekly_cache(weekly_years)
+                from api.services.evaluation_service import scoring_weekly
+
+                weekly = scoring_weekly(settings, season)
                 from data.upcoming import build_upcoming_row
 
                 future_row = build_upcoming_row(

@@ -29,6 +29,12 @@ every dry run below targets.
 | `.gitignore` | `docs/audit/`, `docs/training/rerun_*/`, Week-1 signal scratch. |
 | `scripts/dry_run_execution.py` *(new)* | drives `/api/execution/paper/submit` end to end — the only exercise of ExecutionService -> mapper -> risk -> paper adapter -> ledger together. |
 | `scripts/dry_run_week1_2026.py` *(new)* | builds the real Week-1 slate, prices it, paper-submits it. |
+| `models/{qb,rb,wr_te}.py` | **§5** — drop `is_home` (constant / collinear); cold-start GLM+trailing blend + clamp; `future_row`-gated spread recalibration. Historical path byte-for-byte unchanged. |
+| `models/dist_family.py` | `residual_cv` + `recalibrate_spread` helpers for §5 spread calibration. |
+| `data/nflverse_loader.py` | `ALL_YEARS` -> ..2026; `_fetch_weekly_direct` skips a 404 (unpublished) year instead of crashing, so a 2026 request works before Week 1. |
+| `api/settings.py` | `use_future_row` **False -> True** (upcoming path fixed in §5). |
+| `api/services/{evaluation,fantasy}_service.py` | `scoring_weekly()` widens the fit + history window to every complete season through the scored one (a 2026 request no longer trains only through ~2023). |
+| `tests/test_predict_with_future_row.py` | fixture widened to 2 seasons so the 27-feature GLM is not underdetermined after the `is_home` drop. |
 
 ## 1. Training accuracy — locked config, refreshed data (`eval/model_backtest.py`)
 
@@ -93,29 +99,50 @@ Observations (not blockers):
 - Synthetic `market_id` is `PAPER-<player8>-<stat4>` — it does **not** encode
   week, so multiple weeks of the same player+stat collapse to one position.
 
-## 5. 2026 Week-1 slate dry run (`scripts/dry_run_week1_2026.py`) — BLOCKER found
+## 5. 2026 Week-1 slate dry run — blocker found, then fixed
 
-Built the real Week-1 slate (502 ACT skill players, 401 with 2025 history),
-derived naive lines from 2025 trends, priced, kept 847 EV-positive signals,
-paper-submitted them: **847/847 filled** — plumbing works against the real
-schedule.
+The first pass built the real Week-1 slate and paper-submitted it (plumbing
+worked), but every projection was garbage — QB passing yards of 600-1000+. A
+systematic-debugging pass (`docs/season_eve_2026_dryrun.md` history / commit
+messages) found and fixed four coupled defects in the `future_row` / upcoming
+scoring path (`models/{qb,rb,wr_te}.py`, `api/services/`):
 
-**But the projections are unusable.** The model's `future_row` scoring path is
-not season-ready:
+| Defect | Fix | Verification |
+|---|---|---|
+| **`is_home` is a constant 0.5** in real nflverse data (no home/away column), so it is collinear with the intercept and the unregularised GLM gives it an arbitrary coefficient (+2.0 on passing_yards). Feeding a real 0/1 value on an upcoming game swings the mean `e^coef` ≈ 3-7×. | Drop `is_home` from all three feature sets. | Historical-path predictions **numerically identical** (constant absorbed by the refit intercept); `model_backtest` holdout MAE unchanged to 3 dp. |
+| **Week-1 shrinkage collapse** — no same-season prior weeks ⇒ `n/(n+k)` with `n=0` ⇒ every projection = league prior. | Cold-start blend: weight the GLM point estimate against the player's own **trailing average** (`roll_<stat>`), trusting the GLM more as the prior-season game count grows (capped at 10); no history ⇒ league prior. | Week-1 slate proj / recent-form ratio: median **0.93**, p90 1.4, 5% outside [0.5, 2.0] (was 15%). |
+| **GLM extrapolation** to absurd means for low-sample / off-manifold players (Herbert 552 yд / 74 att). | Clamp the cold-start mean to `[0.4, 1.8] × trailing average`. | max proj / recent-form ratio **1.88** (was 33×). |
+| **Distribution over-dispersion** — the NegBin / decomposed-MC layers inflate spread ~1.3-2× (carries std 11 vs empirical 7; receptions 5 vs 2.4) because the training pool mixes starters with cameo appearances ⇒ mushy `P(over)` ≈ 0.5. | `recalibrate_spread()` in `models/dist_family.py`: rescale each stat's distribution to a robust residual CV measured at fit time. **Gated to the `future_row` path only.** | `P(over)` now spans ~0.32-0.64 across a spot slate instead of clustering at 0.5. |
 
-- With `use_future_row=False` (the default), a Week-1 prediction has **no
-  same-season prior weeks**, so the shrinkage term `n/(n+k)` collapses with
-  `n=0` and every projection falls back to the position's **league prior** —
-  not player-specific.
-- Removing that collapse (using career sample size for `n`) unmasks a second
-  bug: the **decomposed passing-yards path over-projects wildly** — QB
-  `passing_yards` means of 600-1000+ (NFL single-game record is ~554),
-  pinned near the `prior_mean * 5` ceiling.
+All four fixes are **gated so the historical / backtest / replay / preseason-
+baseline path is byte-for-byte unchanged** (`docs/holdout_metrics.md`,
+`docs/preseason_baseline_2026.md` reproduce exactly). Only `future_row` scoring
+changed.
 
-Net: forward/upcoming-game pricing (`data/upcoming.py` + `future_row=`) needs a
-dedicated debugging pass before it can price a live slate. Nothing that ships
-for Week 1 depends on it — replay, backtest, and the API slate endpoint all use
-the historical-row path and are green. `use_future_row` stays `False`.
+**`use_future_row` is now `True`** and the app prices the 2026 slate:
+`POST /api/props/evaluate` for a Week-1 2026 prop returns a realistic mean and
+an informative probability (e.g. Mahomes passing yards mean ≈ 290, `P(over
+239.5)` ≈ 0.64). Supporting changes: `data/nflverse_loader.py` tolerates the
+missing 2026 weekly release (skips the 404 year instead of crashing);
+`api/services/evaluation_service.py::scoring_weekly` widens the fit + history
+window to every complete season through the one being scored (a 2026 request
+was previously training only through ~2023).
+
+### Known residual gap — mean bias in a shifted environment
+
+The locked GLMs are calibrated to a **2018-2024** average. Measured on 2025
+holdout, they over-project QB passing yards by **~+24/game** and receiving
+yards by ~+4 (`calib_check`: PIT mean ~0.43, PIT-KS 0.18-0.38 for yardage
+stats). The cause is temporal: 2025 was a lower-output passing environment than
+the training window, and the models cannot self-correct from in-sample stats
+(their training-set bias is ~0). The cold-start blend pulls upcoming
+projections ~25-30% toward 2025 recent form, which dampens but does not remove
+this. A full fix needs a bias + variance calibration layer fit on held-out
+actuals (or the deferred real-Kalshi-quote path) — it is **not** something to
+land the night before kickoff. The point-estimate accuracy (MAE ~79 passing
+yд) and the paper-execution economics are unaffected.
+
+## Deferred / not done
 
 ## Deferred / not done
 
@@ -123,8 +150,12 @@ the historical-row path and are green. `use_future_row` stays `False`.
   config is human-reviewed (Phase H5); re-running the grid to re-confirm it is
   ~hours and low value. Run off-hours if desired:
   `uv run python scripts/train_loop.py --out-dir docs/training/rerun_YYYY`.
-- **Calibration** — still gated on real Kalshi quote capture; `rb/carries`
-  above is the strongest argument for turning it on once real lines exist.
+- **Probability calibration + the §5 mean-bias gap** — still gated on real
+  Kalshi quote capture (or a held-out-actuals calibration layer). `rb/carries`
+  (uncalibrated log-loss 2.35) and the ~+24yd QB passing bias on shifted-
+  environment seasons are the strongest arguments for building it. The §5 fixes
+  make upcoming projections *realistic* and the probabilities *informative*;
+  they do not make them *calibrated*.
 - **Live weather forecast** (`use_live_forecast`) — archive stops at 2025;
   needs the Open-Meteo forecast path for 2026 games. Models are `use_weather=
   False` so not blocking.

@@ -57,10 +57,40 @@ def _weekly_cache(years: tuple[int, ...]) -> pd.DataFrame:
     return load_weekly(list(years))
 
 
+def scoring_weekly(settings: AppSettings, season: int) -> pd.DataFrame:
+    """Weekly frame covering the configured window through the scored season.
+
+    Used for both fitting and build_upcoming_row so a future-season request
+    still sees the most recent seasons of player form.
+    """
+    base = tuple(settings.default_train_years)
+    lo = min(base) if base else season
+    return _weekly_cache(tuple(range(lo, season + 1)))
+
+
+def _effective_train_years(
+    train_years: tuple[int, ...], eval_season: int, weekly: pd.DataFrame
+) -> tuple[int, ...]:
+    """Widen the training window for a future-season request.
+
+    ``default_train_years`` is tuned to stay disjoint from the replay holdout,
+    so it lags the calendar. When scoring a season past that window (e.g. 2026
+    before any games are played), fold in every complete season we actually
+    have data for, up to eval_season - 1 — otherwise the live model would train
+    only through 2023.
+    """
+    if not train_years or eval_season <= max(train_years) + 1:
+        return train_years
+    have = set(int(s) for s in weekly["season"].unique()) if "season" in weekly.columns else set()
+    extra = tuple(y for y in range(max(train_years) + 1, eval_season) if y in have)
+    return tuple(sorted(set(train_years + extra)))
+
+
 @lru_cache(maxsize=8)
 def _model_bundle(train_years: tuple[int, ...], eval_season: int) -> dict[str, QBModel | RBModel | WRTEModel]:
     years = tuple(sorted(set(train_years + (eval_season,))))
     weekly = _weekly_cache(years)
+    train_years = _effective_train_years(train_years, eval_season, weekly)
     return _fit_models(train_years, eval_season, weekly)
 
 
@@ -82,9 +112,9 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
     if request.stat not in STAT_SPECS:
         raise ValueError(f"Unsupported prop stat: {request.stat}")
 
-    train_years = tuple(settings.default_train_years)
-    weekly_years = tuple(sorted(set(train_years + (request.season,))))
-    weekly = _weekly_cache(weekly_years)
+    base_train_years = tuple(settings.default_train_years)
+    weekly = scoring_weekly(settings, request.season)
+    train_years = _effective_train_years(base_train_years, request.season, weekly)
     models = _model_bundle(train_years, request.season)
 
     spec = STAT_SPECS[request.stat]

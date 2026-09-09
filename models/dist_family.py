@@ -18,6 +18,71 @@ YARDAGE_QUANTILES: tuple[float, ...] = (0.1, 0.25, 0.5, 0.75, 0.9)
 _EPS = 1e-6
 
 
+def residual_cv(actual: np.ndarray, predicted: np.ndarray, *, floor: float = 1.0) -> float:
+    """Robust residual coefficient of variation: MAD-based std of (actual - pred),
+    divided by the mean prediction. One scalar per (position, stat) used to
+    recalibrate distribution spread — the family layers (NegBin, decomposed MC)
+    over-disperse the count stats because the training pool mixes starters with
+    cameo appearances.
+    """
+    a = np.asarray(actual, dtype=float)
+    p = np.asarray(predicted, dtype=float)
+    mask = np.isfinite(a) & np.isfinite(p)
+    a, p = a[mask], p[mask]
+    if a.size < 20:
+        return 0.0
+    resid = a - p
+    mad = float(np.median(np.abs(resid - np.median(resid))))
+    resid_std = 1.4826 * mad if mad > 0 else float(np.std(resid))
+    ref = max(float(np.mean(p)), floor)
+    return float(np.clip(resid_std / ref, 0.05, 3.0))
+
+
+def recalibrate_spread(dist: StatDistribution, target_std: float) -> StatDistribution:
+    """Return a copy of ``dist`` whose spread matches ``target_std``.
+
+    Handles the four representations the family layer emits: empirical samples,
+    quantile knots, count families, and plain gamma/tweedie/normal.
+    """
+    target_std = max(float(target_std), _EPS)
+    current = max(float(dist.std), _EPS)
+    if abs(current - target_std) / current < 0.05:
+        return dist
+    factor = target_std / current
+    mean = max(float(dist.mean), _EPS)
+
+    if dist.samples:
+        samples = np.asarray(dist.samples, dtype=float)
+        rescaled = np.clip(mean + (samples - mean) * factor, 0.0, None)
+        return StatDistribution.from_samples(rescaled, dist_type=dist.dist_type)
+
+    if dist.quantiles and dist.dist_type == "quantile":
+        median = float(dist.quantiles.get(0.5, mean))
+        knots = {q: max(median + (v - median) * factor, 0.0) for q, v in dist.quantiles.items()}
+        return StatDistribution(
+            mean=dist.mean, std=target_std, dist_type="quantile",
+            quantiles=knots, params=dict(dist.params),
+        )
+
+    count_types = {
+        "poisson", "negative_binomial",
+        "zero_inflated_poisson", "zero_inflated_negative_binomial",
+    }
+    if dist.dist_type in count_types:
+        var = target_std**2
+        alpha = max((var - mean) / (mean * mean), 0.0)
+        if alpha < 1e-4:
+            return StatDistribution(mean=mean, std=float(np.sqrt(mean)), dist_type="poisson")
+        return StatDistribution(
+            mean=mean, std=target_std, dist_type="negative_binomial",
+            params={"alpha": float(alpha)},
+        )
+
+    return StatDistribution(
+        mean=dist.mean, std=target_std, dist_type=dist.dist_type, params=dict(dist.params),
+    )
+
+
 class ConstantResult:
     """Fallback result that predicts a constant mean and exposes `.aic`."""
 

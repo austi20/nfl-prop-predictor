@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+import warnings
 from urllib.error import HTTPError
 from pathlib import Path
 from typing import Literal
@@ -91,13 +92,23 @@ def _load_or_fetch(
 
 
 def _fetch_weekly_direct(years: list[int]) -> pd.DataFrame:
-    frames = [
-        pd.read_parquet(
-            _NFLVERSE_STATS_PLAYER_RELEASE.format(year=year),
-            engine="pyarrow",
-        )
-        for year in years
-    ]
+    frames: list[pd.DataFrame] = []
+    for year in years:
+        try:
+            frames.append(
+                pd.read_parquet(
+                    _NFLVERSE_STATS_PLAYER_RELEASE.format(year=year),
+                    engine="pyarrow",
+                )
+            )
+        except (HTTPError, FileNotFoundError, OSError) as exc:
+            # Year not published yet (e.g. the current season before Week 1).
+            # Skip it rather than failing the whole load — callers that need
+            # the upcoming season pass a future `week`/`season` explicitly.
+            warnings.warn(
+                f"nflverse weekly data for {year} unavailable ({exc}); skipping.",
+                stacklevel=2,
+            )
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 

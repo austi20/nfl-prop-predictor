@@ -57,11 +57,13 @@ class AppSettings(BaseSettings):
     llama_cpp_base_url: str = "http://127.0.0.1:8080"
     weather_source: str = "open-meteo"
     use_live_forecast: bool = False
-    # Phase G.5: when True, replay/scoring paths build a future_row via
+    # Phase G.5: when True, scoring paths build a future_row via
     # data.upcoming.build_upcoming_row and pass it to model.predict() so the
     # opponent context matches the upcoming game rather than the latest
-    # historical row. Default False until Phase H ablation evaluates it.
-    use_future_row: bool = False
+    # historical row. Enabled for the 2026 season once the cold-start guards
+    # (is_home drop, prior-season shrinkage n, trailing-mean clamp) landed —
+    # see docs/season_eve_2026_dryrun.md.
+    use_future_row: bool = True
     # Phase H5 lock (v0.8c): default False. Cross-season Phase H walk-forward
     # evidence showed mean max_reliability_dev of 0.44-0.48 against synthetic
     # surrogate odds — high enough to motivate calibration, but the metric is

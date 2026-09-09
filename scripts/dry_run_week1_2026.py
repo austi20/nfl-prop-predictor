@@ -158,6 +158,12 @@ def build_signals() -> pd.DataFrame:
             dist = dists.get(stat)
             if dist is None:
                 continue
+            # Skip stats with no position-matched trailing signal (e.g. a
+            # fullback routed through the RB model): the model would fall back
+            # to the league prior, not a player-specific projection.
+            if float(future_row.get(f"roll_{stat}", 0.0) or 0.0) <= 0.0:
+                skipped["no_trailing_signal"] = skipped.get("no_trailing_signal", 0) + 1
+                continue
             p_over = float(dist.prob_over(line))
             decision = price_two_sided_prop_decision(
                 raw_prob_over=p_over,
