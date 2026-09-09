@@ -794,6 +794,62 @@ def _game_script_factors(
     return factors
 
 
+def _usage_factor(
+    *,
+    player_id: str,
+    season: int,
+    week: int,
+    position: str,
+    seasons: tuple[int, ...],
+) -> FantasyContextFactor:
+    """Recent snap % / air-yards share vs the player's own baseline — corrects
+    the trailing-8-game average when a role is trending up or down."""
+    positive = _positive_stats_for_position(position)
+    try:
+        from data.usage import usage_trend
+
+        trend = usage_trend(player_id, int(season), int(week), seasons)
+    except Exception:  # noqa: BLE001
+        trend = None
+    if not trend:
+        return _neutral_factor(
+            "usage_trend", "Usage trend",
+            "Not enough snap/target history to detect a role change.", positive,
+        )
+
+    ratios: list[float] = []
+    notes: list[str] = []
+    if trend.get("snap_base", 0.0) > 0.15:
+        r = trend["snap_recent"] / trend["snap_base"]
+        ratios.append(r)
+        notes.append(f"snaps {trend['snap_recent']:.0%} vs {trend['snap_base']:.0%}")
+    if position.upper().strip() in {"WR", "TE", "RB"} and trend.get("ay_base", 0.0) > 0.05:
+        r = trend["ay_recent"] / trend["ay_base"]
+        ratios.append(r)
+        notes.append(f"air-yards share {trend['ay_recent']:.0%} vs {trend['ay_base']:.0%}")
+    if not ratios:
+        return _neutral_factor(
+            "usage_trend", "Usage trend", "Usage is stable.", positive,
+        )
+
+    trend_ratio = float(np.mean(ratios))
+    if abs(trend_ratio - 1.0) < 0.08:
+        return _neutral_factor(
+            "usage_trend", "Usage trend",
+            f"Role is steady ({', '.join(notes)}).", positive,
+        )
+    multiplier = float(np.clip(1.0 + 0.35 * (trend_ratio - 1.0), 0.85, 1.15))
+    direction = "up" if trend_ratio > 1.0 else "down"
+    return FantasyContextFactor(
+        name="usage_trend",
+        label="Usage trend",
+        multiplier=round(multiplier, 4),
+        applied=True,
+        affected_stats=positive,
+        reason=f"Role trending {direction}: {', '.join(notes)} — trailing average lags it.",
+    )
+
+
 def _coach_factor(
     context: dict | None,
     coach_ppg: dict[str, tuple[float, int]],
@@ -916,6 +972,13 @@ def _context_factors(
             season=season,
             week=week,
             position=position,
+        ),
+        _usage_factor(
+            player_id=player_id,
+            season=season,
+            week=week,
+            position=position,
+            seasons=seasons,
         ),
         _coach_factor(context, coach_ppg, position=position),
         _rest_factor(context, position=position),

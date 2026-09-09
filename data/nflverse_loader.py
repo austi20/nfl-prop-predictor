@@ -211,6 +211,12 @@ def load_qbr(years: list[int] = TRAIN_YEARS, force_refresh: bool = False) -> pd.
     return _load_or_fetch(path, lambda: nfl.import_qbr(years), force_refresh)
 
 
+def load_ids(force_refresh: bool = False) -> pd.DataFrame:
+    """Cross-provider player id crosswalk (gsis_id <-> pfr_id <-> ...)."""
+    path = _CACHE_DIR / "player_ids.parquet"
+    return _load_or_fetch(path, lambda: nfl.import_ids(), force_refresh)
+
+
 def load_weekly_with_weather(
     years: list[int] = TRAIN_YEARS,
     force_refresh: bool = False,
