@@ -272,3 +272,55 @@ preseason baseline reproduce, TRAIN ⊥ HOLDOUT, locked config untouched).
   is a closed import set with 0 edges from committed code and 3 passing tests;
   `git clean` would drop it silently. If zero-ambiguity is wanted, land all
   five files in one commit on a `modernization-phase-0` branch — not `master`.
+
+## §8. Fantasy-first GUI + week fantasy board
+
+The desktop app was three betting views (Dashboard / Parlay Builder / Execution)
+and exposed **no** fantasy projection anywhere, despite `/api/fantasy/predict`
+being the app's stated primary job. Reframed:
+
+- **Nav** is now `This Week · Props · Parlays · Trading (Paper)`; the brand mark
+  is "NFL Fantasy". The old dashboard moved from `/` to `/props` unchanged.
+- **`/` = "Week N Fantasy Board"** (`desktop/src/routes/this-week-page.tsx`):
+  a ranked projection board for the 2026 Week-1 slate — projected / floor
+  (p10) / ceiling (p90) / boom% per player, position + scoring (full/half PPR)
+  + week filters, row → player detail.
+
+**New endpoint `GET /api/fantasy/slate/{season}?week=&scoring=&limit=`**
+(`api/services/fantasy_slate_service.py`). `build_fantasy_summary` is a
+5000-sim MC + four context passes per player, so a naive whole-slate loop is
+minutes:
+
+1. enumerate skill players on the rosters of teams that play that week
+   (`get_schedule` + `get_roster`);
+2. rank them with a **cheap trailing-FP/game prescore** (no MC), drop anyone
+   under `_MIN_TRAILING_GAMES = 3` (rookies / deep backups otherwise regress
+   to the positional baseline — a ~18-PPR "QB" line — and flood the board);
+3. cap each team+position to startable depth (`QB 1 / RB 3 / WR 4 / TE 2`),
+   then take a **per-position budget slice** of `limit`
+   (`QB .18 / RB .33 / WR .37 / TE .12`) so 32 near-identical QB1 lines don't
+   eat the list;
+4. run the full projection for that union only; response cached per
+   `(season, week, scoring, limit)`.
+
+First build is ~4-5 min cold, so the sidecar **prewarms** the Week-1 board on
+startup on a daemon thread (`prewarm_current_slate`, gated by
+`AppSettings.prewarm_fantasy_slate`, off for tests/scripts, env
+`NFL_APP_PREWARM_FANTASY_SLATE=0`). The GUI requests `limit=48` to hit that
+cache key.
+
+2026-W1 board (limit 48, full PPR) sanity: RB Bijan 18.5 / Henry 17.5 / CMC
+17.1 / Gibbs 16.5 / Saquon 14.5; WR Nacua 25.7 / St. Brown 21.9 / Chase 19.6;
+TE McBride 17.6 / Pitts 13.8. All in a realistic band.
+
+**Known weak spot — QB.** Every QB1 still clusters 16-21 and thin-sample
+rookies (Tyler Shough, Jaxson Dart) show at ~18, because passing yards regress
+to the ~250/gm baseline and the 2018-2024-locked GLM over-projects QB passing
+~+24yd/gm in the shifted 2025/26 environment (§5 residual gap). Relative
+ordering among established QBs is also soft. The board labels position; the
+real fix is the post-Week-1 bias+variance calibration layer, not an eve-of
+-season hack.
+
+Tests: `tests/test_fantasy_slate_service.py` (4 — prescore ranking, min-history
+gate, per-position budget floor, scoring-mode guard). Backend 376 pass.
+Desktop `tsc -b` + 17 vitest pass.

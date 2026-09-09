@@ -68,7 +68,9 @@ def run(picks_path: Path, label: str, *, limit: int, fake_adapter: bool, out_dir
         df = df.head(limit)
     picks = [_row_to_pick(r) for r in df.to_dict("records")]
 
-    settings = AppSettings(docs_dir=out_dir, use_realistic_paper=not fake_adapter)
+    settings = AppSettings(
+        docs_dir=out_dir, use_realistic_paper=not fake_adapter, prewarm_fantasy_slate=False
+    )
     client = TestClient(create_app(settings))
 
     submit = client.post("/api/execution/paper/submit", json={"picks": picks})

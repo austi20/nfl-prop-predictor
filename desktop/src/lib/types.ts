@@ -212,6 +212,30 @@ export type FantasyPredictionResponse = FantasySummary & {
   game_id: string
 }
 
+export type FantasySlateEntry = {
+  player_id: string
+  player_name: string
+  position: string
+  recent_team: string
+  opponent_team: string
+  game_id: string
+  kickoff: string
+  projected_points: number
+  floor_points: number
+  ceiling_points: number
+  boom_probability: number
+  bust_probability: number
+}
+
+export type FantasySlateResponse = {
+  season: number
+  week: number
+  scoring_mode: 'full_ppr' | 'half_ppr'
+  games: number
+  players_considered: number
+  entries: FantasySlateEntry[]
+}
+
 export type FilterMetadata = {
   available_seasons: number[]
   available_weeks: number[]

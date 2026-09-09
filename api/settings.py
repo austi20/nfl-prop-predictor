@@ -77,6 +77,11 @@ class AppSettings(BaseSettings):
     # fit a calibrator on the held-out 2025 data plus first weeks of real
     # quotes. See docs/ModelingNotes.md "Phase H5 calibration deferral".
     use_calibration: bool = False
+    # Build + cache the Week-1 fantasy board on startup (off-thread) so the
+    # desktop app's landing view is instant instead of a multi-minute sim.
+    # Tests and one-off scripts pass this False. Disable via
+    # NFL_APP_PREWARM_FANTASY_SLATE=0.
+    prewarm_fantasy_slate: bool = True
 
 
 @lru_cache(maxsize=1)

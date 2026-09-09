@@ -406,3 +406,27 @@ class RosterResponse(BaseModel):
     season: int
     week: int | None = None
     players: list[RosterPlayer] = Field(default_factory=list)
+
+
+class FantasySlateEntry(BaseModel):
+    player_id: str
+    player_name: str = ""
+    position: str = ""
+    recent_team: str = ""
+    opponent_team: str = ""
+    game_id: str = ""
+    kickoff: str = ""
+    projected_points: float
+    floor_points: float
+    ceiling_points: float
+    boom_probability: float
+    bust_probability: float
+
+
+class FantasySlateResponse(BaseModel):
+    season: int
+    week: int
+    scoring_mode: Literal["full_ppr", "half_ppr"] = "full_ppr"
+    games: int = 0
+    players_considered: int = 0
+    entries: list[FantasySlateEntry] = Field(default_factory=list)

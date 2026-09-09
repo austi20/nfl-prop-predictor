@@ -5,6 +5,38 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m3.2 - 2026-09-09
+
+**Fantasy-first GUI + week-level fantasy projection board.**
+
+The app is fantasy-football-first (props + Kalshi trading secondary); the
+desktop shell did not reflect that and had no fantasy view. Full detail:
+`docs/season_eve_2026_dryrun.md` §8.
+
+- **Desktop reframe.** Nav is now `This Week · Props · Parlays ·
+  Trading (Paper)`, brand mark "NFL Fantasy". The betting dashboard moved
+  `/` → `/props` (content unchanged). New landing view
+  `desktop/src/routes/this-week-page.tsx` — ranked Week-N board:
+  projected / floor / ceiling / boom% per player, position + scoring
+  (full/half PPR) + week filters, row links to player detail.
+- **`GET /api/fantasy/slate/{season}?week=&scoring=&limit=`**
+  (`api/services/fantasy_slate_service.py`, `+FantasySlate{Entry,Response}`).
+  Schedule + roster enumeration → cheap trailing-FP prescore →
+  `_MIN_TRAILING_GAMES=3` gate → per-team depth cap → per-position budget
+  slice of `limit` → full `build_fantasy_summary` on that union only.
+  Response cached per `(season, week, scoring, limit)`.
+- **Startup prewarm.** `build_fantasy_summary` is a 5000-sim MC per player so
+  a cold slate is ~4-5 min; the sidecar builds the Week-1 board on a daemon
+  thread at boot (`prewarm_current_slate`, `AppSettings.prewarm_fantasy_slate`,
+  default on, off for tests/scripts, env `NFL_APP_PREWARM_FANTASY_SLATE=0`).
+  GUI requests `limit=48` to match the prewarm cache key.
+- 2026-W1 sanity (full PPR): Bijan 18.5 / Henry 17.5 / Nacua 25.7 /
+  St. Brown 21.9 / McBride 17.6. QB still clusters high (16-21) and
+  thin-sample rookies leak in — documented residual, fixed by the post-Week-1
+  calibration layer.
+- Tests: `tests/test_fantasy_slate_service.py` (4). Backend **376 pass**,
+  1 skipped, 5 deselected. Desktop `tsc -b` clean, **17 vitest pass**.
+
 ## v0.9-m3.1 - 2026-09-08
 
 **Upcoming-game scoring fixed; app prices the 2026 slate. `use_future_row` on.**

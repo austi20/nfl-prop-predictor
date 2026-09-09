@@ -115,6 +115,19 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(secrets_router, prefix=app_settings.api_prefix)
 
     setup_telemetry(app, app_settings.docs_dir / "telemetry")
+
+    # The Week-1 fantasy board is the app's landing view and its first build runs
+    # a simulation per player (minutes). Warm it off-thread so the sidecar is
+    # ready by the time the user navigates.
+    if app_settings.prewarm_fantasy_slate:
+        import threading
+
+        from api.services.fantasy_slate_service import prewarm_current_slate
+
+        threading.Thread(
+            target=prewarm_current_slate, args=(app_settings,), daemon=True
+        ).start()
+
     return app
 
 

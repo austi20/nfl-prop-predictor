@@ -1,4 +1,4 @@
-import type { ExecutionEvent, FantasyPredictionResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, SlateResponse } from './types'
+import type { ExecutionEvent, FantasyPredictionResponse, FantasySlateResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, SlateResponse } from './types'
 import { resolveApiBaseUrl } from './runtime'
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -39,6 +39,18 @@ export async function buildParlays(picks: Pick[], legs = 2, stake = 1.0) {
     method: 'POST',
     body: JSON.stringify({ picks, legs, stake }),
   })
+}
+
+export async function getFantasySlate(params: {
+  season: number
+  week: number
+  scoring?: 'full_ppr' | 'half_ppr'
+  limit?: number
+}) {
+  const query = new URLSearchParams({ week: String(params.week) })
+  if (params.scoring) query.set('scoring', params.scoring)
+  if (params.limit) query.set('limit', String(params.limit))
+  return request<FantasySlateResponse>(`/api/fantasy/slate/${params.season}?${query.toString()}`)
 }
 
 export async function predictFantasy(payload: {

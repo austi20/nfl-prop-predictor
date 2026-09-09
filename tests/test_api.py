@@ -16,6 +16,7 @@ def _settings() -> AppSettings:
         default_train_years=tuple(range(2015, 2024)),
         default_replay_years=(2024,),
         default_max_parlay_candidates=10,
+        prewarm_fantasy_slate=False,
     )
 
 

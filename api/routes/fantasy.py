@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Literal
 
-from api.schemas import FantasyPredictionRequest, FantasyPredictionResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from api.schemas import FantasyPredictionRequest, FantasyPredictionResponse, FantasySlateResponse
 from api.services.fantasy_service import predict_fantasy
+from api.services.fantasy_slate_service import build_fantasy_slate
 
 router = APIRouter(tags=["fantasy"])
 
@@ -17,3 +20,25 @@ def post_fantasy_prediction(
         return predict_fantasy(request.app.state.settings, payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fantasy/slate/{season}", response_model=FantasySlateResponse)
+def get_fantasy_slate(
+    season: int,
+    request: Request,
+    week: int = Query(..., ge=1, le=22),
+    scoring: Literal["full_ppr", "half_ppr"] = Query("full_ppr"),
+    limit: int = Query(80, ge=1, le=300),
+) -> FantasySlateResponse:
+    try:
+        return build_fantasy_slate(
+            request.app.state.settings,
+            season=season,
+            week=week,
+            scoring_mode=scoring,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"fantasy slate unavailable: {exc}") from exc

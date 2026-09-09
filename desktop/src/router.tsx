@@ -6,6 +6,7 @@ import { ExecutionPage } from './routes/execution-page'
 import { PlayerDetailPage } from './routes/player-detail-page'
 import { ParlayBuilderPage } from './routes/parlay-builder-page'
 import { RouteError } from './routes/route-error'
+import { ThisWeekPage } from './routes/this-week-page'
 
 export const router = createBrowserRouter([
   {
@@ -15,11 +16,15 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <DashboardPage />,
+        element: <ThisWeekPage />,
       },
       {
         path: 'player/:playerId',
         element: <PlayerDetailPage />,
+      },
+      {
+        path: 'props',
+        element: <DashboardPage />,
       },
       {
         path: 'parlays',
