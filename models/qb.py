@@ -156,13 +156,14 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
     )
     feature_cols.extend(opponent_feature_cols)
 
-    # `is_home` column is retained for build_upcoming_row's feature dict and
-    # back-compat, but is NOT a model feature: real nflverse weekly data has no
-    # home/away column, so safe_col fills a constant 0.5, which is collinear
-    # with the intercept and gets an arbitrary large GLM coefficient. Feeding a
-    # real 0/1 value (upcoming games) then swings the prediction ~e^coef. Add
-    # real home/away as a schedule-joined feature before restoring it here.
-    df["is_home"] = safe_col(df, "is_home", 0.5)
+    # Real home/away, joined from the nflverse schedule on
+    # (season, week, recent_team). Historical weekly data has no such column, so
+    # this used to be a constant 0.5 (collinear with the intercept) and was
+    # dropped as a feature; with a real 0/1 value it is back in `feature_cols`.
+    from data.game_context import attach_is_home
+
+    df["is_home"] = attach_is_home(df).to_numpy()
+    feature_cols.append("is_home")
 
     df["week_num"] = df["week"].astype(float)
     feature_cols.append("week_num")

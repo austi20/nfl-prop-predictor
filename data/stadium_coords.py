@@ -73,6 +73,8 @@ STADIUMS: dict[str, Stadium] = {
     "OAK": Stadium(37.7517, -122.2008,    0, False, False, "America/Los_Angeles"),  # Oakland Coliseum, 2018-2019
     "SD":  Stadium(32.7831, -117.1196,   67, False, False, "America/Los_Angeles"),  # SDCCU Stadium, through 2016
     "STL": Stadium(38.6328,  -90.1885,  466, True,  False, "America/Chicago"),      # Edward Jones Dome, through 2015
+    # nflverse schedules abbreviate the Rams as "LA" (weekly stats use "LA" too).
+    "LA":  Stadium(33.9534, -118.3387,  102, False, False, "America/Los_Angeles"),  # SoFi Stadium
 }
 
 FIXED_DOME_TEAMS:  frozenset[str] = frozenset(t for t, s in STADIUMS.items() if s.is_fixed_dome)

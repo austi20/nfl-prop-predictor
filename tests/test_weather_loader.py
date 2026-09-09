@@ -78,10 +78,29 @@ def test_load_archive_filters_by_season(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_load_forecast_returns_none_when_flag_off():
-    """load_forecast returns None when use_live_forecast=False (default)."""
-    result = load_forecast("2024_01_NE_BUF")
-    assert result is None
+def test_load_forecast_gated_on_use_live_forecast(monkeypatch):
+    """The fetch is skipped entirely when the flag is off."""
+    import api.settings as settings_mod
+    from api.settings import AppSettings
+
+    load_forecast.cache_clear()
+    monkeypatch.setattr(
+        settings_mod, "get_settings", lambda: AppSettings(use_live_forecast=False)
+    )
+    assert load_forecast("2026_01_NE_SEA") is None
+
+
+def test_load_forecast_none_for_past_game(monkeypatch):
+    """A game well outside the ~16-day forecast horizon returns None even with
+    the flag on (the archive path covers the past, not this function)."""
+    import api.settings as settings_mod
+    from api.settings import AppSettings
+
+    load_forecast.cache_clear()
+    monkeypatch.setattr(
+        settings_mod, "get_settings", lambda: AppSettings(use_live_forecast=True)
+    )
+    assert load_forecast("2024_01_NE_BUF") is None
 
 
 # ---------------------------------------------------------------------------

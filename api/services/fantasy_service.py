@@ -21,6 +21,7 @@ from data.game_context import (
     context_for,
 )
 from data.nflverse_loader import is_dome
+from data.weather import load_forecast
 from eval.calibration_pipeline import STAT_SPECS
 from eval.fantasy_points import (
     SCORING_PROFILES,
@@ -547,26 +548,91 @@ def _injury_factor(
     )
 
 
-def _weather_factor(
+_SNOW_WEATHER_CODES = frozenset({71.0, 73.0, 75.0, 77.0, 85.0, 86.0})
+
+
+def _weather_factors(
     *,
+    game_id: str,
     recent_team: str,
     opponent_team: str,
     position: str,
-) -> FantasyContextFactor:
-    affected_stats = _positive_stats_for_position(position)
-    if is_dome(recent_team) or is_dome(opponent_team):
-        return _neutral_factor(
-            "weather",
-            "Weather",
-            "A dome or retractable-roof team is involved; weather impact is neutral until venue data is wired.",
-            affected_stats,
-        )
-    return _neutral_factor(
-        "weather",
-        "Weather",
-        "Outdoor weather readings are not wired yet, so weather impact is neutral.",
-        affected_stats,
-    )
+) -> list[FantasyContextFactor]:
+    """Open-Meteo forecast -> wind / precip / cold multipliers.
+
+    Wind is the dominant fantasy weather effect (deep passing collapses ~15 mph+);
+    heavy precip and hard cold shave passing a little and nudge rushing up.
+    """
+    positive = _positive_stats_for_position(position)
+    wx = load_forecast(game_id) if game_id else None
+
+    if wx is None:
+        indoor_guess = is_dome(recent_team) or is_dome(opponent_team)
+        return [
+            _neutral_factor(
+                "weather",
+                "Weather",
+                "Roof/dome — weather is not a factor." if indoor_guess
+                else "No forecast available for this game yet; weather is neutral.",
+                positive,
+            )
+        ]
+    if wx.get("indoor"):
+        return [_neutral_factor("weather", "Weather", "Indoor game — weather is not a factor.", positive)]
+
+    wind = float(wx.get("wind_mph") or 0.0)
+    precip = float(wx.get("precip_in") or 0.0)
+    temp = wx.get("temp_f")
+    code = float(wx.get("weather_code") or 0.0)
+
+    pass_mult = 1.0
+    run_mult = 1.0
+    notes: list[str] = []
+    if wind >= 25:
+        pass_mult *= 0.86
+        run_mult *= 1.03
+        notes.append(f"{wind:.0f} mph wind")
+    elif wind >= 20:
+        pass_mult *= 0.91
+        run_mult *= 1.02
+        notes.append(f"{wind:.0f} mph wind")
+    elif wind >= 15:
+        pass_mult *= 0.96
+        run_mult *= 1.01
+        notes.append(f"{wind:.0f} mph wind")
+
+    if precip >= 0.10 or code in _SNOW_WEATHER_CODES:
+        pass_mult *= 0.95
+        run_mult *= 1.02
+        notes.append("snow" if code in _SNOW_WEATHER_CODES else f"{precip:.2f} in/hr precip")
+
+    if temp is not None and float(temp) <= 20:
+        pass_mult *= 0.97
+        notes.append(f"{float(temp):.0f}F")
+
+    if not notes:
+        return [_neutral_factor(
+            "weather", "Weather",
+            f"Forecast is benign ({wind:.0f} mph wind, {precip:.2f} in precip).", positive,
+        )]
+
+    reason = ", ".join(notes)
+    pass_stats = [s for s in _PASS_GAME_STATS if s in positive]
+    run_stats = [s for s in _RUSH_STATS if s in positive]
+    out: list[FantasyContextFactor] = []
+    if pass_stats and abs(pass_mult - 1.0) > 1e-3:
+        out.append(FantasyContextFactor(
+            name="weather_pass", label="Weather (passing)", multiplier=round(pass_mult, 4),
+            applied=True, affected_stats=pass_stats,
+            reason=f"Forecast: {reason} — passing game trimmed.",
+        ))
+    if run_stats and abs(run_mult - 1.0) > 1e-3:
+        out.append(FantasyContextFactor(
+            name="weather_run", label="Weather (rushing)", multiplier=round(run_mult, 4),
+            applied=True, affected_stats=run_stats,
+            reason=f"Forecast: {reason} — rushing volume nudged up.",
+        ))
+    return out or [_neutral_factor("weather", "Weather", f"Forecast: {reason} (net neutral).", positive)]
 
 
 _GAME_SCRIPT_SPREAD_CUTOFF = 4.0  # points; below this the pass/run tilt is neutral
@@ -730,10 +796,15 @@ def _context_factors(
     recent_team: str,
     opponent_team: str,
     scoring_mode: ScoringMode,
+    game_id: str = "",
 ) -> list[FantasyContextFactor]:
     seasons = tuple(sorted({int(s) for s in weekly["season"].unique()} | {int(season)})) if "season" in weekly.columns else (int(season),)
     context = context_for(seasons, season=season, week=week, team=recent_team) if recent_team else None
     coach_ppg = coach_points_per_game(tuple(s for s in seasons if s < season) or seasons)
+    if not game_id and recent_team:
+        from data.game_context import game_id_for
+
+        game_id = game_id_for(seasons, season=season, week=week, team=recent_team)
 
     factors: list[FantasyContextFactor] = [
         _qb_support_factor(
@@ -759,14 +830,17 @@ def _context_factors(
             week=week,
             position=position,
         ),
-        _weather_factor(
-            recent_team=recent_team,
-            opponent_team=opponent_team,
-            position=position,
-        ),
         _coach_factor(context, coach_ppg, position=position),
         _rest_factor(context, position=position),
     ]
+    factors.extend(
+        _weather_factors(
+            game_id=game_id,
+            recent_team=recent_team,
+            opponent_team=opponent_team,
+            position=position,
+        )
+    )
     factors.extend(_game_script_factors(context, position=position))
     return factors
 
@@ -837,6 +911,7 @@ def build_fantasy_summary(
         recent_team=recent_team,
         opponent_team=opponent_team,
         scoring_mode=mode,
+        game_id=game_id,
     )
     seed = stable_simulation_seed(player_id, season, week, mode)
     projection = project_fantasy_points(

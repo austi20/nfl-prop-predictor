@@ -123,10 +123,11 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
     )
     feature_cols.extend(opponent_feature_cols)
 
-    # `is_home` column retained for build_upcoming_row / back-compat but NOT a
-    # model feature — constant 0.5 in real nflverse data, collinear with the
-    # intercept. See models/qb.py for the full rationale.
-    df["is_home"] = safe_col(df, "is_home", 0.5)
+    # Real home/away joined from the nflverse schedule — see models/qb.py.
+    from data.game_context import attach_is_home
+
+    df["is_home"] = attach_is_home(df).to_numpy()
+    feature_cols.append("is_home")
 
     df["week_num"] = df["week"].astype(float)
     feature_cols.append("week_num")

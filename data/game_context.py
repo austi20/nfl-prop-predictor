@@ -125,6 +125,39 @@ def is_home_map(seasons: tuple[int, ...]) -> dict[tuple[int, int, str], int]:
     return out
 
 
+def attach_is_home(df: pd.DataFrame) -> pd.Series:
+    """0.0/1.0 home flag per row. Precedence: an explicit non-null ``is_home``
+    already on the row (an upcoming-row override) wins; otherwise join from the
+    schedule on (season, week, recent_team); otherwise the neutral 0.5 baseline
+    (mid-season trades, team-abbrev drift, seasons the schedule lacks)."""
+    n = len(df)
+    if n == 0 or not {"season", "week", "recent_team"}.issubset(df.columns):
+        base = df["is_home"] if "is_home" in df.columns else pd.Series(0.5, index=df.index)
+        return pd.to_numeric(base, errors="coerce").fillna(0.5)
+
+    seasons = tuple(sorted({int(s) for s in pd.to_numeric(df["season"], errors="coerce").dropna().unique()}))
+    hmap = is_home_map(seasons)
+
+    def _lookup(row: tuple) -> float:
+        try:
+            key = (int(row[0]), int(row[1]), str(row[2]))
+        except (TypeError, ValueError):
+            return np.nan
+        val = hmap.get(key)
+        return float(val) if val is not None else np.nan
+
+    joined = pd.Series(
+        [_lookup(r) for r in zip(df["season"], df["week"], df["recent_team"])],
+        index=df.index,
+    )
+    existing = (
+        pd.to_numeric(df["is_home"], errors="coerce") if "is_home" in df.columns
+        else pd.Series(np.nan, index=df.index)
+    )
+    # Explicit override wins, then the schedule join, then neutral.
+    return existing.fillna(joined).fillna(0.5)
+
+
 def context_for(
     seasons: tuple[int, ...], *, season: int, week: int, team: str
 ) -> dict | None:
@@ -161,6 +194,30 @@ def context_for(
         "stadium": (str(row["stadium"]) if row.get("stadium") not in (None, "") and not pd.isna(row.get("stadium")) else ""),
         "div_game": None if pd.isna(row.get("div_game")) else int(row["div_game"]),
     }
+
+
+@lru_cache(maxsize=16)
+def _game_id_index(seasons: tuple[int, ...]) -> dict[tuple[int, int, str], str]:
+    sched = load_schedules(list(seasons)) if seasons else pd.DataFrame()
+    out: dict[tuple[int, int, str], str] = {}
+    if sched.empty or "game_id" not in sched.columns:
+        return out
+    for row in sched.itertuples(index=False):
+        gid = str(getattr(row, "game_id", "") or "")
+        if not gid:
+            continue
+        try:
+            key_season, key_week = int(row.season), int(row.week)
+        except (TypeError, ValueError):
+            continue
+        out[(key_season, key_week, str(row.home_team))] = gid
+        out[(key_season, key_week, str(row.away_team))] = gid
+    return out
+
+
+def game_id_for(seasons: tuple[int, ...], *, season: int, week: int, team: str) -> str:
+    """The nflverse game_id for a team's game that week, or "" if unknown."""
+    return _game_id_index(seasons).get((season, week, str(team).upper()), "")
 
 
 @lru_cache(maxsize=8)

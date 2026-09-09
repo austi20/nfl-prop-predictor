@@ -60,7 +60,9 @@ class AppSettings(BaseSettings):
     training_props_path: Path = Field(default_factory=lambda: _ROOT / "docs" / "training" / "synthetic_props_training.csv")
     llama_cpp_base_url: str = "http://127.0.0.1:8080"
     weather_source: str = "open-meteo"
-    use_live_forecast: bool = False
+    # Open-Meteo forecast for the fantasy weather multiplier (free, no key).
+    # Independent of `use_weather`, which gates the GLM weather *features*.
+    use_live_forecast: bool = True
     # Phase G.5: when True, scoring paths build a future_row via
     # data.upcoming.build_upcoming_row and pass it to model.predict() so the
     # opponent context matches the upcoming game rather than the latest

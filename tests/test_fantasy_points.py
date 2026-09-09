@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from api.services.fantasy_service import _weather_factor
+from api.services.fantasy_service import _weather_factors
 from eval.fantasy_points import (
     position_cutoffs,
     project_fantasy_points,
@@ -79,10 +79,12 @@ def test_position_cutoffs_for_supported_positions():
     assert position_cutoffs("TE") == (14.0, 5.0)
 
 
-def test_weather_factor_defaults_neutral_without_weather_feed():
-    factor = _weather_factor(recent_team="KC", opponent_team="DEN", position="QB")
+def test_weather_factors_neutral_without_a_game_id():
+    factors = _weather_factors(
+        game_id="", recent_team="KC", opponent_team="DEN", position="QB"
+    )
 
-    assert factor.name == "weather"
-    assert factor.applied is False
-    assert factor.multiplier == 1.0
-    assert "neutral" in factor.reason.lower()
+    assert len(factors) == 1
+    assert factors[0].name == "weather"
+    assert factors[0].applied is False
+    assert factors[0].multiplier == 1.0
