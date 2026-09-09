@@ -303,11 +303,31 @@ minutes:
 4. run the full projection for that union only; response cached per
    `(season, week, scoring, limit)`.
 
-First build is ~4-5 min cold, so the sidecar **prewarms** the Week-1 board on
-startup on a daemon thread (`prewarm_current_slate`, gated by
-`AppSettings.prewarm_fantasy_slate`, off for tests/scripts, env
-`NFL_APP_PREWARM_FANTASY_SLATE=0`). The GUI requests `limit=48` to hit that
-cache key.
+The sidecar **prewarms** the Week-1 board on startup on a daemon thread
+(`prewarm_current_slate`, gated by `AppSettings.prewarm_fantasy_slate`, off for
+tests/scripts, env `NFL_APP_PREWARM_FANTASY_SLATE=0`). The GUI requests
+`limit=48` to hit that cache key.
+
+**Concurrency + speed (post user-report of a 30-min hang).** The first cut had
+two bugs that compounded: `build_fantasy_slate` had no concurrency guard, and
+the GUI fetch was not abortable while React Query refetched on window focus —
+so every navigation to *This Week* left a zombie computation in the threadpool
+while a fresh one started. ~10 stacked to 15 GB / 50 CPU-min and never finished.
+
+- `build_fantasy_slate` now holds a process-wide lock (double-checked cache).
+  The prewarm waits (`wait=True`); an HTTP handler that finds a build running
+  raises `SlateBuilding`, returned as a 200 body with `ready=false`. The GUI
+  polls every 8 s while not ready and renders a "building" panel; `retry` and
+  focus/reconnect refetch are off, and the fetch forwards React Query's
+  `AbortSignal`.
+- The per-player loop is fanned out across a **spawn process pool** sized to
+  ~70 % of cores (`NFL_APP_FANTASY_SLATE_WORKERS`, 1 = serial). Output is
+  byte-identical to serial (fixed per-player MC seed); 2.4x at 6 workers on a
+  loaded box (95.9 s → 40.5 s). `api/sidecar.py` pins BLAS to one thread per
+  process and calls `multiprocessing.freeze_support()` for the PyInstaller
+  spawn path; any pool failure falls back to serial. Combined with the
+  prewarm, the user only ever waits (~30 s, with the polling indicator) on a
+  mid-session week/scoring switch.
 
 2026-W1 board (limit 48, full PPR) sanity: RB Bijan 18.5 / Henry 17.5 / CMC
 17.1 / Gibbs 16.5 / Saquon 14.5; WR Nacua 25.7 / St. Brown 21.9 / Chase 19.6;
@@ -321,6 +341,7 @@ ordering among established QBs is also soft. The board labels position; the
 real fix is the post-Week-1 bias+variance calibration layer, not an eve-of
 -season hack.
 
-Tests: `tests/test_fantasy_slate_service.py` (4 — prescore ranking, min-history
-gate, per-position budget floor, scoring-mode guard). Backend 376 pass.
-Desktop `tsc -b` + 17 vitest pass.
+Tests: `tests/test_fantasy_slate_service.py` (8 — prescore ranking, min-history
+gate, per-position budget floor, scoring-mode guard, concurrent-build collapse,
+worker-count math, `_project_player` row shape). Backend 376 pass. Desktop
+`tsc -b` + 17 vitest pass.

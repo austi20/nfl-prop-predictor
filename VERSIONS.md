@@ -5,6 +5,29 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m3.3 - 2026-09-09
+
+**Fantasy-slate: kill the request pile-up, parallelise the build.**
+
+A user report — the *This Week* board stuck on "Building…" for 30 min — traced
+to unbounded concurrent recomputation. Detail: `docs/season_eve_2026_dryrun.md`
+§8.
+
+- **Concurrency guard.** `build_fantasy_slate` takes a process-wide lock
+  (double-checked cache). The startup prewarm waits; an HTTP handler that finds
+  a build in progress returns a 200 body with `ready=false` instead of parking
+  a threadpool thread. `FantasySlateResponse.ready` added.
+- **GUI fetch hygiene.** `retry=false`, no refetch on window focus / reconnect,
+  and the fetch forwards React Query's `AbortSignal` so superseded requests
+  cancel. The board polls every 8 s while `!ready`.
+- **Parallel projection.** The per-player loop fans out across a spawn process
+  pool at ~70 % of cores (`NFL_APP_FANTASY_SLATE_WORKERS`, 1 = serial). Output
+  byte-identical to serial; 2.4x at 6 workers on a loaded box. `api/sidecar.py`
+  pins BLAS to one thread/process and adds `multiprocessing.freeze_support()`;
+  pool failure falls back to serial.
+- Tests: `test_fantasy_slate_service.py` 4 → 8. Backend 376 pass, desktop
+  `tsc -b` + 17 vitest green.
+
 ## v0.9-m3.2 - 2026-09-09
 
 **Fantasy-first GUI + week-level fantasy projection board.**
