@@ -121,75 +121,97 @@ _MIN_CAREER_GAMES = 3
 _EVAL_CACHE_PATH = Path(__file__).resolve().parent.parent / "cache" / "fantasy_eval_cache_2025.pkl"
 
 
-def build_eval_cache(score_year: int = 2025, path: Path | None = None, seed: int = 7) -> Path:
+def _eval_row_task(task: tuple) -> dict | None:
+    """One player-week -> its cached ingredients. Module-level for ProcessPool."""
     import warnings
 
     warnings.simplefilter("ignore")
-    import numpy as np
-
-    from api.settings import AppSettings
+    settings, score_year, pid, season, week, pos, team, opp, actual_fp = task
     from api.services.evaluation_service import scoring_weekly
     from api.services.fantasy_service import (
         _context_factors,
         _predict_distributions,
         _trailing_fantasy_distributions,
     )
+
+    dc = default_calibration()
+    try:
+        weekly = scoring_weekly(settings, score_year)
+        glm = _predict_distributions(
+            settings, player_id=pid, season=season, week=week,
+            opponent_team=opp, position=pos, recent_team=team,
+        )
+        anchor_d = _trailing_fantasy_distributions(
+            weekly, player_id=pid, season=season, week=week, position=pos,
+            model_distributions={}, calib=dc,
+        )
+        ctx = _context_factors(
+            settings, weekly, player_id=pid, season=season, week=week, position=pos,
+            recent_team=team, opponent_team=opp, scoring_mode="full_ppr", game_id="", calib=dc,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    return {
+        "player_id": pid, "season": season, "week": week, "position": pos,
+        "anchor": {s: (d.mean, d.std, d.dist_type) for s, d in anchor_d.items()},
+        "glm": {s: (d.mean, d.std, d.dist_type) for s, d in glm.items()},
+        "factors": [
+            (f.name, float(f.multiplier), tuple(f.affected_stats)) for f in ctx if f.applied
+        ],
+        "actual_fp": actual_fp,
+    }
+
+
+def build_eval_cache(
+    score_year: int = 2025, path: Path | None = None, seed: int = 7, workers: int = 0
+) -> Path:
+    import multiprocessing
+    import os
+    import warnings
+    from concurrent.futures import ProcessPoolExecutor
+
+    warnings.simplefilter("ignore")
+    import numpy as np
+
+    from api.settings import AppSettings
     from data.nflverse_loader import load_weekly
     from eval.fantasy_points import SCORING_PROFILES
 
     settings = AppSettings(
         default_train_years=tuple(range(2015, score_year - 1)), prewarm_fantasy_slate=False
     )
-    weekly = scoring_weekly(settings, score_year)
     wk = load_weekly(list(range(2015, score_year + 1)))
     scored = wk[(wk.season == score_year) & (wk.position.isin(["QB", "RB", "WR", "TE"]))].copy()
     scored["career_games"] = scored.groupby("player_id")["week"].transform("size")
     scored = scored[(scored.week >= 2) & (scored.career_games >= _MIN_CAREER_GAMES)]
 
     rng = np.random.default_rng(seed)
-    picks: list[int] = []
+    weights = SCORING_PROFILES["full_ppr"]
+    tasks: list[tuple] = []
     for _pos, grp in scored.groupby("position"):
         idx = grp.index.to_numpy()
         take = rng.choice(idx, size=min(_SAMPLE_PER_POSITION, len(idx)), replace=False)
-        picks.extend(int(i) for i in take)
+        for i in take:
+            r = scored.loc[int(i)]
+            actual_fp = float(sum((r.get(s, 0.0) or 0.0) * w for s, w in weights.items() if s in r.index))
+            tasks.append((
+                settings, score_year, str(r.player_id), int(r.season), int(r.week),
+                str(r.position).upper(), str(r.get("recent_team", "") or ""),
+                str(r.get("opponent_team", "") or ""), actual_fp,
+            ))
 
-    weights = SCORING_PROFILES["full_ppr"]
-    dc = default_calibration()
+    n_workers = workers or max(1, round(0.7 * (os.cpu_count() or 4)))
     rows: list[dict] = []
-    for i in picks:
-        r = scored.loc[i]
-        pid, season, week = str(r.player_id), int(r.season), int(r.week)
-        pos = str(r.position).upper()
-        team = str(r.get("recent_team", "") or "")
-        opp = str(r.get("opponent_team", "") or "")
+    if n_workers <= 1 or len(tasks) <= 4:
+        rows = [r for r in map(_eval_row_task, tasks) if r is not None]
+    else:
         try:
-            glm = _predict_distributions(
-                settings, player_id=pid, season=season, week=week,
-                opponent_team=opp, position=pos, recent_team=team,
-            )
-            anchor_d = _trailing_fantasy_distributions(
-                weekly, player_id=pid, season=season, week=week, position=pos,
-                model_distributions={}, calib=dc,
-            )
-            ctx = _context_factors(
-                settings, weekly, player_id=pid, season=season, week=week, position=pos,
-                recent_team=team, opponent_team=opp, scoring_mode="full_ppr",
-                game_id="", calib=dc,
-            )
+            ctx_mp = multiprocessing.get_context("spawn")
+            with ProcessPoolExecutor(max_workers=n_workers, mp_context=ctx_mp) as pool:
+                rows = [r for r in pool.map(_eval_row_task, tasks, chunksize=4) if r is not None]
         except Exception:  # noqa: BLE001
-            continue
-        actual_fp = float(sum((r.get(s, 0.0) or 0.0) * w for s, w in weights.items() if s in r.index))
-        rows.append(
-            {
-                "player_id": pid, "season": season, "week": week, "position": pos,
-                "anchor": {s: (d.mean, d.std, d.dist_type) for s, d in anchor_d.items()},
-                "glm": {s: (d.mean, d.std, d.dist_type) for s, d in glm.items()},
-                "factors": [
-                    (f.name, float(f.multiplier), tuple(f.affected_stats)) for f in ctx if f.applied
-                ],
-                "actual_fp": actual_fp,
-            }
-        )
+            rows = [r for r in map(_eval_row_task, tasks) if r is not None]
+
     out = path or _EVAL_CACHE_PATH
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "wb") as fh:
