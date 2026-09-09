@@ -747,6 +747,7 @@ def _game_script_factors(
     # good offense is partly priced by the coaching factor too.
     volume = float(np.clip(1.0 + 0.25 * (env_ratio - 1.0), 0.90, 1.12))
 
+    src = "Kalshi" if context.get("line_source") == "kalshi" else "Vegas"
     factors = [
         FantasyContextFactor(
             name="game_environment",
@@ -754,7 +755,7 @@ def _game_script_factors(
             multiplier=volume,
             applied=abs(volume - 1.0) > 1e-3,
             affected_stats=positive,
-            reason=f"Vegas implies {implied:.1f} team points ({env_ratio:.0%} of the {LEAGUE_IMPLIED_POINTS:.0f}-pt league average).",
+            reason=f"{src} implies {implied:.1f} team points ({env_ratio:.0%} of the {LEAGUE_IMPLIED_POINTS:.0f}-pt league average).",
         )
     ]
 

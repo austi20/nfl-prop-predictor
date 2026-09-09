@@ -180,12 +180,35 @@ def context_for(
         except (TypeError, ValueError):
             return None
 
+    implied_total = _num(row.get("implied_total"))
+    team_implied = _num(row.get("team_implied"))
+    opp_implied = _num(row.get("opp_implied"))
+    team_spread = _num(row.get("team_spread"))
+    line_source = "schedule"
+
+    # Kalshi total overlay (fresher when the market is priced; falls back silently).
+    gid = _game_id_index(seasons).get((season, week, team.upper()))
+    if gid and team_spread is not None:
+        try:
+            from api.services.kalshi_odds_service import nfl_game_lines
+
+            k = nfl_game_lines(season, week).get(gid)
+        except Exception:  # noqa: BLE001
+            k = None
+        if k and k.get("total"):
+            implied_total = float(k["total"])
+            # keep the schedule's spread direction; re-split the fresh total
+            team_implied = implied_total / 2.0 - team_spread / 2.0
+            opp_implied = implied_total / 2.0 + team_spread / 2.0
+            line_source = "kalshi"
+
     return {
         "is_home": None if pd.isna(row.get("is_home")) else int(row["is_home"]),
-        "implied_total": _num(row.get("implied_total")),
-        "team_implied": _num(row.get("team_implied")),
-        "opp_implied": _num(row.get("opp_implied")),
-        "team_spread": _num(row.get("team_spread")),
+        "implied_total": implied_total,
+        "team_implied": team_implied,
+        "opp_implied": opp_implied,
+        "team_spread": team_spread,
+        "line_source": line_source,
         "coach": (str(row["coach"]) if row.get("coach") not in (None, "") and not pd.isna(row.get("coach")) else ""),
         "opp_coach": (str(row["opp_coach"]) if row.get("opp_coach") not in (None, "") and not pd.isna(row.get("opp_coach")) else ""),
         "rest": _num(row.get("rest")),

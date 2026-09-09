@@ -38,8 +38,13 @@ def _fake_schedule(monkeypatch):
         ]
     )
     monkeypatch.setattr(gc, "load_schedules", lambda years: sched[sched.season.isin(years)])
+    # keep the Kalshi overlay out of unit tests (no network)
+    import api.services.kalshi_odds_service as kos
+
+    monkeypatch.setattr(kos, "nfl_game_lines", lambda season, week: {})
     gc.game_context_frame.cache_clear()
     gc.coach_points_per_game.cache_clear()
+    gc._game_id_index.cache_clear()
     return sched
 
 

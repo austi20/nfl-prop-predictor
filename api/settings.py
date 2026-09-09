@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from data.nflverse_loader import TRAIN_YEARS, app_root
@@ -87,6 +87,20 @@ class AppSettings(BaseSettings):
     # Process-pool size for the fantasy-slate player loop. 0 = auto
     # (~70% of cores). 1 disables the pool (serial). Env NFL_APP_FANTASY_SLATE_WORKERS.
     fantasy_slate_workers: int = 0
+
+    # Kalshi market data — refreshes the game-script total when a game's market
+    # is priced (thin until near kickoff; falls back to the schedule line).
+    # Reads the bare KALSHI_* names so the .pem/key can be shared with NBABets v2.
+    kalshi_api_key_id: str = Field(
+        default="", validation_alias=AliasChoices("KALSHI_API_KEY_ID", "NFL_APP_KALSHI_API_KEY_ID")
+    )
+    kalshi_private_key_path: str = Field(
+        default="", validation_alias=AliasChoices("KALSHI_PRIVATE_KEY_PATH", "NFL_APP_KALSHI_PRIVATE_KEY_PATH")
+    )
+    kalshi_base_url: str = Field(
+        default="https://api.elections.kalshi.com/trade-api/v2",
+        validation_alias=AliasChoices("KALSHI_BASE_URL", "NFL_APP_KALSHI_BASE_URL"),
+    )
 
 
 @lru_cache(maxsize=1)
