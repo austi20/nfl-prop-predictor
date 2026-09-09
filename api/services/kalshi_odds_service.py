@@ -47,8 +47,12 @@ def _mid_yes_prob(market: dict) -> float | None:
 
 
 def _invert_ladder(markets: list[dict]) -> float | None:
-    """Each market is P(value > floor_strike). Find the strike where P crosses
-    0.5 and linearly interpolate."""
+    """Kalshi lists a ladder of incremental "Over K points" markets. The
+    consensus line is the single market trading nearest a coin flip (mid price
+    closest to 50c) — that strike's odds are ~+/-0, i.e. the real line. If the
+    two markets closest to a coin flip straddle 0.5, interpolate between only
+    those two; otherwise take that strike + 0.5. Do NOT fit the whole ladder —
+    far, lopsided strikes carry no line information."""
     pts = []
     for m in markets:
         strike = m.get("floor_strike")
@@ -56,15 +60,19 @@ def _invert_ladder(markets: list[dict]) -> float | None:
         if strike is None or prob is None:
             continue
         pts.append((float(strike), prob))
-    if len(pts) < 2:
+    if not pts:
         return None
     pts.sort()
-    for (k0, p0), (k1, p1) in zip(pts, pts[1:]):
-        if (p0 - 0.5) * (p1 - 0.5) <= 0 and p0 != p1:
-            return k0 + (k1 - k0) * (p0 - 0.5) / (p0 - p1)
-    # no crossing — extrapolate from the nearest point
-    k, p = min(pts, key=lambda kp: abs(kp[1] - 0.5))
-    return k + (p - 0.5) * 14.0  # ~14 pts per unit of probability near the middle
+    if len(pts) == 1:
+        return pts[0][0] + 0.5
+    j = min(range(len(pts)), key=lambda i: abs(pts[i][1] - 0.5))
+    k0, p0 = pts[j]
+    for nb in (j - 1, j + 1):
+        if 0 <= nb < len(pts):
+            k1, p1 = pts[nb]
+            if (p0 - 0.5) * (p1 - 0.5) < 0 and p0 != p1:
+                return k0 + (k1 - k0) * (p0 - 0.5) / (p0 - p1)
+    return k0 + 0.5
 
 
 def _event_game_key(event_ticker: str) -> tuple[str, str] | None:

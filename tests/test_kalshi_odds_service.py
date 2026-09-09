@@ -33,6 +33,26 @@ def test_invert_ladder_none_when_unpriced():
     assert kos._invert_ladder([{"floor_strike": 24, "yes_bid": None, "yes_ask": None}]) is None
 
 
+def test_invert_ladder_uses_single_nearest_coinflip_market():
+    # far strikes are lopsided (~+/-2000 odds); one market sits ~50c -> that's the line
+    markets = [
+        {"floor_strike": 30, "yes_bid": 95, "yes_ask": 97},
+        {"floor_strike": 44, "yes_bid": 49, "yes_ask": 51},   # ~coin flip -> the line
+        {"floor_strike": 60, "yes_bid": 3, "yes_ask": 5},
+    ]
+    val = kos._invert_ladder(markets)
+    assert 43.5 <= val <= 44.5
+
+
+def test_invert_ladder_no_straddle_takes_nearest_strike_plus_half():
+    # nothing crosses 0.5; nearest coin-flip market is strike 40 at 0.62
+    markets = [
+        {"floor_strike": 36, "yes_bid": 78, "yes_ask": 82},
+        {"floor_strike": 40, "yes_bid": 60, "yes_ask": 64},
+    ]
+    assert kos._invert_ladder(markets) == 40.5
+
+
 @pytest.fixture
 def _wire(monkeypatch):
     sched = pd.DataFrame([

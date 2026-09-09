@@ -55,6 +55,38 @@ def test_build_eval_cache_smoke(tmp_path, monkeypatch):
     assert isinstance(r["actual_fp"], float)
 
 
+def test_evaluate_is_per_position_balanced_and_blend_monotone(tmp_path, monkeypatch):
+    import eval.fantasy_calibration as fc
+
+    monkeypatch.setattr(fc, "_SAMPLE_PER_POSITION", 40)
+    cache = fc.load_eval_cache(fc.build_eval_cache(2025, path=tmp_path / "c.pkl"))
+    hi = fc.evaluate(fc.default_calibration(), cache)
+    lo = fc.evaluate(fc.default_calibration().replace(glm_blend_weight=0.05), cache)
+
+    # every position is scored, not just WR
+    assert set(hi["per_position"]) == {"QB", "RB", "WR", "TE"}
+    for pos, m in hi["per_position"].items():
+        assert m["n"] >= 10 and isinstance(m["mae"], float)
+    for k in ("objective", "mae", "bias_abs", "boom_calib_err", "rank_corr"):
+        assert isinstance(hi[k], float)
+    # trusting the (over-projecting) GLM less -> less over-ceiling
+    assert lo["realism_penalty"] <= hi["realism_penalty"] + 1e-6
+
+
+def test_fit_glm_correction_covers_every_position():
+    import eval.fantasy_calibration as fc
+
+    bias, vinf = fc.fit_glm_correction(fit_years=(2023, 2024), n_per_pos=140)
+    prefixes = {k.split("/")[0] for k in bias}
+    assert {"QB", "RB", "WR", "TE"} <= prefixes  # correction fit for all four
+    for v in bias.values():
+        assert 0.6 <= v <= 1.4
+    for v in vinf.values():
+        assert 0.8 <= v <= 2.5
+    # the documented WR receiving-yards over-projection -> bias must not inflate
+    assert bias.get("WR/receiving_yards", 1.0) <= 1.05
+
+
 def test_default_calibration_reproduces_current_projection():
     """A player projected under the built-in default must land where it did
     before the calibration refactor (Bijan 2026 W1 was 17.9)."""
