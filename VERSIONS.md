@@ -5,6 +5,26 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9.0 - 2026-09-10
+
+**Version-string unification + desktop packaging + doc refresh.** No behaviour change.
+
+- **Versions** — `pyproject.toml` (`0.1.0` -> `0.9.0`, real description), `desktop/package.json`,
+  `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml` (all `0.5.0` -> `0.9.0`),
+  lockfiles synced. One version across Python + desktop from here on.
+- **Desktop package** — fresh `npm run tauri build` -> `NFL Prop Predictor_0.9.0` MSI + release exe;
+  MSI installs to `C:\Program Files\NFL Prop Predictor\` with a Start-Menu + Public-Desktop shortcut.
+  Smoke-tested: window opens, bundled sidecar spawns on an ephemeral port, slate prewarm runs.
+- **Docs** — `.claude/CLAUDE.md` updated for the fantasy-first shell (React 19, This Week / Props /
+  Parlays / Trading nav, `/api/fantasy/*` spine, `fantasy_calibration`); `desktop/README.md` routes +
+  brand + sidecar binary name; `plan.md` and `docs/plan.md` marked COMPLETE/historical (forward work
+  is `docs/modernization_plan.md`, now tracked alongside `docs/handoff_modernization.md` and
+  `memory/nba_v2_reference.md`).
+- **Repo hygiene** — `docs/telemetry/` gitignored (generated OTel span dumps); the three previously
+  committed span files untracked. The local SQL-persistence scaffold (`api/db/`, `api/trading/`
+  `sql_ledger.py` + `kill_switch.py`, `tests/trading/test_sql_ledger.py`) stays uncommitted until
+  modernization Phase 1 wires it and adds the `sqlalchemy` dependency.
+
 ## v0.9-m3.5 - 2026-09-09
 
 **Downstream calibration — deflate the elite-tail fantasy projections.**

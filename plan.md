@@ -1,7 +1,12 @@
 # Plan: Phase H Walk-Forward Training + Season Activation
 
+> **STATUS: COMPLETE (historical).** Phase H shipped as v0.8c; every sub-phase
+> (H1-H5) is locked in `VERSIONS.md`. Forward work now lives in
+> `docs/modernization_plan.md`. This file is kept as the record of how the
+> training loop and locked model defaults were derived - do not re-execute it.
+
 **Last updated:** 2026-04-28
-**Active version target:** v0.8c (Phase H)
+**Version target (shipped):** v0.8c (Phase H)
 **Previous plan archived at:** `docs/plan_archive_pre_h.md`
 
 ---

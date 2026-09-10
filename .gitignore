@@ -12,6 +12,7 @@ build/
 tmp/
 .tmp/
 docs/audit/
+docs/telemetry/
 docs/training/rerun_*/
 docs/week1_2026_signals.csv
 docs/dry_run_execution_2026-w1.*

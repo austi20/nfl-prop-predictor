@@ -1,6 +1,6 @@
 [package]
 name = "nfl-prop-predictor-desktop"
-version = "0.5.0"
+version = "0.9.0"
 description = "NFL Prop Predictor desktop shell"
 authors = ["OpenAI Codex"]
 edition = "2021"
