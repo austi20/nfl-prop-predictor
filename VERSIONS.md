@@ -5,6 +5,42 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m3.5 - 2026-09-09
+
+**Downstream calibration — deflate the elite-tail fantasy projections.**
+
+The 2026 Week-1 board projected the top WR at 30.4 pts / 0.84 boom. The trailing
+anchor (~21) was fine; the inflation was all downstream — GLM blend, a collinear
+"good offense" factor stack, and distributions too tight for weekly variance.
+Detail: `docs/season_eve_2026_dryrun.md` §11, `docs/fantasy_calibration_sweep.md`.
+
+- **`FantasyCalibration`** (`eval/fantasy_calibration.py`) — every knob downstream
+  of the anchor in one frozen object; defaults reproduce the old board exactly;
+  locked values in `models/fantasy_calibration.json`, path in
+  `AppSettings.fantasy_calibration_path` (missing file → defaults).
+- **2025 backtest sweep** — precompute-once cache (2741 player-weeks, all four
+  positions), per-position-balanced objective (MAE + |bias| + boom/bust
+  calibration + realism − rank corr), grid → coordinate descent → random polish,
+  with a no-per-position-rank-regression guardrail. Shared GLMs **not** refit;
+  props / replay / preseason-baseline / model-backtest byte-identical.
+- **Analytic GLM correction** (`fit_glm_correction`, fit on 2023-2024, cached to
+  `models/fantasy_glm_correction.json`) — `median(actual)/median(pred)` per
+  (position, stat), clipped [0.6, 1.4]. TD-rate stats all hit the 0.6 floor.
+- **Result** — 2025 (pos-balanced): objective 3.30 → 2.58, MAE 5.12 → 4.99,
+  |bias| 0.48 → 0.27, rank corr 0.574 → 0.595 (every position up). 2026 W1:
+  Nacua 30.4 / 0.84 → **22.5 / 0.61**. Every context factor still computed and
+  rendered; `factor_strength` only scales its `(multiplier − 1)`.
+- **Kalshi line** — `_invert_ladder` now takes the single laddered market trading
+  nearest a coin flip (the real line), not a fit across every incremental strike.
+
+Backend 410+ pass. Files: `eval/fantasy_calibration.py` (new),
+`scripts/{tune,verify}_fantasy_calibration.py` (new),
+`models/fantasy_{calibration,glm_correction}.json` (new),
+`api/services/{fantasy_service,kalshi_odds_service}.py`, `eval/fantasy_points.py`,
+`api/settings.py`.
+
+---
+
 ## v0.9-m3.4 - 2026-09-09
 
 **Situational factors — wire the "team / coaching / opponent / weather" goal.**

@@ -89,8 +89,9 @@ class AppSettings(BaseSettings):
     fantasy_slate_workers: int = 0
 
     # Tuned downstream-of-anchor projection parameters (eval/fantasy_calibration).
-    # Empty -> built-in defaults (today's board). Env NFL_APP_FANTASY_CALIBRATION_PATH.
-    fantasy_calibration_path: str = ""
+    # Points at the locked artifact; a missing file falls back to built-in
+    # defaults inside load_calibration. Env NFL_APP_FANTASY_CALIBRATION_PATH.
+    fantasy_calibration_path: str = str(_ROOT / "models" / "fantasy_calibration.json")
 
     # Kalshi market data — refreshes the game-script total when a game's market
     # is priced (thin until near kickoff; falls back to the schedule line).

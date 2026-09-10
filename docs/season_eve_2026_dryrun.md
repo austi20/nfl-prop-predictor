@@ -377,3 +377,64 @@ New modules: `data/game_context.py`, `data/weather.py::load_forecast`,
 `api/trading/kalshi/client.py` (real market-data reads). Tests: `test_game_context`,
 `test_fantasy_context_factors`, `test_usage`, `test_news_factor`,
 `test_kalshi_odds_service` (~40 new). `docs/holdout_metrics.md` regenerated.
+
+---
+
+## §11. Downstream calibration — deflate the elite-tail projections
+
+`build_fantasy_summary` produced a 30.4-point / 0.84-boom projection for the top
+WR (Nacua) on the 2026 Week-1 board. The trailing anchor (~21) was accurate; the
+inflation came from everything *downstream* of it — the GLM blend over-projecting
+elite pass-catchers, a collinear "good offense" factor stack
+(`game_environment` × `coaching` × `qb_support`) all firing at once, and GLM
+distributions too tight to be honest about weekly variance.
+
+**Approach.** Every knob downstream of the anchor moved into one frozen
+`FantasyCalibration` object (`eval/fantasy_calibration.py`); defaults reproduce
+the old board byte-for-byte. A precompute-once 2025 backtest cache
+(`cache/fantasy_eval_cache_2025.pkl`, 2741 player-weeks, all four positions)
+lets a config be scored in ~1 s. A sweep (coarse grid → coordinate descent →
+random polish, `scripts/tune_fantasy_calibration.py`) minimises a
+per-position-balanced objective — MAE + |bias| + boom/bust calibration error +
+a realism ceiling − rank correlation — with a hard guardrail that no config may
+drop any position's within-position rank correlation by more than 0.03. The
+shared qb/rb/wr_te GLMs are **not** refit; props / replay / preseason-baseline /
+model-backtest are byte-identical. Anchor math untouched.
+
+**GLM correction** (analytic, `eval/fantasy_calibration.fit_glm_correction`, fit
+on 2023-2024, cached to `models/fantasy_glm_correction.json`):
+`median(actual)/median(pred)` per (position, stat), clipped to [0.6, 1.4]. The
+TD-rate stats all hit the 0.6 floor (`{QB passing, RB rushing, WR/TE receiving}
+_tds`), plus `WR/receiving_yards` 0.73, `TE/receiving_yards` 0.60,
+`WR/receptions` 0.76 — the wr_te / rb GLMs systematically over-project volume and
+scoring for the busy players. Variance-inflation ratios 0.93-1.30.
+
+**Final config deltas from default** (full table + sweep trace:
+`docs/fantasy_calibration_sweep.md`):
+
+| knob | default → tuned | why |
+|---|---|---|
+| `glm_blend_weight` | 0.35 → 0.275 | trust the accurate anchor more |
+| `offense_stack_cap` | 1.30 → 1.03 | the three collinear "good offense" factors capped at 1.03× *combined* — no more triple-count |
+| `context_clamp_hi` | 1.22 → 1.14 | ceiling on total positive context |
+| `cv_floor_frac` | 0.0 → 0.67 | per-game std ≥ 0.67·cv·mean — widens the too-tight GLM dists, deflates boom% |
+| `yard_cv` / `count_cv` | 0.55 / 0.85 → 0.95 / 1.30 | honest no-GLM spread |
+| `factor_strength.rest` / `.usage_trend` | 1.0 → 0.02 / 0.13 | 2025 shows no signal; factors stay wired + shown |
+
+**2025 backtest (per-position-balanced), default → tuned:**
+objective 3.30 → 2.58 · MAE 5.12 → 4.99 · |bias| 0.48 → 0.27 ·
+boom calib err 0.047 → 0.044 · bust calib err 0.066 → 0.050 ·
+rank corr 0.574 → 0.595 (QB .40→.44, RB .67→.69, WR .64→.65, TE .59→.60 — all up).
+TE now centres ~0.6 pts low from the aggressive GLM TE haircut; MAE and rank
+still improved, and post-Week-1 real data re-anchors it.
+
+**2026 Week-1 board, default → tuned:** Nacua **30.4 / 0.84 → 22.5 / 0.61**.
+Full board: RB top ~17.3, WR top 22.5, TE top ~14.8, QB 18-21. Every context
+factor still computes and still renders in the breakdown — `factor_strength`
+only scales each factor's `(multiplier − 1)`.
+
+Wiring: `AppSettings.fantasy_calibration_path` defaults to
+`models/fantasy_calibration.json` (missing file → built-in defaults);
+`fantasy_service` and `project_fantasy_points` read the object. Also in this
+batch: the Kalshi line is now the single laddered market trading nearest a coin
+flip (`_invert_ladder`), not a curve fit across every incremental strike.

@@ -33,8 +33,23 @@ from eval.fantasy_calibration import (  # noqa: E402
 )
 
 ARTIFACT = Path("models/fantasy_calibration.json")
+CORRECTION = Path("models/fantasy_glm_correction.json")
 LOG = Path("docs/fantasy_calibration_sweep.md")
 _RANK_TOL = 0.03  # calibration must not drop within-position rank corr by more than this
+
+
+def _load_or_fit_correction() -> tuple[dict, dict]:
+    """The GLM bias/variance fit is deterministic (seed=11) but takes ~1h. Cache
+    it to models/fantasy_glm_correction.json; delete that file to force a refit."""
+    if CORRECTION.exists():
+        d = json.loads(CORRECTION.read_text(encoding="utf-8"))
+        return d["bias"], d["var_inflation"]
+    bias, vinf = fit_glm_correction()
+    CORRECTION.write_text(
+        json.dumps({"bias": bias, "var_inflation": vinf}, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return bias, vinf
 
 
 def _log(line: str) -> None:
@@ -124,7 +139,7 @@ def _better(cand: dict, best: dict, base_rank: float) -> bool:
 def run() -> None:
     cache = load_eval_cache()
     base = default_calibration()
-    bias, vinf = fit_glm_correction()
+    bias, vinf = _load_or_fit_correction()
     base = base.replace(glm_bias=bias, glm_var_inflation=vinf)
     base_m = evaluate(base, cache)
     base_rank = base_m["rank_corr"]

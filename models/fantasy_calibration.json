@@ -1,0 +1,49 @@
+{
+  "context_clamp_hi": 1.1369348849505485,
+  "context_clamp_lo": 0.8803098778643416,
+  "count_cv": 1.3,
+  "cv_floor_frac": 0.6689391447924465,
+  "factor_strength": {
+    "coaching": 0.995942621175949,
+    "game_environment": 1.0529945537570704,
+    "game_script": 0.7803145589984436,
+    "news": 1.40890852958264,
+    "opponent_matchup": 1.1713154978369489,
+    "position_group_form": 0.8237151579568591,
+    "qb_support": 1.4149949837302007,
+    "rest": 0.01589792855126458,
+    "usage_trend": 0.13400872366025476,
+    "weather": 0.6872475570230145
+  },
+  "glm_bias": {
+    "QB/interceptions": 0.6,
+    "QB/passing_tds": 0.7646582742085342,
+    "QB/passing_yards": 0.9756218366009062,
+    "RB/rushing_tds": 0.6,
+    "RB/rushing_yards": 0.8507475129809026,
+    "TE/receiving_tds": 0.6,
+    "TE/receiving_yards": 0.6,
+    "TE/receptions": 0.8216926869350862,
+    "WR/receiving_tds": 0.6,
+    "WR/receiving_yards": 0.7257711627494392,
+    "WR/receptions": 0.75642965204236
+  },
+  "glm_blend_weight": 0.27454531604001053,
+  "glm_var_inflation": {
+    "QB/interceptions": 1.11,
+    "QB/passing_tds": 0.93,
+    "QB/passing_yards": 1.06,
+    "RB/rushing_tds": 1.11,
+    "RB/rushing_yards": 1.3,
+    "TE/receiving_tds": 0.93,
+    "TE/receiving_yards": 1.23,
+    "TE/receptions": 1.3,
+    "WR/receiving_tds": 0.93,
+    "WR/receiving_yards": 1.24,
+    "WR/receptions": 1.08
+  },
+  "offense_stack_cap": 1.03,
+  "stat_mean_hi": 1.6881945583267484,
+  "stat_mean_lo": 0.45,
+  "yard_cv": 0.9465839793162922
+}
