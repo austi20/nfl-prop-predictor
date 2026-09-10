@@ -10,6 +10,7 @@ the last-8-game window, and the max(recent, base) anchor.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from dataclasses import replace as _dc_replace
 from pathlib import Path
@@ -92,10 +93,14 @@ def load_calibration(path: str | Path | None = None) -> FantasyCalibration:
         return default_calibration()
     p = Path(path)
     if not p.exists():
+        logging.warning(
+            "fantasy calibration file %s not found - using uncalibrated defaults", p
+        )
         return default_calibration()
     try:
         return _from_dict(json.loads(p.read_text(encoding="utf-8")))
     except Exception:  # noqa: BLE001 - a bad artifact must not brick projections
+        logging.exception("fantasy calibration file %s unreadable - using defaults", p)
         return default_calibration()
 
 

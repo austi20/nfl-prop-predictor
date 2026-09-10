@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 import warnings
@@ -14,16 +15,38 @@ import nfl_data_py as nfl
 import pandas as pd
 
 
-def app_root() -> Path:
-    """Repo root — walk up from this module (or the frozen exe) for the
-    ``pyproject.toml`` marker so ``cache/`` / ``docs/`` resolve regardless of
-    the process cwd (the Tauri shell runs the bundled sidecar from the app dir).
-    """
-    start = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+def _repo_root() -> Path:
+    start = Path(__file__).resolve().parent
     for candidate in (start, *start.parents):
         if (candidate / "pyproject.toml").is_file():
             return candidate
     return Path.cwd()
+
+
+def app_root() -> Path:
+    """Writable data root — ``cache/`` and ``docs/`` (telemetry, audit) live here.
+
+    Frozen (PyInstaller sidecar): a per-user dir under ``%LOCALAPPDATA%`` because
+    the install dir (``C:\\Program Files\\...``) is read-only for a normal user.
+    Source checkout: the repo root (``pyproject.toml`` marker).
+    """
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home())
+        target = Path(base) / "NFL Prop Predictor"
+        target.mkdir(parents=True, exist_ok=True)
+        return target
+    return _repo_root()
+
+
+def bundle_root() -> Path:
+    """Read-only resource root — bundled ``models/`` configs live here.
+
+    Frozen: the directory holding the exe (Tauri ships ``models/`` next to it).
+    Source checkout: the repo root, same as :func:`app_root`.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return _repo_root()
 
 # ---------------------------------------------------------------------------
 # Year constants

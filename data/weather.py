@@ -6,11 +6,12 @@ See docs/plan.md Phase G3.
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
 
 import pandas as pd
 
-_CACHE_DIR = Path(__file__).parent.parent / "cache"
+from data.nflverse_loader import app_root
+
+_CACHE_DIR = app_root() / "cache"
 _ARCHIVE_PATH = _CACHE_DIR / "weather_archive.parquet"
 
 _WEATHER_COLUMNS = [

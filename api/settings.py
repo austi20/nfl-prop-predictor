@@ -6,11 +6,15 @@ from pathlib import Path
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from data.nflverse_loader import TRAIN_YEARS, app_root
+from data.nflverse_loader import TRAIN_YEARS, app_root, bundle_root
 
-# Repo root — so docs/ cache/ models/ resolve no matter the process cwd. The
-# Tauri shell spawns the bundled sidecar from the app dir, not the repo root.
+# Two roots so paths resolve no matter the process cwd, and so the packaged
+# sidecar writes to a user-writable dir instead of read-only Program Files.
+#   _ROOT   - writable: cache/, docs/ (telemetry, audit)   -> %LOCALAPPDATA% when frozen
+#   _BUNDLE - read-only: models/ (bundled config artifacts) -> next to the exe when frozen
+# In a source checkout both are the repo root.
 _ROOT = app_root()
+_BUNDLE = bundle_root()
 
 
 class AppSettings(BaseSettings):
@@ -27,7 +31,7 @@ class AppSettings(BaseSettings):
 
     docs_dir: Path = Field(default_factory=lambda: _ROOT / "docs")
     cache_dir: Path = Field(default_factory=lambda: _ROOT / "cache")
-    model_dir: Path = Field(default_factory=lambda: _ROOT / "models")
+    model_dir: Path = Field(default_factory=lambda: _BUNDLE / "models")
     sample_props_path: Path = Field(default_factory=lambda: _ROOT / "docs" / "synthetic_replay_props.csv")
 
     default_train_years: tuple[int, ...] = tuple(TRAIN_YEARS[:-1])
@@ -91,7 +95,7 @@ class AppSettings(BaseSettings):
     # Tuned downstream-of-anchor projection parameters (eval/fantasy_calibration).
     # Points at the locked artifact; a missing file falls back to built-in
     # defaults inside load_calibration. Env NFL_APP_FANTASY_CALIBRATION_PATH.
-    fantasy_calibration_path: str = str(_ROOT / "models" / "fantasy_calibration.json")
+    fantasy_calibration_path: str = str(_BUNDLE / "models" / "fantasy_calibration.json")
 
     # Kalshi market data — refreshes the game-script total when a game's market
     # is priced (thin until near kickoff; falls back to the schedule line).
