@@ -229,6 +229,16 @@ def load_snap_counts(years: list[int] = TRAIN_YEARS, force_refresh: bool = False
     return _load_or_fetch(path, lambda: nfl.import_snap_counts(years), force_refresh)
 
 
+def load_depth_charts(years: list[int] = TRAIN_YEARS, force_refresh: bool = False) -> pd.DataFrame:
+    path = _cache_path("depth_charts", years)
+    return _load_or_fetch(path, lambda: nfl.import_depth_charts(years), force_refresh)
+
+
+def load_draft_picks(years: list[int] = TRAIN_YEARS, force_refresh: bool = False) -> pd.DataFrame:
+    path = _cache_path("draft_picks", years)
+    return _load_or_fetch(path, lambda: nfl.import_draft_picks(years), force_refresh)
+
+
 def load_qbr(years: list[int] = TRAIN_YEARS, force_refresh: bool = False) -> pd.DataFrame:
     path = _cache_path("qbr", years)
     return _load_or_fetch(path, lambda: nfl.import_qbr(years), force_refresh)
