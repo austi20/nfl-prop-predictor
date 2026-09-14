@@ -17,8 +17,11 @@ import numpy as np
 import pandas as pd
 
 from data.nflverse_loader import HOLDOUT_YEARS, TRAIN_YEARS, load_weekly
+from models.qb import _TARGET_STATS as _QB_TARGETS
 from models.qb import QBModel
+from models.rb import _TARGET_STATS as _RB_TARGETS
 from models.rb import RBModel
+from models.wr_te import _TARGET_STATS as _WR_TE_TARGETS
 from models.wr_te import WRTEModel
 
 
@@ -30,24 +33,27 @@ class ModelSpec:
     target_stats: tuple[str, ...]
 
 
+# Target stats come from the models themselves rather than a second hardcoded
+# list: a stat the model predicts but the backtest does not score would ship
+# with no out-of-sample evidence behind it.
 MODEL_SPECS: tuple[ModelSpec, ...] = (
     ModelSpec(
         name="qb",
         model_cls=QBModel,
         positions=("QB",),
-        target_stats=("passing_yards", "passing_tds", "interceptions", "completions"),
+        target_stats=tuple(_QB_TARGETS),
     ),
     ModelSpec(
         name="rb",
         model_cls=RBModel,
         positions=("RB",),
-        target_stats=("rushing_yards", "carries", "rushing_tds"),
+        target_stats=tuple(_RB_TARGETS),
     ),
     ModelSpec(
         name="wr_te",
         model_cls=WRTEModel,
         positions=("WR", "TE"),
-        target_stats=("receptions", "receiving_yards", "receiving_tds"),
+        target_stats=tuple(_WR_TE_TARGETS),
     ),
 )
 

@@ -22,7 +22,7 @@ from data.game_context import (
 )
 from data.nflverse_loader import is_dome
 from data.weather import load_forecast
-from eval.calibration_pipeline import STAT_SPECS
+from eval.calibration_pipeline import STAT_SPECS, spec_for
 from eval.fantasy_calibration import (
     FantasyCalibration,
     OFFENSE_STACK_FACTORS,
@@ -44,12 +44,8 @@ _PASS_GAME_STATS = ("passing_yards", "passing_tds", *_RECEIVING_STATS)
 _POSITIVE_SCORING_STATS = tuple(
     stat for stat, weight in SCORING_PROFILES["full_ppr"].items() if weight > 0
 )
-_MODEL_STATS_BY_POSITION: dict[str, tuple[str, ...]] = {
-    "QB": ("passing_yards", "passing_tds", "interceptions"),
-    "RB": ("rushing_yards", "rushing_tds"),
-    "WR": _RECEIVING_STATS,
-    "TE": _RECEIVING_STATS,
-}
+# _MODEL_STATS_BY_POSITION — which scoring stats have a GLM behind them — is
+# defined just below _TRAILING_STATS_BY_POSITION, which it mirrors.
 
 
 def _as_scoring_mode(value: str) -> ScoringMode:
@@ -142,40 +138,53 @@ def _predict_distributions(
     train_years = tuple(settings.default_train_years)
     models = _model_bundle(train_years, season)
 
+    normalized = position.upper().strip()
+    wanted = _MODEL_STATS_BY_POSITION.get(normalized, ())
+    if not wanted:
+        return {}
+
+    # Group by model first. Each `predict` returns every stat that model owns, so
+    # calling it once per stat re-ran the same fit several times per player.
+    by_model: dict[str, list[str]] = {}
+    for stat in wanted:
+        spec = spec_for(stat, normalized) or STAT_SPECS.get(stat)
+        if spec is not None:
+            by_model.setdefault(spec.model_name, []).append(stat)
+    if not by_model:
+        return {}
+
+    future_row = None
+    if settings.use_future_row and recent_team:
+        try:
+            from api.services.evaluation_service import scoring_weekly
+
+            weekly = scoring_weekly(settings, season)
+            from data.upcoming import build_upcoming_row
+
+            future_row = build_upcoming_row(
+                player_id=player_id,
+                season=season,
+                week=week,
+                position=position,
+                opponent_team=opponent_team,
+                recent_team=recent_team,
+                weekly=weekly,
+            )
+        except Exception:  # noqa: BLE001
+            future_row = None
+
     distributions: dict[str, StatDistribution] = {}
-    for stat in _MODEL_STATS_BY_POSITION.get(position.upper().strip(), ()):
-        spec = STAT_SPECS.get(stat)
-        if spec is None:
-            continue
-        model = models[spec.model_name]
-        future_row = None
-        if settings.use_future_row and recent_team:
-            try:
-                from api.services.evaluation_service import scoring_weekly
-
-                weekly = scoring_weekly(settings, season)
-                from data.upcoming import build_upcoming_row
-
-                future_row = build_upcoming_row(
-                    player_id=player_id,
-                    season=season,
-                    week=week,
-                    position=position,
-                    opponent_team=opponent_team,
-                    recent_team=recent_team,
-                    weekly=weekly,
-                )
-            except Exception:  # noqa: BLE001
-                future_row = None
-        predicted = model.predict(
+    for model_name, stats in by_model.items():
+        predicted = models[model_name].predict(
             player_id=player_id,
             season=season,
             week=week,
             opp_team=opponent_team,
             future_row=future_row,
         )
-        if stat in predicted:
-            distributions[stat] = predicted[stat]
+        for stat in stats:
+            if stat in predicted:
+                distributions[stat] = predicted[stat]
     return distributions
 
 
@@ -197,6 +206,12 @@ _TRAILING_STATS_BY_POSITION: dict[str, tuple[str, ...]] = {
     "WR": ("receptions", "receiving_yards", "receiving_tds", "rushing_yards", "rushing_tds"),
     "TE": ("receptions", "receiving_yards", "receiving_tds"),
 }
+# Every scoring stat now has a model behind it. This was previously a strict
+# subset — an RB's receiving and a QB's rushing had no GLM at all and fell
+# through to the trailing anchor alone, which is why the comment above describes
+# the models as covering "a slice" of the scoring stats. They no longer do.
+_MODEL_STATS_BY_POSITION: dict[str, tuple[str, ...]] = dict(_TRAILING_STATS_BY_POSITION)
+
 _YARDAGE_STATS = frozenset({"passing_yards", "rushing_yards", "receiving_yards"})
 
 
