@@ -273,6 +273,21 @@ def _role_retention(
     return float(calib.role_change_retention ** abs(rank_bucket - prior_bucket))
 
 
+def _form_weight_for(
+    n: int,
+    rank_bucket: int | None,
+    prior_bucket: int | None,
+    calib: FantasyCalibration,
+) -> tuple[float, float]:
+    """(form_weight, retention) for the trailing blend. Extracted so the eval
+    backtest can recompute this exactly for a candidate calibration from cached
+    raw ingredients, instead of re-deriving the formula a second time."""
+    retention = _role_retention(rank_bucket, prior_bucket, calib)
+    effective_n = n * retention
+    form_weight = effective_n / (effective_n + _TRAILING_REGRESS_GAMES) if effective_n else 0.0
+    return form_weight, retention
+
+
 def _rookie_capital_multiplier(player_id: str, weekly: pd.DataFrame) -> float:
     """Draft-capital scale for a player with no NFL history. A first-round back
     and an undrafted one can sit in the same depth slot; this is what separates
@@ -391,6 +406,7 @@ def _trailing_fantasy_distributions(
     calib: FantasyCalibration | None = None,
     depth_rank: int | None = None,
     prior_depth_rank: int | None = None,
+    _raw_out: dict | None = None,
 ) -> dict[str, StatDistribution]:
     calib = calib or default_calibration()
     normalized = position.upper().strip()
@@ -416,14 +432,21 @@ def _trailing_fantasy_distributions(
     # sample is partly measuring the wrong role. Discount its weight by how far
     # the slot moved; what it gives up flows to the rank-conditioned baseline for
     # the role he holds now. Unmoved roles keep the old weighting exactly.
-    retention = _role_retention(rank_bucket, prior_bucket, calib)
-    effective_n = n * retention
-    form_weight = (
-        effective_n / (effective_n + _TRAILING_REGRESS_GAMES) if effective_n else 0.0
-    )
+    form_weight, retention = _form_weight_for(n, rank_bucket, prior_bucket, calib)
     # No NFL history at all: the depth slot and what the draft said about him is
     # the entire signal. `form_weight` is 0 here, so this scales the baseline.
     rookie_multiplier = 1.0 if n else _rookie_capital_multiplier(player_id, weekly)
+
+    # Optional side-channel for the eval backtest: the raw per-row/per-stat
+    # ingredients behind `trailing`, so scripts/tune_fantasy_calibration.py can
+    # recompute this function's output exactly for a candidate calibration
+    # without a second implementation of the blend math. No effect on any
+    # caller that doesn't pass this in.
+    if _raw_out is not None:
+        _raw_out.update(
+            n=n, rank_bucket=rank_bucket, prior_bucket=prior_bucket,
+            rookie_multiplier=rookie_multiplier, recent={}, base={},
+        )
 
     distributions: dict[str, StatDistribution] = {}
     for stat in stats:
@@ -432,6 +455,9 @@ def _trailing_fantasy_distributions(
             recent = float(np.average(hist[stat].fillna(0.0).to_numpy(dtype=float), weights=recency))
         else:
             recent = base
+        if _raw_out is not None:
+            _raw_out["recent"][stat] = recent
+            _raw_out["base"][stat] = base
         trailing = (
             form_weight * recent + (1.0 - form_weight) * base if n else base * rookie_multiplier
         )
@@ -1042,6 +1068,27 @@ def _usage_factor(
     )
 
 
+def _depth_chart_ratio(
+    baselines: dict[tuple[str, int | None, str], float],
+    position: str,
+    current_bucket: int | None,
+    prior_bucket: int | None,
+) -> float | None:
+    """new-bucket-baseline / old-bucket-baseline on the position's headline
+    volume stat, or None when there is nothing to price (unmoved, unknown, or a
+    bucket with no baseline). Extracted so the eval backtest can recompute
+    `_depth_chart_factor`'s multiplier for a candidate `depth_chart_damping`
+    from this one cached number, rather than re-deriving the ratio itself."""
+    if current_bucket is None or prior_bucket is None or current_bucket == prior_bucket:
+        return None
+    stat = _TRAILING_STATS_BY_POSITION.get(position, ("",))[0]
+    new_base = _baseline(baselines, position, current_bucket, stat)
+    old_base = _baseline(baselines, position, prior_bucket, stat)
+    if old_base <= 0 or new_base <= 0:
+        return None
+    return new_base / old_base
+
+
 def _depth_chart_factor(
     baselines: dict[tuple[str, int | None, str], float],
     *,
@@ -1077,17 +1124,13 @@ def _depth_chart_factor(
             f"Still listed {normalized}{cur_b or current} — no role change.", positive,
         )
 
-    # Compare the two roles on the position's headline volume stat.
-    stat = _TRAILING_STATS_BY_POSITION.get(normalized, ("",))[0]
-    new_base = _baseline(baselines, normalized, cur_b, stat)
-    old_base = _baseline(baselines, normalized, prior_b, stat)
-    if old_base <= 0 or new_base <= 0:
+    ratio = _depth_chart_ratio(baselines, normalized, cur_b, prior_b)
+    if ratio is None:
         return _neutral_factor(
             "depth_chart", "Depth chart",
             "No baseline for one of the two depth slots.", positive,
         )
 
-    ratio = new_base / old_base
     multiplier = float(
         np.clip(
             1.0 + calib.depth_chart_damping * (ratio - 1.0),
