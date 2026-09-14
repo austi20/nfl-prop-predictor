@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from api.schemas import FantasySlateResponse, FantasySummary, GameRow, RosterPlayer
+from api.schemas import FantasySlateEntry, FantasySlateResponse, FantasySummary, GameRow, RosterPlayer
 from api.services import fantasy_slate_service as svc
 from api.settings import AppSettings
 
@@ -217,3 +217,71 @@ def test_concurrent_builds_compute_once(monkeypatch):
     assert calls["n"] == 1  # only one build ran
     assert waiter_result == [real_response]
     assert len(nonwaiter_error) == 1 and isinstance(nonwaiter_error[0], svc.SlateBuilding)
+
+
+def test_slate_limit_zero_returns_whole_board_and_tiers_it():
+    out = svc.build_fantasy_slate(AppSettings(), season=2026, week=1, limit=0)
+    ids = [e.player_id for e in out.entries]
+    assert ids == ["rb-star", "wr-mid"]  # every projectable starter, still ranked
+
+    assert out.tier_order and out.tier_labels
+    top = out.entries[0]
+    assert top.overall_rank == 1 and top.overall_tier in out.tier_order
+    assert top.position_rank == 1 and top.position_tier in out.tier_order
+    # rb-star is a flex position; wr-mid too. QBs would carry flex_rank None.
+    assert top.flex_rank == 1 and top.flex_tier in out.tier_order
+
+
+def test_apply_tiers_ranks_each_list_independently():
+    entries = [
+        FantasySlateEntry(
+            player_id=f"p{i}", player_name=f"P{i}", position=pos,
+            recent_team="X", opponent_team="Y",
+            projected_points=pts, floor_points=pts - 2, ceiling_points=pts + 2,
+            boom_probability=0.3, bust_probability=0.2,
+        )
+        for i, (pos, pts) in enumerate(
+            [("QB", 24.0), ("RB", 20.0), ("WR", 18.0), ("RB", 12.0), ("TE", 8.0)]
+        )
+    ]
+    svc._apply_tiers(entries)
+
+    assert [e.overall_rank for e in entries] == [1, 2, 3, 4, 5]
+    rb = [e for e in entries if e.position == "RB"]
+    assert [e.position_rank for e in rb] == [1, 2]
+    qb = next(e for e in entries if e.position == "QB")
+    assert qb.flex_rank is None and qb.flex_tier is None
+    flex = [e for e in entries if e.flex_rank is not None]
+    assert [e.flex_rank for e in flex] == [1, 2, 3, 4]
+
+
+def test_prescore_admits_a_rookie_via_depth_rank():
+    import api.services.fantasy_slate_service as slate
+
+    baselines = {
+        ("RB", 1, "rushing_yards"): 95.0,
+        ("RB", 3, "rushing_yards"): 15.0,
+        ("RB", None, "rushing_yards"): 55.0,
+    }
+    weights = {"rushing_yards": 0.1}
+
+    rookie = slate._prescore(
+        None, baselines, season=2026, week=1, position="RB", weights=weights,
+        depth_rank=1, capital_multiplier=1.15,
+    )
+    deep_backup = slate._prescore(
+        None, baselines, season=2026, week=1, position="RB", weights=weights,
+        depth_rank=3, capital_multiplier=0.85,
+    )
+
+    assert rookie > 0.0, "a listed RB1 rookie must not pre-score as zero"
+    assert rookie > deep_backup
+
+
+def test_prescore_still_zero_without_a_depth_rank():
+    import api.services.fantasy_slate_service as slate
+
+    assert slate._prescore(
+        None, {}, season=2026, week=1, position="RB",
+        weights={"rushing_yards": 0.1}, depth_rank=None, capital_multiplier=1.0,
+    ) == 0.0

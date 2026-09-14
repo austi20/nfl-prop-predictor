@@ -32,12 +32,17 @@ from api.services.fantasy_service import (
     _TRAILING_REGRESS_GAMES,
     _TRAILING_STATS_BY_POSITION,
     _TRAILING_WINDOW,
+    _baseline,
     _baselines_for,
     build_fantasy_summary,
 )
 from api.services.nflverse_service import get_roster, get_schedule
 from api.settings import AppSettings
+from data.depth_chart import bucket, current_rank
+from data.draft import capital_multiplier as _draft_capital_multiplier
+from data.draft import draft_capital
 from eval.fantasy_points import SCORING_PROFILES, ScoringMode
+from eval.fantasy_tiers import TIER_KEYS, TIER_LABELS, assign_tiers, starter_demand
 
 _log = logging.getLogger(__name__)
 
@@ -83,24 +88,43 @@ def _player_history_index(weekly: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
 def _prescore(
     hist: pd.DataFrame | None,
-    baselines: dict[tuple[str, str], float],
+    baselines: dict[tuple[str, int | None, str], float],
     *,
     season: int,
     week: int,
     position: str,
     weights: dict[str, float],
+    depth_rank: int | None = None,
+    capital_multiplier: float = 1.0,
 ) -> float:
     """Recency-weighted trailing fantasy points/game — the same shape as the real
     trailing projector, minus the Monte Carlo. Used only to rank."""
     stats = _TRAILING_STATS_BY_POSITION.get(position, ())
-    if hist is None or hist.empty or not stats:
+    if not stats:
         return 0.0
+    rank_bucket = bucket(depth_rank, position)
+
+    def _slot_score() -> float:
+        """What the depth slot alone implies, scaled by draft capital."""
+        if rank_bucket is None:
+            return 0.0
+        return capital_multiplier * sum(
+            weight * _baseline(baselines, position, rank_bucket, stat)
+            for stat, weight in weights.items()
+            if weight and stat in stats
+        )
+
+    if hist is None or hist.empty:
+        return _slot_score()
     past = hist[
         (hist["season"] < season) | ((hist["season"] == season) & (hist["week"] < week))
     ].sort_values(["season", "week"]).tail(_TRAILING_WINDOW)
     n = len(past)
     if n < _MIN_TRAILING_GAMES:
-        return 0.0
+        # Too little history to average. A player listed high on the depth chart
+        # is still a real candidate — rank him off his slot so he survives the
+        # team cap instead of being cut. No slot listed, no score.
+        return _slot_score()
     recency = np.linspace(0.5, 1.0, n)
     form_weight = n / (n + _TRAILING_REGRESS_GAMES)
     points = 0.0
@@ -109,7 +133,7 @@ def _prescore(
         if weight == 0.0 or stat not in past.columns:
             continue
         recent = float(np.average(past[stat].fillna(0.0).to_numpy(dtype=float), weights=recency))
-        base = float(baselines.get((position, stat), 0.0))
+        base = _baseline(baselines, position, rank_bucket, stat)
         points += weight * (form_weight * recent + (1.0 - form_weight) * base)
     return points
 
@@ -250,6 +274,11 @@ def _compute_slate(
     baselines = _baselines_for(weekly)
     history = _player_history_index(weekly)
     weights = SCORING_PROFILES[scoring_mode]
+    rank_seasons = (
+        tuple(sorted({int(s) for s in weekly["season"].unique()} | {int(season)}))
+        if "season" in weekly.columns and len(weekly)
+        else (int(season),)
+    )
 
     Candidate = tuple[float, str, str, str, str, str, str, str]
     by_group: dict[tuple[str, str], list[Candidate]] = {}
@@ -266,6 +295,11 @@ def _compute_slate(
             if not pid or pid in seen or position not in positions:
                 continue
             seen.add(pid)
+            try:
+                rank = current_rank(pid, season, week, rank_seasons)
+                capital = _draft_capital_multiplier(draft_capital(pid, rank_seasons))
+            except Exception:  # noqa: BLE001 - depth/draft data is an enhancement
+                rank, capital = None, 1.0
             score = _prescore(
                 history.get(pid),
                 baselines,
@@ -273,6 +307,8 @@ def _compute_slate(
                 week=week,
                 position=position,
                 weights=weights,
+                depth_rank=rank,
+                capital_multiplier=capital,
             )
             if score <= 0.0:
                 continue
@@ -292,6 +328,9 @@ def _compute_slate(
     candidates: list[Candidate] = []
     for position, group in depth_capped.items():
         group.sort(key=lambda row: row[0], reverse=True)
+        if limit <= 0:
+            candidates.extend(group)  # whole board: every projectable starter
+            continue
         take = max(4, round(limit * _BUDGET_SHARE.get(position, 0.25)) + 4)
         candidates.extend(group[:take])
     candidates.sort(key=lambda row: row[0], reverse=True)
@@ -305,6 +344,7 @@ def _compute_slate(
     ]
     entries = [FantasySlateEntry(**row) for row in _run_projection_tasks(settings, tasks)]
     entries.sort(key=lambda entry: entry.projected_points, reverse=True)
+    _apply_tiers(entries)
     return FantasySlateResponse(
         season=season,
         week=week,
@@ -312,14 +352,43 @@ def _compute_slate(
         games=len(games),
         players_considered=len(candidates),
         entries=entries,
+        tier_order=list(TIER_KEYS),
+        tier_labels=dict(TIER_LABELS),
     )
+
+
+_FLEX_POSITIONS = ("RB", "WR", "TE")
+
+
+def _apply_tiers(entries: list[FantasySlateEntry]) -> None:
+    """Rank and tier the board in place: once cumulatively, once per position,
+    and once over the RB/WR/TE flex pool. ``entries`` must already be sorted
+    best-first, which makes every sub-list sorted too."""
+    if not entries:
+        return
+
+    def tier_list(rows: list[FantasySlateEntry], list_key: str, field: str) -> None:
+        tiers = assign_tiers([row.projected_points for row in rows], starter_demand(list_key))
+        for i, (row, tier) in enumerate(zip(rows, tiers), start=1):
+            setattr(row, f"{field}_rank", i)
+            setattr(row, f"{field}_tier", tier)
+
+    tier_list(entries, "ALL", "overall")
+
+    by_position: dict[str, list[FantasySlateEntry]] = {}
+    for entry in entries:
+        by_position.setdefault(entry.position, []).append(entry)
+    for position, rows in by_position.items():
+        tier_list(rows, position, "position")
+
+    tier_list([e for e in entries if e.position in _FLEX_POSITIONS], "FLEX", "flex")
 
 
 # The live slate the desktop app opens on. Bump at the season rollover (the GUI
 # has the matching SEASON constant in this-week-page.tsx).
 _PREWARM_SEASON = 2026
 _PREWARM_WEEK = 1
-_PREWARM_LIMIT = 48
+_PREWARM_LIMIT = 0  # whole board - the GUI asks for the same key
 
 
 def prewarm_current_slate(settings: AppSettings) -> None:
