@@ -88,6 +88,10 @@ class AppSettings(BaseSettings):
     # Tests and one-off scripts pass this False. Disable via
     # NFL_APP_PREWARM_FANTASY_SLATE=0.
     prewarm_fantasy_slate: bool = True
+    # Anchor projections to the Kalshi coin-flip line where one is priced. Best
+    # effort: coverage is thin and a market outage falls back to model priors.
+    # Disable via NFL_APP_USE_MARKET_ANCHOR=0.
+    use_market_anchor: bool = True
     # Process-pool size for the fantasy-slate player loop. 0 = auto
     # (~70% of cores). 1 disables the pool (serial). Env NFL_APP_FANTASY_SLATE_WORKERS.
     fantasy_slate_workers: int = 0
@@ -96,6 +100,11 @@ class AppSettings(BaseSettings):
     # Points at the locked artifact; a missing file falls back to built-in
     # defaults inside load_calibration. Env NFL_APP_FANTASY_CALIBRATION_PATH.
     fantasy_calibration_path: str = str(_BUNDLE / "models" / "fantasy_calibration.json")
+
+    # Build + cache the Week-1 prop board on startup (off-thread), same reason
+    # as the fantasy slate prewarm -- it is a Kalshi scan plus a model call per
+    # market. Disable via NFL_APP_PREWARM_PROP_BOARD=0.
+    prewarm_prop_board: bool = True
 
     # Kalshi market data — refreshes the game-script total when a game's market
     # is priced (thin until near kickoff; falls back to the schedule line).

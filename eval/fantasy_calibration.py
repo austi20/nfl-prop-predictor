@@ -18,7 +18,7 @@ from pathlib import Path
 _FACTOR_NAMES = (
     "game_environment", "coaching", "opponent_matchup", "usage_trend", "rest",
     "news", "qb_support", "position_group_form", "weather", "game_script",
-    "depth_chart",
+    "depth_chart", "market",
 )
 # The three collinear "this is a good offense" factors that get a joint sub-cap.
 OFFENSE_STACK_FACTORS = ("game_environment", "coaching", "qb_support")
@@ -41,6 +41,11 @@ class FantasyCalibration:
     # allowed to claim. 1.0 would assert the promoted player instantly becomes
     # the average starter; half of it is the honest read.
     depth_chart_damping: float = 0.5
+    # A priced market has already absorbed the depth chart, the injury report
+    # and the beat news, so it gets a wider band than the context nudges --
+    # throttling the best information available to +/-22% would waste it.
+    market_clamp_lo: float = 0.60
+    market_clamp_hi: float = 1.60
     # A player whose depth slot moved earned his trailing games in a different
     # job, so that sample is partly measuring the wrong role. Retain this
     # fraction of its weight per bucket of movement; the weight it loses goes
@@ -73,6 +78,8 @@ class FantasyCalibration:
             "context_clamp_hi": self.context_clamp_hi,
             "offense_stack_cap": self.offense_stack_cap,
             "depth_chart_damping": self.depth_chart_damping,
+            "market_clamp_lo": self.market_clamp_lo,
+            "market_clamp_hi": self.market_clamp_hi,
             "role_change_retention": self.role_change_retention,
             "rookie_cv_inflation": self.rookie_cv_inflation,
             "factor_strength": dict(self.factor_strength),
@@ -99,6 +106,8 @@ def _from_dict(d: dict) -> FantasyCalibration:
         context_clamp_hi=float(d.get("context_clamp_hi", base.context_clamp_hi)),
         offense_stack_cap=float(d.get("offense_stack_cap", base.offense_stack_cap)),
         depth_chart_damping=float(d.get("depth_chart_damping", base.depth_chart_damping)),
+        market_clamp_lo=float(d.get("market_clamp_lo", base.market_clamp_lo)),
+        market_clamp_hi=float(d.get("market_clamp_hi", base.market_clamp_hi)),
         role_change_retention=float(d.get("role_change_retention", base.role_change_retention)),
         rookie_cv_inflation=float(d.get("rookie_cv_inflation", base.rookie_cv_inflation)),
         factor_strength={k: float(v) for k, v in fs.items()},

@@ -1094,27 +1094,152 @@ def _depth_chart_factor(
     )
 
 
+def _scale_to_market(
+    dist: StatDistribution,
+    strike: float,
+    target_prob: float,
+    lo: float,
+    hi: float,
+) -> float:
+    """The scale factor that makes this distribution agree with the market.
+
+    The market is not offering a point estimate — it is offering a probability,
+    "P(stat >= strike) = target_prob". So rather than guessing at a median and
+    matching means, solve for the multiplier that makes the model's own
+    distribution family reproduce that probability at that strike.
+
+    `prob_over` is monotone in the scale, so a bisection is exact and cheap. The
+    search runs inside [lo, hi], which is what bounds the correction.
+    """
+
+    def prob_at(scale: float) -> float:
+        return StatDistribution(
+            mean=dist.mean * scale,
+            std=dist.std * scale,
+            dist_type=dist.dist_type,
+            params=dict(dist.params),
+        ).prob_over(strike)
+
+    if prob_at(lo) >= target_prob:
+        return lo
+    if prob_at(hi) <= target_prob:
+        return hi
+    low, high = lo, hi
+    for _ in range(24):
+        mid = 0.5 * (low + high)
+        if prob_at(mid) < target_prob:
+            low = mid
+        else:
+            high = mid
+    return 0.5 * (low + high)
+
+
+def _market_factors(
+    distributions: dict[str, StatDistribution],
+    lines: dict[str, list[float]],
+    *,
+    player_id: str,
+    position: str,
+    calib: FantasyCalibration,
+) -> list[FantasyContextFactor]:
+    """One factor per stat the market actually prices.
+
+    A traded book has already absorbed the depth chart, the injury report and
+    the beat news, so where a quote exists it outranks everything the model
+    infers from history.
+    """
+    if not lines:
+        return []
+    from api.services.market_lines import market_quote
+
+    out: list[FantasyContextFactor] = []
+    for stat, dist in distributions.items():
+        quote = market_quote(lines, player_id, stat)
+        if quote is None or dist.mean <= 0 or dist.std <= 0:
+            continue
+        strike, prob = quote
+        if not 0.02 < prob < 0.98:
+            continue
+        scale = _scale_to_market(
+            dist, strike, prob, calib.market_clamp_lo, calib.market_clamp_hi
+        )
+        model_prob = dist.prob_over(strike)
+        out.append(
+            FantasyContextFactor(
+                name="market",
+                label="Market line",
+                multiplier=round(float(scale), 4),
+                applied=abs(scale - 1.0) > 1e-3,
+                affected_stats=[stat],
+                reason=(
+                    f"Kalshi prices {stat.replace('_', ' ')} {strike:g}+ at "
+                    f"{prob:.0%}; the model had it at {model_prob:.0%}."
+                ),
+            )
+        )
+    return out
+
+
 def _resolve_role_precedence(
     factors: list[FantasyContextFactor],
 ) -> list[FantasyContextFactor]:
-    """A role change must be priced once. When the depth chart fires, the
-    within-season usage trend is describing the same move — stand it down."""
+    """One role change, priced once.
+
+    Precedence is market > depth chart > usage trend. A traded market already
+    reflects the depth chart; the depth chart already reflects an offseason move
+    that the within-season usage trend would otherwise double-count. Each tier
+    strips the stats it covers from the tier below.
+    """
+    priced: set[str] = {
+        stat
+        for factor in factors
+        if factor.name == "market" and factor.applied
+        for stat in factor.affected_stats
+    }
     depth = next((f for f in factors if f.name == "depth_chart"), None)
-    if depth is None or not depth.applied:
-        return factors
+    depth_fires = depth is not None and depth.applied
+
     out: list[FantasyContextFactor] = []
     for factor in factors:
-        if factor.name == "usage_trend" and factor.applied:
-            out.append(
-                _neutral_factor(
-                    "usage_trend",
-                    "Usage trend",
-                    "Role move already priced by the depth chart — superseded.",
-                    list(factor.affected_stats),
-                )
-            )
-        else:
+        if factor.name == "market":
             out.append(factor)
+            continue
+        if factor.name == "depth_chart" and factor.applied and priced:
+            remaining = [s for s in factor.affected_stats if s not in priced]
+            if not remaining:
+                out.append(
+                    _neutral_factor(
+                        "depth_chart", "Depth chart",
+                        "Role already priced by the market — superseded.",
+                        list(factor.affected_stats),
+                    )
+                )
+                continue
+            factor = FantasyContextFactor(
+                name=factor.name, label=factor.label, multiplier=factor.multiplier,
+                applied=factor.applied, affected_stats=remaining, reason=factor.reason,
+            )
+        elif factor.name == "usage_trend" and factor.applied:
+            superseded_by = "the market" if priced else "the depth chart"
+            remaining = [
+                s
+                for s in factor.affected_stats
+                if s not in priced and not depth_fires
+            ]
+            if not remaining:
+                out.append(
+                    _neutral_factor(
+                        "usage_trend", "Usage trend",
+                        f"Role move already priced by {superseded_by} — superseded.",
+                        list(factor.affected_stats),
+                    )
+                )
+                continue
+            factor = FantasyContextFactor(
+                name=factor.name, label=factor.label, multiplier=factor.multiplier,
+                applied=factor.applied, affected_stats=remaining, reason=factor.reason,
+            )
+        out.append(factor)
     return out
 
 
@@ -1368,12 +1493,18 @@ def _stat_multipliers(
     multipliers = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
     injury_hit = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
     offense = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}  # jointly sub-capped
+    # A traded market gets its own, wider band: it is a direct statement about
+    # this stat, not a nudge, and folding it into the context clamp would throttle
+    # the best information on the board down to +/-22%.
+    market = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
     for factor in context_factors:
         if not factor.applied:
             continue
         scaled = 1.0 + calib.strength(factor.name) * (factor.multiplier - 1.0)
         if factor.name == "injury_status":
             target = injury_hit
+        elif factor.name == "market":
+            target = market
         elif factor.name in _OFFENSE_STACK_SET:
             target = offense
         else:
@@ -1385,7 +1516,10 @@ def _stat_multipliers(
     for stat in multipliers:
         stack = min(offense[stat], calib.offense_stack_cap)
         combined = float(np.clip(multipliers[stat] * stack, calib.context_clamp_lo, calib.context_clamp_hi))
-        out[stat] = combined * injury_hit[stat]
+        market_scale = float(
+            np.clip(market[stat], calib.market_clamp_lo, calib.market_clamp_hi)
+        )
+        out[stat] = combined * market_scale * injury_hit[stat]
     return out
 
 
@@ -1442,6 +1576,21 @@ def build_fantasy_summary(
         game_id=game_id,
         calib=calib,
     )
+    # The market is resolved after the distributions exist: fitting to a priced
+    # probability needs the distribution family, not just a mean.
+    if settings.use_market_anchor:
+        from api.services.market_lines import player_stat_lines
+
+        market = _market_factors(
+            distributions,
+            player_stat_lines(settings, season, week),
+            player_id=player_id,
+            position=normalized_position,
+            calib=calib,
+        )
+        if market:
+            factors = _resolve_role_precedence([*factors, *market])
+
     seed = stable_simulation_seed(player_id, season, week, mode)
     projection = project_fantasy_points(
         distributions,
