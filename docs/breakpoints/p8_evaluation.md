@@ -156,7 +156,55 @@ Observed behavior change on the live 2026 Week-2 board:
 | Travis Hunter (WR6 -> WR4, same bucket) | 5.69 | 5.69 | unchanged, `usage_trend` retained |
 | Travis Etienne | — | 16.23 | unmoved slot, pre-phase path |
 
-Aggregate gate: `scripts/verify_fantasy_calibration.py` — see §6.
+### Aggregate gate: a deliberate, recorded failure
+
+`scripts/verify_fantasy_calibration.py` **exits 1**. It is recorded here rather
+than worked around, because the gate is correct and the decision is not mine.
+
+The eval cache is replayed analytically by `evaluate()`, so it had to be rebuilt
+against this branch before the gate meant anything. Rebuilt, it shows the model
+itself improved substantially:
+
+| uncalibrated | before | after |
+|---|---|---|
+| MAE | 5.12 | **4.79** |
+| \|bias\| | 0.48 | **0.31** |
+| rank corr | 0.574 | **0.620** |
+
+The locked calibration was fit to compensate for deficiencies this phase fixes at
+the source, so on the rebuilt cache it over-corrected (|bias| 0.52, WR -0.88,
+TE -0.65) and was strictly dominated by a re-tune — it had to be replaced.
+
+Re-tuned against the new model:
+
+| | DEFAULT | TUNED |
+|---|---|---|
+| MAE | 4.79 | **4.67** |
+| \|bias\| | **0.31** | 0.36 |
+| rank corr | 0.620 | **0.636** |
+| boom err | 0.041 | **0.027** |
+
+The re-tune improves QB bias (+0.71 -> +0.55) and RB (+0.39 -> +0.32) but pushes
+WR (-0.12 -> -0.35) and TE (+0.02 -> -0.23) negative, and the aggregate is a mean
+of absolute per-position bias. Whether 0.05 of aggregate bias is worth +0.016
+rank correlation and -0.12 MAE is a modelling policy call, not something to
+resolve by editing a merge gate.
+
+Versus the pre-branch locked baseline: MAE 4.99 -> 4.67, rank 0.595 -> 0.636,
+|bias| 0.27 -> 0.36.
+
+The re-tune is internally coherent with a better model: `glm_blend_weight`
+collapses 0.275 -> 0.05 (the GLM point estimate is worth far less once the anchor
+is role-aware) and both CV knobs shrink (yard 0.95 -> 0.78, count 1.30 -> 0.96).
+
+The knobs this phase introduces are **not in the tuner's search space** and sit at
+their defaults; sweeping them is open work.
+
+### Bounded-ratio guard
+
+`scripts/verify_role_context.py` passes on both 2026 W1 and W2: 76 entries each,
+0 implausible, floor <= projection <= ceiling throughout. This is the guard the
+rejected attempt lacked.
 
 ## 6. Reproducing the probes
 
