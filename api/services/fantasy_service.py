@@ -242,6 +242,22 @@ def _seasons_span(weekly: pd.DataFrame, season: int | None = None) -> tuple[int,
     return tuple(sorted(known))
 
 
+def _role_retention(
+    rank_bucket: int | None,
+    prior_bucket: int | None,
+    calib: FantasyCalibration,
+) -> float:
+    """How much of the trailing sample still describes the player's current job.
+
+    1.0 when the depth slot did not move (or is unknown), so the default path is
+    numerically identical to the pre-depth-chart behavior. Each bucket of
+    movement retains `role_change_retention` of the remaining weight.
+    """
+    if rank_bucket is None or prior_bucket is None or rank_bucket == prior_bucket:
+        return 1.0
+    return float(calib.role_change_retention ** abs(rank_bucket - prior_bucket))
+
+
 def _rookie_capital_multiplier(player_id: str, weekly: pd.DataFrame) -> float:
     """Draft-capital scale for a player with no NFL history. A first-round back
     and an undrafted one can sit in the same depth slot; this is what separates
@@ -254,17 +270,20 @@ def _rookie_capital_multiplier(player_id: str, weekly: pd.DataFrame) -> float:
         return 1.0
 
 
-def _current_depth_rank(
+def _depth_ranks_for(
     weekly: pd.DataFrame, player_id: str, season: int, week: int
-) -> int | None:
+) -> tuple[int | None, int | None]:
+    """(current slot, slot the trailing games were played in)."""
     try:
-        from data.depth_chart import current_rank
+        from data.depth_chart import current_rank, prior_rank
 
-        return current_rank(
-            player_id, int(season), int(week), _seasons_span(weekly, season)
+        seasons = _seasons_span(weekly, season)
+        return (
+            current_rank(player_id, int(season), int(week), seasons),
+            prior_rank(player_id, int(season), int(week), seasons),
         )
-    except Exception:  # noqa: BLE001
-        return None
+    except Exception:  # noqa: BLE001 - depth data is an enhancement, never a gate
+        return (None, None)
 
 
 def _baseline(
@@ -356,6 +375,7 @@ def _trailing_fantasy_distributions(
     model_distributions: dict[str, StatDistribution],
     calib: FantasyCalibration | None = None,
     depth_rank: int | None = None,
+    prior_depth_rank: int | None = None,
 ) -> dict[str, StatDistribution]:
     calib = calib or default_calibration()
     normalized = position.upper().strip()
@@ -366,6 +386,7 @@ def _trailing_fantasy_distributions(
     from data.depth_chart import bucket as _rank_bucket
 
     rank_bucket = _rank_bucket(depth_rank, normalized)
+    prior_bucket = _rank_bucket(prior_depth_rank, normalized)
     baselines = _baselines_for(weekly)
     hist = _player_rows(weekly, player_id)
     if not hist.empty:
@@ -376,7 +397,15 @@ def _trailing_fantasy_distributions(
 
     n = len(hist)
     recency = np.linspace(0.5, 1.0, n) if n else np.array([])
-    form_weight = n / (n + _TRAILING_REGRESS_GAMES) if n else 0.0
+    # A promoted player's trailing games were played in a different job, so that
+    # sample is partly measuring the wrong role. Discount its weight by how far
+    # the slot moved; what it gives up flows to the rank-conditioned baseline for
+    # the role he holds now. Unmoved roles keep the old weighting exactly.
+    retention = _role_retention(rank_bucket, prior_bucket, calib)
+    effective_n = n * retention
+    form_weight = (
+        effective_n / (effective_n + _TRAILING_REGRESS_GAMES) if effective_n else 0.0
+    )
     # No NFL history at all: the depth slot and what the draft said about him is
     # the entire signal. `form_weight` is 0 here, so this scales the baseline.
     rookie_multiplier = 1.0 if n else _rookie_capital_multiplier(player_id, weekly)
@@ -401,7 +430,12 @@ def _trailing_fantasy_distributions(
         if model_dist is not None and model_dist.mean > 0:
             glm_bias = calib.glm_bias.get(f"{normalized}/{stat}", 1.0)
             model_mean = float(model_dist.mean) * glm_bias
-            mean = (1.0 - calib.glm_blend_weight) * trailing + calib.glm_blend_weight * model_mean
+            # The GLM reads the player's own rolling features, so on a role change
+            # it is a second estimate of the same stale job. Discount it by the
+            # same retention; the weight returns to the trailing term, which is
+            # already leaning on the baseline for the role he holds now.
+            glm_weight = calib.glm_blend_weight * retention
+            mean = (1.0 - glm_weight) * trailing + glm_weight * model_mean
         else:
             mean = trailing
 
@@ -1383,7 +1417,7 @@ def build_fantasy_summary(
         position=normalized_position,
         recent_team=recent_team,
     )
-    depth_rank = _current_depth_rank(weekly, player_id, season, week)
+    depth_rank, prior_depth_rank = _depth_ranks_for(weekly, player_id, season, week)
     distributions = _trailing_fantasy_distributions(
         weekly,
         player_id=player_id,
@@ -1393,6 +1427,7 @@ def build_fantasy_summary(
         model_distributions=model_distributions,
         calib=calib,
         depth_rank=depth_rank,
+        prior_depth_rank=prior_depth_rank,
     )
     factors = _context_factors(
         settings,

@@ -162,3 +162,44 @@ def test_usage_trend_survives_when_depth_chart_is_neutral():
         [_factor("depth_chart", 1.0, False), _factor("usage_trend", 1.1, True)]
     )
     assert {f.name: f.applied for f in resolved}["usage_trend"]
+
+
+def test_role_retention_is_identity_when_the_slot_did_not_move():
+    calib = fs.default_calibration()
+    assert fs._role_retention(1, 1, calib) == 1.0
+    assert fs._role_retention(None, 3, calib) == 1.0, "unknown rank must not change anything"
+    assert fs._role_retention(1, None, calib) == 1.0
+
+
+def test_role_retention_discounts_by_distance_moved():
+    calib = fs.default_calibration()
+    one = fs._role_retention(1, 2, calib)
+    two = fs._role_retention(1, 3, calib)
+    assert 0.0 < two < one < 1.0, "a bigger move trusts the old sample less"
+
+
+def test_promotion_pulls_projection_toward_the_new_role_baseline(monkeypatch):
+    """The whole point: an RB2's trailing volume must not anchor an RB1."""
+    monkeypatch.setattr(fs, "_rank_lookup", lambda weekly: _ranks())
+    fs._BASELINE_CACHE.clear()
+
+    weekly = pd.concat(
+        [_weekly().assign(week=w) for w in range(1, 9)], ignore_index=True
+    )
+
+    def project(prior):
+        return fs._trailing_fantasy_distributions(
+            weekly,
+            player_id="C",  # 20 rush yds/game of history
+            season=2026,
+            week=1,
+            position="RB",
+            model_distributions={},
+            depth_rank=1,
+            prior_depth_rank=prior,
+        )["rushing_yards"].mean
+
+    unmoved = project(1)
+    promoted = project(3)
+    assert promoted > unmoved, "a promoted player leans harder on the RB1 baseline"
+    assert promoted < 95.0, "but never all the way to the bare baseline"

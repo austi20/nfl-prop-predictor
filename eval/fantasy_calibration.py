@@ -41,6 +41,11 @@ class FantasyCalibration:
     # allowed to claim. 1.0 would assert the promoted player instantly becomes
     # the average starter; half of it is the honest read.
     depth_chart_damping: float = 0.5
+    # A player whose depth slot moved earned his trailing games in a different
+    # job, so that sample is partly measuring the wrong role. Retain this
+    # fraction of its weight per bucket of movement; the weight it loses goes
+    # to the rank-conditioned baseline for the role he now holds. 1.0 = off.
+    role_change_retention: float = 0.45
     # Rookies have no trailing sample, so their spread is a guess about a guess.
     # Widen it rather than showing a falsely confident floor/ceiling.
     rookie_cv_inflation: float = 1.35
@@ -68,6 +73,7 @@ class FantasyCalibration:
             "context_clamp_hi": self.context_clamp_hi,
             "offense_stack_cap": self.offense_stack_cap,
             "depth_chart_damping": self.depth_chart_damping,
+            "role_change_retention": self.role_change_retention,
             "rookie_cv_inflation": self.rookie_cv_inflation,
             "factor_strength": dict(self.factor_strength),
             "glm_bias": dict(self.glm_bias),
@@ -93,6 +99,7 @@ def _from_dict(d: dict) -> FantasyCalibration:
         context_clamp_hi=float(d.get("context_clamp_hi", base.context_clamp_hi)),
         offense_stack_cap=float(d.get("offense_stack_cap", base.offense_stack_cap)),
         depth_chart_damping=float(d.get("depth_chart_damping", base.depth_chart_damping)),
+        role_change_retention=float(d.get("role_change_retention", base.role_change_retention)),
         rookie_cv_inflation=float(d.get("rookie_cv_inflation", base.rookie_cv_inflation)),
         factor_strength={k: float(v) for k, v in fs.items()},
         glm_bias={str(k): float(v) for k, v in (d.get("glm_bias") or {}).items()},
@@ -147,6 +154,7 @@ def _eval_row_task(task: tuple) -> dict | None:
     from api.services.evaluation_service import scoring_weekly
     from api.services.fantasy_service import (
         _context_factors,
+        _depth_ranks_for,
         _predict_distributions,
         _trailing_fantasy_distributions,
     )
@@ -158,9 +166,13 @@ def _eval_row_task(task: tuple) -> dict | None:
             settings, player_id=pid, season=season, week=week,
             opponent_team=opp, position=pos, recent_team=team,
         )
+        # Resolve depth ranks exactly as build_fantasy_summary does, or the
+        # backtest scores a different model than the one that ships.
+        depth_rank, prior_depth_rank = _depth_ranks_for(weekly, pid, season, week)
         anchor_d = _trailing_fantasy_distributions(
             weekly, player_id=pid, season=season, week=week, position=pos,
             model_distributions={}, calib=dc,
+            depth_rank=depth_rank, prior_depth_rank=prior_depth_rank,
         )
         ctx = _context_factors(
             settings, weekly, player_id=pid, season=season, week=week, position=pos,
