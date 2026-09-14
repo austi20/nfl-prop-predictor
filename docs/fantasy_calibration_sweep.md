@@ -266,3 +266,152 @@ was "21, even 25". Boom 0.61 is marginally above the 0.35-0.60 target for a
 clear WR1 in a high-total offense but well under the 0.70 remediation trigger.
 QB cluster 18-21 and rookie-QB thin-sample leak (Dart 20.0) are pre-existing and
 tracked separately (post-Week-1 real data, not an eve-of-season change).
+
+## Sweep run
+GLM correction (bias): {"QB/interceptions": 0.6, "QB/passing_tds": 0.7646582742085342, "QB/passing_yards": 0.9756218366009062, "RB/rushing_tds": 0.6, "RB/rushing_yards": 0.8507475129809026, "TE/receiving_tds": 0.6, "TE/receiving_yards": 0.6, "TE/receptions": 0.8216926869350862, "WR/receiving_tds": 0.6, "WR/receiving_yards": 0.7257711627494392, "WR/receptions": 0.75642965204236}
+GLM correction (var_inflation): {"QB/interceptions": 1.11, "QB/passing_tds": 0.93, "QB/passing_yards": 1.06, "RB/rushing_tds": 1.11, "RB/rushing_yards": 1.3, "TE/receiving_tds": 0.93, "TE/receiving_yards": 1.23, "TE/receptions": 1.3, "WR/receiving_tds": 0.93, "WR/receiving_yards": 1.24, "WR/receptions": 1.08}
+post-correction baseline: obj=2.699 mae=4.70 |bias|=0.48 boom_err=0.045 bust_err=0.081 rank=0.621 realism=0.00
+    QB:mae6.5/bias+0.4/max26/boom0.11v0.14 | RB:mae4.6/bias+0.0/max25/boom0.06v0.08 | WR:mae4.1/bias-0.8/max20/boom0.03v0.07 | TE:mae3.6/bias-0.7/max17/boom0.05v0.11
+
+### Phase 1 — coarse grid
+phase-1 best (bw=0.15 yc=1.0 cap=1.25 cvf=0.7): obj=2.577 mae=4.69 |bias|=0.46 boom_err=0.040 bust_err=0.077 rank=0.623 realism=0.00
+    QB:mae6.4/bias+0.6/max28/boom0.14v0.14 | RB:mae4.6/bias+0.3/max25/boom0.07v0.08 | WR:mae4.1/bias-0.6/max21/boom0.04v0.07 | TE:mae3.6/bias-0.4/max19/boom0.06v0.11
+
+### Phase 2 — coordinate descent
+pass 1: obj=2.497 mae=4.68 |bias|=0.45 boom_err=0.036 bust_err=0.077 rank=0.627 realism=0.00
+    QB:mae6.4/bias+0.6/max27/boom0.14v0.14 | RB:mae4.6/bias+0.2/max26/boom0.07v0.08 | WR:mae4.1/bias-0.6/max21/boom0.04v0.07 | TE:mae3.6/bias-0.4/max18/boom0.06v0.11
+pass 2: obj=2.390 mae=4.68 |bias|=0.42 boom_err=0.032 bust_err=0.075 rank=0.630 realism=0.00
+    QB:mae6.4/bias+0.6/max27/boom0.14v0.14 | RB:mae4.6/bias+0.3/max26/boom0.07v0.08 | WR:mae4.1/bias-0.5/max21/boom0.04v0.07 | TE:mae3.6/bias-0.3/max18/boom0.07v0.11
+pass 3: obj=2.302 mae=4.68 |bias|=0.41 boom_err=0.028 bust_err=0.073 rank=0.632 realism=0.00
+    QB:mae6.4/bias+0.6/max27/boom0.15v0.14 | RB:mae4.6/bias+0.3/max26/boom0.07v0.08 | WR:mae4.1/bias-0.5/max22/boom0.05v0.07 | TE:mae3.6/bias-0.3/max19/boom0.07v0.11
+pass 4: obj=2.258 mae=4.67 |bias|=0.40 boom_err=0.028 bust_err=0.071 rank=0.634 realism=0.00
+    QB:mae6.4/bias+0.6/max27/boom0.15v0.14 | RB:mae4.6/bias+0.3/max26/boom0.07v0.08 | WR:mae4.1/bias-0.4/max21/boom0.05v0.07 | TE:mae3.6/bias-0.3/max19/boom0.07v0.11
+
+### Phase 3 — random local polish
+phase-3 best: obj=2.169 mae=4.67 |bias|=0.36 boom_err=0.027 bust_err=0.070 rank=0.636 realism=0.00
+    QB:mae6.3/bias+0.6/max27/boom0.14v0.14 | RB:mae4.6/bias+0.3/max26/boom0.07v0.08 | WR:mae4.1/bias-0.3/max22/boom0.05v0.07 | TE:mae3.6/bias-0.2/max19/boom0.07v0.11
+
+## FINAL
+```json
+{
+  "context_clamp_hi": 1.1802847303503634,
+  "context_clamp_lo": 0.8670117490120338,
+  "count_cv": 0.956158502626832,
+  "cv_floor_frac": 0.9936043290168576,
+  "depth_chart_damping": 0.5,
+  "factor_strength": {
+    "coaching": 0.38096369178881806,
+    "depth_chart": 0.0,
+    "game_environment": 0.6259471048178445,
+    "game_script": 1.2560026105913686,
+    "market": 0.7164282137335403,
+    "news": 0.944439598133239,
+    "opponent_matchup": 1.163138576323756,
+    "position_group_form": 0.4506466796487866,
+    "qb_support": 1.4404728301628915,
+    "rest": 0.584961292368502,
+    "usage_trend": 0.7554800859783712,
+    "weather": 0.8849412664068633
+  },
+  "glm_bias": {
+    "QB/interceptions": 0.6,
+    "QB/passing_tds": 0.7646582742085342,
+    "QB/passing_yards": 0.9756218366009062,
+    "RB/rushing_tds": 0.6,
+    "RB/rushing_yards": 0.8507475129809026,
+    "TE/receiving_tds": 0.6,
+    "TE/receiving_yards": 0.6,
+    "TE/receptions": 0.8216926869350862,
+    "WR/receiving_tds": 0.6,
+    "WR/receiving_yards": 0.7257711627494392,
+    "WR/receptions": 0.75642965204236
+  },
+  "glm_blend_weight": 0.05,
+  "glm_var_inflation": {
+    "QB/interceptions": 1.11,
+    "QB/passing_tds": 0.93,
+    "QB/passing_yards": 1.06,
+    "RB/rushing_tds": 1.11,
+    "RB/rushing_yards": 1.3,
+    "TE/receiving_tds": 0.93,
+    "TE/receiving_yards": 1.23,
+    "TE/receptions": 1.3,
+    "WR/receiving_tds": 0.93,
+    "WR/receiving_yards": 1.24,
+    "WR/receptions": 1.08
+  },
+  "market_clamp_hi": 1.6,
+  "market_clamp_lo": 0.6,
+  "offense_stack_cap": 1.28,
+  "role_change_retention": 0.45,
+  "rookie_cv_inflation": 1.35,
+  "stat_mean_hi": 1.483909251659889,
+  "stat_mean_lo": 0.45,
+  "yard_cv": 0.7838662613468151
+}
+```
+final metrics:
+```json
+{
+  "objective": 2.168522165706868,
+  "mae": 4.67009056316889,
+  "bias_abs": 0.36139320137887854,
+  "boom_calib_err": 0.02686973861469922,
+  "bust_calib_err": 0.06985325574445139,
+  "realism_penalty": 0.0,
+  "rank_corr": 0.6362403590672573,
+  "n": 2740,
+  "per_position": {
+    "QB": {
+      "n": 641,
+      "mae": 6.3443845430854005,
+      "bias": 0.551586433144534,
+      "boom_calib_err": 0.01718147469466785,
+      "bust_calib_err": 0.1002471656650298,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.5104823842848671,
+      "max_proj": 26.795347356075695,
+      "pred_boom_rate": 0.13967537936755148,
+      "actual_boom_rate": 0.1372854914196568
+    },
+    "RB": {
+      "n": 700,
+      "mae": 4.574221465344547,
+      "bias": 0.3232200613626277,
+      "boom_calib_err": 0.018112657902440203,
+      "bust_calib_err": 0.0437011925657836,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.73448450001462,
+      "max_proj": 25.84688648451067,
+      "pred_boom_rate": 0.07018203568336237,
+      "actual_boom_rate": 0.08428571428571428
+    },
+    "WR": {
+      "n": 700,
+      "mae": 4.1144652807907,
+      "bias": -0.34571701927808357,
+      "boom_calib_err": 0.025740663042102103,
+      "bust_calib_err": 0.09858855122885911,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.6606972583496556,
+      "max_proj": 21.782439056635944,
+      "pred_boom_rate": 0.046041403099146366,
+      "actual_boom_rate": 0.06857142857142857
+    },
+    "TE": {
+      "n": 699,
+      "mae": 3.6472909634549135,
+      "bias": -0.22504929173026897,
+      "boom_calib_err": 0.04644415881958673,
+      "bust_calib_err": 0.036876113518133094,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.6392972936198862,
+      "max_proj": 18.845811206202,
+      "pred_boom_rate": 0.06805374556637941,
+      "actual_boom_rate": 0.10872675250357654
+    }
+  }
+}
+```
+
+written -> models\fantasy_calibration.json
