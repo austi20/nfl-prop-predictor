@@ -32,6 +32,14 @@ dependencies = [
     "sqlalchemy>=2.0.0",
 ]
 
+[dependency-groups]
+# These were present in the venv but declared nowhere, so locking the SQLAlchemy
+# dependency pruned them. Declared here so they survive the next `uv sync`.
+dev = [
+    "ruff>=0.15.0",
+    "mypy>=1.13",
+]
+
 [tool.pytest.ini_options]
 addopts = "-m \"not slow\""
 cache_dir = "tmp/pytest_cache"
