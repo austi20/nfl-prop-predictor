@@ -76,6 +76,29 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
   `_trailing_fantasy_distributions`. `MODEL_SPECS` also repeated the target-stat
   lists, so a newly modelled stat would ship with no out-of-sample evidence; it
   now derives them from the models.
+- **Robustness follow-up** - growing `_TARGET_STATS` also grows the rolling
+  feature matrix, and three places then hard-required columns a
+  position-specific frame, an older season, or a fixture may not carry (16 tests
+  failed). Feature builders now materialise a missing target as zero; a target
+  with no variance gets no model at all and `predict` falls back to its prior
+  (`ConstantResult.aic` is `inf`, so registering one would still fail a
+  finite-AIC assertion); `build_calibration_rows` intersects outcome columns
+  with the frame. Production was never affected - `build_upcoming_row` yields 16
+  roll features for a QB and 10 for an RB against the real weekly frame.
+- **Fixed: `/api/replay/summary` and `/api/players/{id}` crashed on any pick
+  with no injury row.** `_enrich_picks` left the injuries left-join's NaN in
+  place, but `NormalizedPick.injury_status` is a `Literal`, so pydantic raised.
+  Built element-wise because `.where(..., None)` on a float column re-coerces
+  `None` straight back to NaN. `tests/test_api.py` 4/7 -> 7/7.
+- **Dependency hygiene** - SQLAlchemy backed the P0-P1 trading ledger scaffold
+  but was declared in neither `pyproject.toml` nor `uv.lock`, so that code and
+  its 9 tests worked only by accident. Declared and locked. Locking then pruned
+  ruff and mypy, which were equally undeclared; both are now a `dev` dependency
+  group.
+- **Retired a stale golden value** - the Bijan 2026 W1 band `[16.5, 19.0]`
+  encoded the compressed board. He now projects 19.5 with **no** depth-chart or
+  market factor applied, purely from rank-conditioned baselines lifting an RB1
+  off a baseline that averaged in every RB3.
 - **Validation** - holdout (train 2015-2024, score 2025) flat after the feature
   matrix grew: passing_yards MAE 79.348 -> 79.583 with bias 24.815 -> 24.389,
   RB rushing_yards MAE 22.696 -> 22.688, WR receiving_yards unchanged. Boundary
