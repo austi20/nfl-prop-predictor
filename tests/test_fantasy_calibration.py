@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from eval.fantasy_calibration import (
     FantasyCalibration,
     default_calibration,
@@ -51,8 +53,30 @@ def test_build_eval_cache_smoke(tmp_path, monkeypatch):
     data = fc.load_eval_cache(p)
     assert data["score_year"] == 2025 and 4 <= len(data["rows"]) <= 12
     r = data["rows"][0]
-    assert {"anchor", "glm", "factors", "actual_fp"} <= set(r)
+    assert {
+        "anchor", "glm", "factors", "actual_fp",
+        "n", "rank_bucket", "prior_bucket", "rookie_multiplier",
+        "recent", "base", "depth_chart_ratio",
+    } <= set(r)
     assert isinstance(r["actual_fp"], float)
+    assert isinstance(r["n"], int)
+    assert not any(name == "depth_chart" for name, *_ in r["factors"]), (
+        "depth_chart must never sit in the generic factors list -- it is "
+        "recomputed from depth_chart_ratio, and double-applying it would "
+        "silently double the correction"
+    )
+
+
+def test_load_eval_cache_rejects_a_stale_schema(tmp_path):
+    import pickle
+
+    import eval.fantasy_calibration as fc
+
+    stale = tmp_path / "stale.pkl"
+    with open(stale, "wb") as fh:
+        pickle.dump({"score_year": 2025, "schema_version": 1, "rows": []}, fh)
+    with pytest.raises(ValueError, match="schema_version"):
+        fc.load_eval_cache(stale)
 
 
 def test_evaluate_is_per_position_balanced_and_blend_monotone(tmp_path, monkeypatch):

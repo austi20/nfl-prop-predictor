@@ -152,6 +152,12 @@ import pickle  # noqa: E402
 _SAMPLE_PER_POSITION = 700
 _MIN_CAREER_GAMES = 3
 _EVAL_CACHE_PATH = Path(__file__).resolve().parent.parent / "cache" / "fantasy_eval_cache_2025.pkl"
+# Bumped whenever a row's field set changes, so a stale cache on disk fails
+# loudly in evaluate() instead of KeyError-ing deep inside _apply_calib_to_row.
+# v2 added n / rank_bucket / prior_bucket / rookie_multiplier / recent / base /
+# depth_chart_ratio, needed to sweep role_change_retention, rookie_cv_inflation
+# and depth_chart_damping.
+_CACHE_SCHEMA = 2
 
 
 def _eval_row_task(task: tuple) -> dict | None:
@@ -162,7 +168,9 @@ def _eval_row_task(task: tuple) -> dict | None:
     settings, score_year, pid, season, week, pos, team, opp, actual_fp = task
     from api.services.evaluation_service import scoring_weekly
     from api.services.fantasy_service import (
+        _baselines_for,
         _context_factors,
+        _depth_chart_ratio,
         _depth_ranks_for,
         _predict_distributions,
         _trailing_fantasy_distributions,
@@ -178,14 +186,26 @@ def _eval_row_task(task: tuple) -> dict | None:
         # Resolve depth ranks exactly as build_fantasy_summary does, or the
         # backtest scores a different model than the one that ships.
         depth_rank, prior_depth_rank = _depth_ranks_for(weekly, pid, season, week)
+        raw: dict = {}
         anchor_d = _trailing_fantasy_distributions(
             weekly, player_id=pid, season=season, week=week, position=pos,
             model_distributions={}, calib=dc,
             depth_rank=depth_rank, prior_depth_rank=prior_depth_rank,
+            _raw_out=raw,
         )
         ctx = _context_factors(
             settings, weekly, player_id=pid, season=season, week=week, position=pos,
             recent_team=team, opponent_team=opp, scoring_mode="full_ppr", game_id="", calib=dc,
+        )
+        # The generic "reapply multiplier at whatever strength" replay in
+        # evaluate() can't sweep depth_chart_damping -- that parameter is baked
+        # into the multiplier at the moment it's computed, not layered on after.
+        # Recompute the raw baseline ratio the factor was built from instead
+        # (same lookup _depth_chart_factor itself uses) and drop the frozen
+        # entry so it is never double-applied.
+        baselines = _baselines_for(weekly)
+        depth_chart_ratio = _depth_chart_ratio(
+            baselines, pos.upper().strip(), raw.get("rank_bucket"), raw.get("prior_bucket"),
         )
     except Exception:  # noqa: BLE001
         return None
@@ -194,9 +214,22 @@ def _eval_row_task(task: tuple) -> dict | None:
         "anchor": {s: (d.mean, d.std, d.dist_type) for s, d in anchor_d.items()},
         "glm": {s: (d.mean, d.std, d.dist_type) for s, d in glm.items()},
         "factors": [
-            (f.name, float(f.multiplier), tuple(f.affected_stats)) for f in ctx if f.applied
+            (f.name, float(f.multiplier), tuple(f.affected_stats))
+            for f in ctx if f.applied and f.name != "depth_chart"
         ],
         "actual_fp": actual_fp,
+        # Raw ingredients behind `anchor`, so the sweep can recompute the
+        # trailing blend for role_change_retention / rookie_cv_inflation, and
+        # the depth-chart multiplier for depth_chart_damping, without a second
+        # implementation of either formula (see _form_weight_for /
+        # _depth_chart_ratio in api/services/fantasy_service.py).
+        "n": raw.get("n", 0),
+        "rank_bucket": raw.get("rank_bucket"),
+        "prior_bucket": raw.get("prior_bucket"),
+        "rookie_multiplier": raw.get("rookie_multiplier", 1.0),
+        "recent": dict(raw.get("recent") or {}),
+        "base": dict(raw.get("base") or {}),
+        "depth_chart_ratio": depth_chart_ratio,
     }
 
 
@@ -253,13 +286,21 @@ def build_eval_cache(
     out = path or _EVAL_CACHE_PATH
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "wb") as fh:
-        pickle.dump({"score_year": score_year, "rows": rows}, fh)
+        pickle.dump({"score_year": score_year, "schema_version": _CACHE_SCHEMA, "rows": rows}, fh)
     return out
 
 
 def load_eval_cache(path: Path | None = None) -> dict:
     with open(path or _EVAL_CACHE_PATH, "rb") as fh:
-        return pickle.load(fh)
+        cache = pickle.load(fh)
+    if cache.get("schema_version") != _CACHE_SCHEMA:
+        raise ValueError(
+            f"{path or _EVAL_CACHE_PATH} is schema_version={cache.get('schema_version')!r}, "
+            f"expected {_CACHE_SCHEMA}. Rebuild it: "
+            "uv run python -c \"from eval.fantasy_calibration import build_eval_cache; "
+            "print(build_eval_cache(2025))\""
+        )
+    return cache
 
 
 # ---------------------------------------------------------------------------
@@ -284,11 +325,29 @@ def _fp_weights() -> dict:
 
 def _apply_calib_to_row(row: dict, calib: FantasyCalibration) -> tuple[float, float]:
     """(mean_fp, std_fp) for one player-week under `calib`. Moment-matched sum:
-    E[FP] = sum(w * mean), Var[FP] = sum((w * std)^2) (stat independence)."""
+    E[FP] = sum(w * mean), Var[FP] = sum((w * std)^2) (stat independence).
+
+    The trailing blend (role_change_retention, rookie_cv_inflation) and the
+    depth-chart multiplier (depth_chart_damping) are recomputed here from raw
+    ingredients rather than reapplied on top of a frozen value, because both
+    are baked in at the moment they're computed in the real pipeline, not
+    layered on after. `_form_weight_for` / `_depth_chart_ratio` are the exact
+    same functions `_trailing_fantasy_distributions` / `_depth_chart_factor`
+    use, imported rather than re-derived, so there is one implementation."""
     import numpy as np
+
+    from api.services.fantasy_service import _form_weight_for, _positive_stats_for_position
 
     weights = _fp_weights()
     pos = row["position"]
+    n = row["n"]
+    recent = row["recent"]
+    base = row["base"]
+    rookie_multiplier = row["rookie_multiplier"]
+
+    form_weight, retention = _form_weight_for(
+        n, row["rank_bucket"], row["prior_bucket"], calib
+    )
 
     mult: dict[str, float] = {}
     offense: dict[str, float] = {}
@@ -298,21 +357,51 @@ def _apply_calib_to_row(row: dict, calib: FantasyCalibration) -> tuple[float, fl
         for st in stats:
             tgt[st] = tgt.get(st, 1.0) * scaled
 
+    # depth_chart is deliberately absent from row["factors"] (see
+    # _eval_row_task) because depth_chart_damping is baked into its multiplier
+    # at compute time. Recompute it from the cached raw baseline ratio for
+    # this candidate's damping + clamp, then fold it in exactly where
+    # _stat_multipliers would -- the plain (non-offense-stack) bucket.
+    ratio = row["depth_chart_ratio"]
+    if ratio is not None:
+        dc_multiplier = float(
+            np.clip(
+                1.0 + calib.depth_chart_damping * (ratio - 1.0),
+                calib.context_clamp_lo,
+                calib.context_clamp_hi,
+            )
+        )
+        if abs(dc_multiplier - 1.0) > 1e-3:
+            scaled = 1.0 + calib.strength("depth_chart") * (dc_multiplier - 1.0)
+            for st in _positive_stats_for_position(pos):
+                mult[st] = mult.get(st, 1.0) * scaled
+
     mean_fp = 0.0
     var_fp = 0.0
-    for st in set(row["anchor"]) | set(row["glm"]):
+    for st in set(recent) | set(row["glm"]):
         w = weights.get(st, 0.0)
         if w == 0.0:
             continue
-        a = row["anchor"].get(st)
         g = row["glm"].get(st)
-        anchor_mean = a[0] if a else (g[0] if g else 0.0)
+        r, b = recent.get(st), base.get(st)
+        if r is None or b is None:
+            # A GLM stat the trailing anchor doesn't track for this position --
+            # shouldn't happen now that _TRAILING_STATS_BY_POSITION and
+            # _MODEL_STATS_BY_POSITION match exactly, but degrade to the old
+            # anchor-only fallback rather than raising inside a backtest sweep.
+            a = row["anchor"].get(st)
+            trailing = a[0] if a else (g[0] if g else 0.0)
+            anchor_mean = trailing
+        else:
+            trailing = form_weight * r + (1.0 - form_weight) * b if n else b * rookie_multiplier
+            anchor_mean = max(r, b, 1e-6)
+
         if g and g[0] > 0:
             bias = calib.glm_bias.get(f"{pos}/{st}", 1.0)
-            blended = (1.0 - calib.glm_blend_weight) * (a[0] if a else 0.0) \
-                + calib.glm_blend_weight * g[0] * bias
+            glm_weight = calib.glm_blend_weight * retention
+            blended = (1.0 - glm_weight) * trailing + glm_weight * g[0] * bias
         else:
-            blended = a[0] if a else 0.0
+            blended = trailing
         anchor_ref = max(anchor_mean, 1e-6)
         blended = float(np.clip(blended, calib.stat_mean_lo * anchor_ref, calib.stat_mean_hi * anchor_ref))
         if blended <= 0:
@@ -324,6 +413,8 @@ def _apply_calib_to_row(row: dict, calib: FantasyCalibration) -> tuple[float, fl
 
         is_yard = st in _YARDAGE
         cv = calib.yard_cv if is_yard else calib.count_cv
+        if not n:
+            cv *= calib.rookie_cv_inflation
         if g and g[0] > 0 and g[1] > 0:
             vinf = calib.glm_var_inflation.get(f"{pos}/{st}", 1.0)
             std = g[1] * (final_mean / max(g[0], 1e-6)) * vinf
