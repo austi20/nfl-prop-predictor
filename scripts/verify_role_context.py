@@ -42,7 +42,7 @@ def main() -> int:
         settings,
         season=args.season,
         week=args.week,
-        scoring="full_ppr",
+        scoring_mode="full_ppr",
         limit=args.limit,
         wait=True,
     )
@@ -56,10 +56,10 @@ def main() -> int:
             failures.append(
                 f"{entry.player_name} ({position}): {points:.1f} outside [0, {ceiling}]"
             )
-        if entry.p10_points > entry.projected_points:
-            failures.append(f"{entry.player_name}: p10 above the mean")
-        if entry.p90_points < entry.projected_points:
-            failures.append(f"{entry.player_name}: p90 below the mean")
+        if entry.floor_points > entry.projected_points:
+            failures.append(f"{entry.player_name}: floor above the projection")
+        if entry.ceiling_points < entry.projected_points:
+            failures.append(f"{entry.player_name}: ceiling below the projection")
 
     print(f"{len(slate.entries)} entries checked, {len(failures)} implausible")
 
@@ -70,11 +70,10 @@ def main() -> int:
                 continue
             print(
                 f"  {entry.player_name:26s} {entry.position:3s} "
-                f"{entry.projected_points:6.2f}"
+                f"proj={entry.projected_points:6.2f} "
+                f"floor={entry.floor_points:5.2f} ceil={entry.ceiling_points:6.2f} "
+                f"rank={entry.overall_rank}"
             )
-            for factor in getattr(entry, "context_factors", None) or []:
-                if factor.name in {"depth_chart", "usage_trend"} and factor.applied:
-                    print(f"      {factor.name}: x{factor.multiplier} — {factor.reason}")
 
     for line in failures:
         print(f"FAIL {line}")
