@@ -408,6 +408,17 @@ class RosterResponse(BaseModel):
     players: list[RosterPlayer] = Field(default_factory=list)
 
 
+class PropBoardResponse(BaseModel):
+    season: int
+    week: int
+    # False while a Kalshi-backed build is running with nothing cached yet.
+    ready: bool = True
+    games: int = 0
+    markets_considered: int = 0
+    stats: list[str] = Field(default_factory=list)
+    picks: list[NormalizedPick] = Field(default_factory=list)
+
+
 class FantasySlateEntry(BaseModel):
     player_id: str
     player_name: str = ""
@@ -421,6 +432,14 @@ class FantasySlateEntry(BaseModel):
     ceiling_points: float
     boom_probability: float
     bust_probability: float
+    # Rank + start/sit tier within each list the player belongs to. `flex_*` is
+    # None for quarterbacks, who are never a flex play.
+    overall_rank: int = 0
+    overall_tier: str = ""
+    position_rank: int = 0
+    position_tier: str = ""
+    flex_rank: int | None = None
+    flex_tier: str | None = None
 
 
 class FantasySlateResponse(BaseModel):
@@ -433,3 +452,6 @@ class FantasySlateResponse(BaseModel):
     games: int = 0
     players_considered: int = 0
     entries: list[FantasySlateEntry] = Field(default_factory=list)
+    # Tier vocabulary, so the client renders group headers without its own copy.
+    tier_order: list[str] = Field(default_factory=list)
+    tier_labels: dict[str, str] = Field(default_factory=dict)

@@ -162,6 +162,15 @@ def player_stat_lines(
         return cached
     try:
         lines = _fetch(season, week)
+    except ImportError:
+        # Not a market outage - the build is wrong. Say so loudly rather than
+        # letting the anchor look like it simply found no quotes.
+        _log.error(
+            "market lines: unavailable because a dependency failed to import; "
+            "the market anchor is disabled until this is fixed",
+            exc_info=True,
+        )
+        return {}
     except Exception:  # noqa: BLE001 - market data is an enhancement, never a gate
         _log.warning("market lines: fetch failed for %s wk %s", season, week, exc_info=True)
         return {}
