@@ -1,278 +1,255 @@
 import { useQuery } from '@tanstack/react-query'
-import { Activity, BadgeDollarSign, LayoutPanelTop, ShieldCheck } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
-import { GlossaryTooltip } from '../components/glossary-tooltip'
 import { PlayerCard } from '../components/player-card'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { getSlate } from '../lib/api'
-import type { BreakdownRow } from '../lib/types'
+import { Card, CardContent } from '../components/ui/card'
+import { getPropBoard } from '../lib/api'
+import { useAppStore } from '../store/app-store'
+import type { Pick } from '../lib/types'
 
-function metric(value: number, suffix = '') {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(3)}${suffix}`
+// No season/week service yet -- Week 1 of the 2026 season is the live board.
+// Bump SEASON here at the season rollover (this-week-page.tsx has the match).
+const SEASON = 2026
+const WEEKS = Array.from({ length: 18 }, (_, i) => i + 1)
+const SIDES = ['ALL', 'OVER', 'UNDER'] as const
+type SideFilter = (typeof SIDES)[number]
+const SORTS = ['Best edge', 'Best EV', 'Highest probability'] as const
+type SortOption = (typeof SORTS)[number]
+
+function evOf(pick: Pick): number {
+  const side = pick.selected_side === 'over' ? pick.over : pick.under
+  return side?.ev ?? pick.selected_ev ?? 0
 }
 
-function BreakdownTable({
-  label,
-  rows,
-  valueKey,
-}: {
-  label: string
-  rows: BreakdownRow[]
-  valueKey: 'profit_units' | 'roi' | 'win_rate'
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {rows.map((row, index) => {
-            const rowLabel =
-              row.stat ??
-              row.book ??
-              (row.week ? `Week ${row.week}` : undefined) ??
-              row.selected_side ??
-              row.edge_bucket ??
-              `Row ${index + 1}`
-
-            return (
-              <div
-                key={`${label}-${rowLabel}-${index}`}
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-              >
-                <div>
-                  <div className="text-sm font-medium text-slate-100">{rowLabel}</div>
-                  <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                    {row.n_bets} bets
-                  </div>
-                </div>
-                <div className="font-mono text-sm text-emerald-200">
-                  {valueKey === 'profit_units'
-                    ? metric(row.profit_units, 'u')
-                    : `${(row[valueKey] * 100).toFixed(1)}%`}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  )
+function sortPicks(picks: Pick[], sort: SortOption): Pick[] {
+  const byEdge = (p: Pick) => p.selected_edge
+  const byEv = evOf
+  const byProb = (p: Pick) => p.selected_prob
+  const key = sort === 'Best EV' ? byEv : sort === 'Highest probability' ? byProb : byEdge
+  return [...picks].sort((a, b) => key(b) - key(a))
 }
 
 export function DashboardPage() {
-  const { data: slate, isLoading } = useQuery({ queryKey: ['slate'], queryFn: getSlate })
-
-  const availablePositions = useMemo(
-    () => [...new Set((slate?.top_picks ?? []).map((p) => p.position).filter(Boolean))].sort(),
-    [slate?.top_picks],
-  )
-  const availableStats = slate?.filter_metadata.available_stats ?? []
-
-  const [selectedPositions, setSelectedPositions] = useState<string[]>([])
+  const [week, setWeek] = useState(1)
+  const [stat, setStat] = useState('ALL')
+  const [side, setSide] = useState<SideFilter>('ALL')
+  const [sort, setSort] = useState<SortOption>('Best edge')
   const [minEdge, setMinEdge] = useState(0)
-  const [selectedStats, setSelectedStats] = useState<string[]>([])
+  const [search, setSearch] = useState('')
 
-  const filteredPicks = useMemo(() => {
-    return (slate?.top_picks ?? []).filter((pick) => {
-      if (selectedPositions.length > 0 && !selectedPositions.includes(pick.position)) return false
-      if (pick.selected_edge < minEdge) return false
-      if (selectedStats.length > 0 && !selectedStats.includes(pick.stat)) return false
-      return true
-    })
-  }, [slate?.top_picks, selectedPositions, minEdge, selectedStats])
+  const isInCart = useAppStore((s) => s.isInCart)
+  const toggleCartPick = useAppStore((s) => s.toggleCartPick)
+  const cartSize = useAppStore((s) => s.parlayCart.length)
 
-  function toggleItem(list: string[], item: string, setter: (v: string[]) => void) {
-    setter(list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
-  }
+  const { data, isError, error } = useQuery({
+    queryKey: ['prop-board', SEASON, week],
+    queryFn: ({ signal }) => getPropBoard({ season: SEASON, week, limit: 200 }, signal),
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: (query) => (query.state.data && !query.state.data.ready ? 8000 : false),
+  })
 
-  if (isLoading || !slate) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-slate-400">
-        Loading slate...
-      </div>
-    )
-  }
+  const building = !data || !data.ready
+
+  const stats = data?.stats ?? []
+
+  const picks = useMemo(() => {
+    if (!data?.ready) return []
+    const q = search.trim().toLowerCase()
+    let rows = data.picks
+    if (stat !== 'ALL') rows = rows.filter((p) => p.stat === stat)
+    if (side !== 'ALL') rows = rows.filter((p) => p.selected_side === side.toLowerCase())
+    if (minEdge > 0) rows = rows.filter((p) => p.selected_edge >= minEdge)
+    if (q) {
+      rows = rows.filter(
+        (p) =>
+          p.player_name.toLowerCase().includes(q) ||
+          p.recent_team.toLowerCase().includes(q) ||
+          p.opponent_team.toLowerCase().includes(q),
+      )
+    }
+    return sortPicks(rows, sort)
+  }, [data, stat, side, minEdge, search, sort])
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(244,63,94,0.18),transparent_26%),linear-gradient(180deg,#07111b_0%,#0c1724_100%)] text-slate-50">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <section className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr]">
-          <Card tone="accent" className="overflow-hidden">
-            <CardContent className="relative p-6 sm:p-8">
-              <div className="absolute inset-y-0 right-0 hidden w-80 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.16),transparent_55%)] lg:block" />
-              <div className="relative max-w-3xl">
-                <div className="font-mono text-[11px] uppercase tracking-[0.26em] text-emerald-200/90">
-                  {slate.season_label}
-                </div>
-                <h1 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                  NFL Prop Workstation
-                </h1>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                  Props priced against 2018-2024 replay history. Edge is the gap between our model and the book's implied probability.
-                </p>
-                <p className="mt-4 max-w-2xl text-sm text-slate-400">{slate.interpretation}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Filters</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div>
-                <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">Position</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {availablePositions.map((pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => toggleItem(selectedPositions, pos, setSelectedPositions)}
-                      aria-pressed={selectedPositions.includes(pos)}
-                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                        selectedPositions.includes(pos)
-                          ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
-                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                  <span>Min edge</span>
-                  <span className="text-slate-300">{minEdge > 0 ? `+${(minEdge * 100).toFixed(0)}%` : 'Any'}</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={0.3}
-                  step={0.01}
-                  value={minEdge}
-                  onChange={(e) => setMinEdge(Number(e.target.value))}
-                  aria-label="Minimum edge filter"
-                  className="mt-2 w-full accent-emerald-400"
-                />
-              </div>
-              <div>
-                <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">Stats</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {availableStats.map((stat) => (
-                    <button
-                      key={stat}
-                      onClick={() => toggleItem(selectedStats, stat, setSelectedStats)}
-                      aria-pressed={selectedStats.includes(stat)}
-                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                        selectedStats.includes(stat)
-                          ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
-                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      {stat.replaceAll('_', ' ')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              id: 'singles-roi',
-              icon: ShieldCheck,
-              label: <GlossaryTooltip term="roi">Singles ROI</GlossaryTooltip>,
-              value: `${(slate.singles.roi * 100).toFixed(1)}%`,
-              detail: `${slate.singles.wins}-${slate.singles.losses} graded`,
-            },
-            {
-              id: 'profit-units',
-              icon: BadgeDollarSign,
-              label: <GlossaryTooltip term="edge">Profit Units</GlossaryTooltip>,
-              value: metric(slate.singles.profit_units, 'u'),
-              detail: `${slate.singles.n_bets.toFixed(0)} tracked picks`,
-            },
-            {
-              id: 'parlay-ev',
-              icon: LayoutPanelTop,
-              label: <GlossaryTooltip term="ev">Parlay EV</GlossaryTooltip>,
-              value: metric(slate.parlays.avg_expected_value_units, 'u'),
-              detail: `${slate.parlays.n_parlays.toFixed(0)} candidate parlays`,
-            },
-            {
-              id: 'rows-priced',
-              icon: Activity,
-              label: 'Rows Priced',
-              value: slate.validation.rows_priced.toString(),
-              detail: `${slate.validation.selected_rows} selected`,
-            },
-          ].map((item) => (
-            <Card key={item.id}>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <item.icon className="h-5 w-5 text-emerald-300" />
-                  <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    {item.label}
-                  </div>
-                </div>
-                <div className="mt-5 text-3xl font-semibold text-white">{item.value}</div>
-                <p className="mt-2 text-sm text-slate-400">{item.detail}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-semibold text-white">Top Picks</h2>
-              <p className="text-sm text-slate-400">Showing {filteredPicks.length} picks. Use the filters to narrow by position, stat, or edge.</p>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8">
+        <Card tone="accent">
+          <CardContent className="p-6 sm:p-8">
+            <div className="font-mono text-[11px] uppercase tracking-[0.26em] text-emerald-200/90">
+              {SEASON} season · props
             </div>
-            <div className="grid gap-4">
-              {filteredPicks.map((pick) => (
-                <PlayerCard key={`${pick.player_id}-${pick.stat}-${pick.line}`} pick={pick} />
-              ))}
-            </div>
-          </div>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              Week {week} Prop Board
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+              Kalshi only lists a ladder of yes/no strikes, not a single posted line, so each
+              player's line here is the rung trading nearest a coin flip -- close enough to a
+              book's number to grade edge against. Model probability vs. that no-vig market price
+              is the edge.
+            </p>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Parlays</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {slate.top_parlays.map((parlay) => (
-                  <div
-                    key={parlay.parlay_label}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-slate-400">
+                <span className="font-mono uppercase tracking-[0.18em]">Week</span>
+                <select
+                  value={week}
+                  onChange={(e) => setWeek(Number(e.target.value))}
+                  className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-100"
+                >
+                  {WEEKS.map((w) => (
+                    <option key={w} value={w} className="bg-slate-900">
+                      {w}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex overflow-hidden rounded-lg border border-white/10">
+                {SIDES.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSide(s)}
+                    aria-pressed={side === s}
+                    className={`px-3 py-1 text-xs transition-colors ${
+                      side === s
+                        ? 'bg-emerald-400/20 text-emerald-100'
+                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    }`}
                   >
-                    <div className="text-sm font-medium text-slate-100">{parlay.parlay_label}</div>
-                    <div className="mt-2 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                      <span>EV {metric(parlay.expected_value_units, 'u')}</span>
-                      <span>Joint {Math.round(parlay.joint_prob * 1000) / 10}%</span>
-                    </div>
-                  </div>
+                    {s === 'ALL' ? 'Either side' : s.charAt(0) + s.slice(1).toLowerCase()}
+                  </button>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
 
-            <BreakdownTable
-              label="Stat Breakdown"
-              rows={slate.breakdowns.stat ?? []}
-              valueKey="profit_units"
-            />
+              <label className="flex items-center gap-2 text-xs text-slate-400">
+                <span className="font-mono uppercase tracking-[0.18em]">Sort</span>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortOption)}
+                  className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-100"
+                >
+                  {SORTS.map((s) => (
+                    <option key={s} value={s} className="bg-slate-900">
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <BreakdownTable
-              label="Week Breakdown"
-              rows={slate.breakdowns.week ?? []}
-              valueKey="roi"
-            />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search player or team…"
+                aria-label="Search props by player or team"
+                className="min-w-[10rem] flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300"
+              />
+            </div>
+
+            {stats.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setStat('ALL')}
+                  aria-pressed={stat === 'ALL'}
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                    stat === 'ALL'
+                      ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  All markets
+                </button>
+                {stats.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setStat(s)}
+                    aria-pressed={stat === s}
+                    className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                      stat === s
+                        ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
+                        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    {s.replaceAll('_', ' ')}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center gap-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">Min edge</span>
+              <input
+                type="range"
+                min={0}
+                max={0.3}
+                step={0.01}
+                value={minEdge}
+                onChange={(e) => setMinEdge(Number(e.target.value))}
+                aria-label="Minimum edge filter"
+                className="w-40 accent-emerald-400"
+              />
+              <span className="font-mono text-[11px] text-slate-300">
+                {minEdge > 0 ? `+${(minEdge * 100).toFixed(0)}%` : 'Any'}
+              </span>
+            </div>
+
+            {data?.ready && (
+              <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                {data.games} games · {picks.length} shown · {data.markets_considered} markets scanned
+                {cartSize > 0 ? ` · ${cartSize} in parlay slip` : ''}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {building && !isError && (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-400/30 border-t-emerald-300" />
+              <div className="text-sm text-slate-300">Building the Week {week} prop board…</div>
+              <div className="max-w-sm text-xs text-slate-500">
+                Pulling every open Kalshi NFL player market, finding each player's near-coinflip
+                line, and pricing it against the model. First load is the slow one; it is cached
+                after that.
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isError && (
+          <Card>
+            <CardContent className="p-6 text-sm text-rose-300">
+              Could not load the prop board: {(error as Error)?.message ?? 'unknown error'}
+            </CardContent>
+          </Card>
+        )}
+
+        {data?.ready && (
+          <div className="grid gap-4">
+            {picks.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-sm text-slate-400">
+                  {search.trim()
+                    ? `No props match "${search.trim()}".`
+                    : 'No Kalshi markets are trading near a coin flip for this slate yet -- check back closer to kickoff.'}
+                </CardContent>
+              </Card>
+            ) : (
+              picks.map((pick) => (
+                <PlayerCard
+                  key={`${pick.player_id}-${pick.stat}-${pick.line}-${pick.selected_side}`}
+                  pick={pick}
+                  selected={isInCart(pick)}
+                  onToggleSelect={toggleCartPick}
+                />
+              ))
+            )}
           </div>
-        </section>
+        )}
       </div>
     </main>
   )

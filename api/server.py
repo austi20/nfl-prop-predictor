@@ -128,6 +128,17 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             target=prewarm_current_slate, args=(app_settings,), daemon=True
         ).start()
 
+    # Same reasoning for the Week-1 prop board: a Kalshi market scan plus a
+    # model call per surviving line, so warm it off-thread too.
+    if app_settings.prewarm_prop_board:
+        import threading
+
+        from api.services.prop_board_service import prewarm_current_board
+
+        threading.Thread(
+            target=prewarm_current_board, args=(app_settings,), daemon=True
+        ).start()
+
     return app
 
 

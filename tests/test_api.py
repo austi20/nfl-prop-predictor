@@ -17,6 +17,7 @@ def _settings() -> AppSettings:
         default_replay_years=(2024,),
         default_max_parlay_candidates=10,
         prewarm_fantasy_slate=False,
+        prewarm_prop_board=False,
     )
 
 

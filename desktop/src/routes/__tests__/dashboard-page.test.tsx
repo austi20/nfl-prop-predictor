@@ -7,28 +7,64 @@ import { vi } from 'vitest'
 import * as api from '../../lib/api'
 import { DashboardPage } from '../dashboard-page'
 
-const MOCK_SLATE = {
-  season_label: '2024 Season',
-  policy: { min_edge: 0.05, stake: 1, singles_evaluated_separately_from_parlays: true, same_game_penalty: 0.1, same_team_penalty: 0.05 },
-  validation: { input_rows: 10, rows_after_filters: 10, rows_priced: 10, selected_rows: 5, applied_filters: {}, unsupported_stats_seen: [], skipped_rows: {} },
-  singles: { n_bets: 5, wins: 3, losses: 2, pushes: 0, staked_units: 5, profit_units: 0.5, roi: 0.1, win_rate: 0.6 },
-  parlays: { n_parlays: 2, wins: 1, losses: 1, pushes: 0, staked_units: 2, profit_units: 0.2, roi: 0.1, win_rate: 0.5, avg_expected_value_units: 0.1 },
-  baselines: {
-    current_policy_singles: { n_bets: 5, wins: 3, losses: 2, pushes: 0, staked_units: 5, profit_units: 0.5, roi: 0.1, win_rate: 0.6 },
-    no_threshold_singles: { n_bets: 5, wins: 3, losses: 2, pushes: 0, staked_units: 5, profit_units: 0.5, roi: 0.1, win_rate: 0.6 },
-    top_edge_only_singles: { n_bets: 5, wins: 3, losses: 2, pushes: 0, staked_units: 5, profit_units: 0.5, roi: 0.1, win_rate: 0.6 },
-    singles_plus_top_parlay_per_week: { n_bets: 5, wins: 3, losses: 2, pushes: 0, staked_units: 5, profit_units: 0.5, roi: 0.1, win_rate: 0.6 },
-  },
-  leaders: { stats: { best: null, worst: null }, books: { best: null, worst: null } },
-  interpretation: 'Test interpretation.',
-  filter_metadata: { available_seasons: [2024], available_weeks: [1], available_stats: ['passing_yards', 'rushing_yards'], available_books: ['DK'], applied_filters: {} },
-  top_picks: [
-    { player_id: 'p1', player_name: 'QB One', position: 'QB', season: 2024, week: 1, stat: 'passing_yards', line: 250, book: 'DK', selected_side: 'over', selected_odds: -110, selected_book_implied_prob: 0.524, selected_fair_american: -120, selected_raw_prob: 0.58, selected_prob: 0.58, selected_edge: 0.06, game_id: 'g1', recent_team: 'KC', opponent_team: 'BUF', weather: { temp_f: 42, wind_mph: 18, precip_in: 0, indoor: false }, injury_status: 'Q', market_p_over_no_vig: 0.5, market_p_under_no_vig: 0.5, ev_over: 0.11, ev_under: -0.12, recommendation: 'over', confidence: 'high', top_drivers: ['wind 18mph'] },
-    { player_id: 'p2', player_name: 'RB Two', position: 'RB', season: 2024, week: 1, stat: 'rushing_yards', line: 75, book: 'DK', selected_side: 'over', selected_odds: -115, selected_book_implied_prob: 0.535, selected_fair_american: -130, selected_raw_prob: 0.61, selected_prob: 0.61, selected_edge: 0.075, game_id: 'g2', recent_team: 'SF', opponent_team: 'LAR' },
+const MOCK_BOARD = {
+  season: 2026,
+  week: 1,
+  ready: true,
+  games: 2,
+  markets_considered: 40,
+  stats: ['passing_yards', 'rushing_yards'],
+  picks: [
+    {
+      player_id: 'p1',
+      player_name: 'QB One',
+      position: 'QB',
+      season: 2026,
+      week: 1,
+      stat: 'passing_yards',
+      line: 250,
+      book: 'kalshi',
+      selected_side: 'over',
+      selected_odds: -110,
+      selected_book_implied_prob: 0.524,
+      selected_fair_american: -120,
+      selected_raw_prob: 0.58,
+      selected_prob: 0.58,
+      selected_edge: 0.09,
+      game_id: 'g1',
+      recent_team: 'KC',
+      opponent_team: 'BUF',
+      weather: { temp_f: 42, wind_mph: 18, precip_in: 0, indoor: false },
+      injury_status: 'Q',
+      market_p_over_no_vig: 0.5,
+      market_p_under_no_vig: 0.5,
+      ev_over: 0.11,
+      ev_under: -0.12,
+      recommendation: 'over',
+      confidence: 'high',
+      top_drivers: ['wind 18mph'],
+    },
+    {
+      player_id: 'p2',
+      player_name: 'RB Two',
+      position: 'RB',
+      season: 2026,
+      week: 1,
+      stat: 'rushing_yards',
+      line: 75,
+      book: 'kalshi',
+      selected_side: 'over',
+      selected_odds: -115,
+      selected_book_implied_prob: 0.535,
+      selected_fair_american: -130,
+      selected_raw_prob: 0.61,
+      selected_prob: 0.61,
+      selected_edge: 0.075,
+      game_id: 'g2',
+      recent_team: 'SF',
+      opponent_team: 'LAR',
+    },
   ],
-  top_parlays: [],
-  breakdowns: { stat: [], week: [] },
-  source: 'test',
 }
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -42,7 +78,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe('DashboardPage', () => {
   beforeEach(() => {
-    vi.spyOn(api, 'getSlate').mockResolvedValue(MOCK_SLATE as any)
+    vi.spyOn(api, 'getPropBoard').mockResolvedValue(MOCK_BOARD as any)
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -53,12 +89,12 @@ describe('DashboardPage', () => {
     expect(screen.getByText('RB Two')).toBeInTheDocument()
   })
 
-  it('filters picks by position when QB button clicked', async () => {
+  it('filters picks by market when a stat chip is clicked', async () => {
     const user = userEvent.setup()
     render(<DashboardPage />, { wrapper })
     await waitFor(() => screen.getByText('QB One'))
 
-    await user.click(screen.getByRole('button', { name: 'QB' }))
+    await user.click(screen.getByRole('button', { name: 'passing yards' }))
 
     expect(screen.getByText('QB One')).toBeInTheDocument()
     expect(screen.queryByText('RB Two')).not.toBeInTheDocument()
@@ -74,5 +110,16 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('Recommendation')).toBeInTheDocument()
     expect(screen.getByText('wind 18mph')).toBeInTheDocument()
+  })
+
+  it('adds a pick to the parlay slip', async () => {
+    const user = userEvent.setup()
+    render(<DashboardPage />, { wrapper })
+    await waitFor(() => screen.getByText('QB One'))
+
+    const addButtons = screen.getAllByRole('button', { name: /add to slip/i })
+    await user.click(addButtons[0])
+
+    expect(screen.getAllByRole('button', { name: /in slip/i })[0]).toBeInTheDocument()
   })
 })

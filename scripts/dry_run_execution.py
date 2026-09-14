@@ -69,7 +69,10 @@ def run(picks_path: Path, label: str, *, limit: int, fake_adapter: bool, out_dir
     picks = [_row_to_pick(r) for r in df.to_dict("records")]
 
     settings = AppSettings(
-        docs_dir=out_dir, use_realistic_paper=not fake_adapter, prewarm_fantasy_slate=False
+        docs_dir=out_dir,
+        use_realistic_paper=not fake_adapter,
+        prewarm_fantasy_slate=False,
+        prewarm_prop_board=False,
     )
     client = TestClient(create_app(settings))
 

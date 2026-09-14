@@ -1,4 +1,4 @@
-import type { ExecutionEvent, FantasyPredictionResponse, FantasySlateResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, SlateResponse } from './types'
+import type { ExecutionEvent, FantasyPredictionResponse, FantasySlateResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, PropBoardResponse, SlateResponse } from './types'
 import { resolveApiBaseUrl } from './runtime'
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -34,6 +34,15 @@ export async function getPlayer(playerId: string) {
   return request<PlayerDetailResponse>(`/api/players/${encodeURIComponent(playerId)}`)
 }
 
+export async function getPropBoard(
+  params: { season: number; week: number; limit?: number },
+  signal?: AbortSignal,
+) {
+  const query = new URLSearchParams({ week: String(params.week) })
+  if (params.limit !== undefined) query.set('limit', String(params.limit))
+  return request<PropBoardResponse>(`/api/props/board/${params.season}?${query.toString()}`, { signal })
+}
+
 export async function buildParlays(picks: Pick[], legs = 2, stake = 1.0) {
   return request<ParlayBuildResponse>('/api/parlays/build', {
     method: 'POST',
@@ -52,7 +61,7 @@ export async function getFantasySlate(
 ) {
   const query = new URLSearchParams({ week: String(params.week) })
   if (params.scoring) query.set('scoring', params.scoring)
-  if (params.limit) query.set('limit', String(params.limit))
+  if (params.limit !== undefined) query.set('limit', String(params.limit))
   return request<FantasySlateResponse>(`/api/fantasy/slate/${params.season}?${query.toString()}`, {
     signal,
   })

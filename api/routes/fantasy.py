@@ -28,7 +28,9 @@ def get_fantasy_slate(
     request: Request,
     week: int = Query(..., ge=1, le=22),
     scoring: Literal["full_ppr", "half_ppr"] = Query("full_ppr"),
-    limit: int = Query(80, ge=1, le=300),
+    # 0 = whole board (every projectable starter on the slate); a positive
+    # limit keeps the per-position budget slice.
+    limit: int = Query(0, ge=0, le=300),
 ) -> FantasySlateResponse:
     try:
         return build_fantasy_slate(

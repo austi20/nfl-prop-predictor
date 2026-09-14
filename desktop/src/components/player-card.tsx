@@ -1,5 +1,6 @@
 import type { Pick } from '../lib/types'
 import { Link } from 'react-router-dom'
+import { CheckCircle2, PlusCircle } from 'lucide-react'
 import { ConfidenceBar } from './confidence-bar'
 import { DecisionDrawer } from './decision-drawer'
 import { DistChart } from './dist-chart'
@@ -11,17 +12,19 @@ import { Card, CardContent } from './ui/card'
 
 type PlayerCardProps = {
   pick: Pick
+  selected?: boolean
+  onToggleSelect?: (pick: Pick) => void
 }
 
 function fantasyPercent(value: number) {
   return `${Math.round(value * 100)}%`
 }
 
-export function PlayerCard({ pick }: PlayerCardProps) {
+export function PlayerCard({ pick, selected, onToggleSelect }: PlayerCardProps) {
   const fantasy = pick.fantasy
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={`overflow-hidden ${selected ? 'ring-2 ring-emerald-400/60' : ''}`}>
       <CardContent className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -33,7 +36,28 @@ export function PlayerCard({ pick }: PlayerCardProps) {
               {pick.position || 'player'} • Week {pick.week} • {pick.stat.replaceAll('_', ' ')}
             </p>
           </div>
-          <EdgeBadge edge={pick.selected_edge} side={pick.selected_side} />
+          <div className="flex flex-col items-end gap-2">
+            <EdgeBadge edge={pick.selected_edge} side={pick.selected_side} />
+            {onToggleSelect && (
+              <button
+                type="button"
+                onClick={() => onToggleSelect(pick)}
+                aria-pressed={selected}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+                  selected
+                    ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
+                    : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                {selected ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {selected ? 'In slip' : 'Add to slip'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
           <DistChart distribution={pick.distribution} line={pick.line} />

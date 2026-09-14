@@ -15,6 +15,7 @@ def _settings() -> AppSettings:
         docs_dir=Path("docs"),
         sample_props_path=Path("docs") / "synthetic_replay_props.csv",
         prewarm_fantasy_slate=False,
+        prewarm_prop_board=False,
     )
 
 

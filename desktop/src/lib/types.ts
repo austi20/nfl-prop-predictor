@@ -201,6 +201,16 @@ export type ParlayBuildResponse = {
   summary: ParlaySummary
 }
 
+export type PropBoardResponse = {
+  season: number
+  week: number
+  ready: boolean
+  games: number
+  markets_considered: number
+  stats: string[]
+  picks: Pick[]
+}
+
 export type FantasyPredictionResponse = FantasySummary & {
   player_id: string
   player_name: string
@@ -225,6 +235,12 @@ export type FantasySlateEntry = {
   ceiling_points: number
   boom_probability: number
   bust_probability: number
+  overall_rank: number
+  overall_tier: string
+  position_rank: number
+  position_tier: string
+  flex_rank: number | null
+  flex_tier: string | null
 }
 
 export type FantasySlateResponse = {
@@ -235,6 +251,8 @@ export type FantasySlateResponse = {
   games: number
   players_considered: number
   entries: FantasySlateEntry[]
+  tier_order: string[]
+  tier_labels: Record<string, string>
 }
 
 export type FilterMetadata = {
