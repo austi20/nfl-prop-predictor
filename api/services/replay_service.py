@@ -177,6 +177,17 @@ def _enrich_picks(settings: AppSettings, picks: pd.DataFrame, seasons: list[int]
         merged["position"] = ""
     merged["player_name"] = merged["player_name"].fillna("")
     merged["position"] = merged["position"].fillna("")
+    if "injury_status" in merged.columns:
+        # The injuries merge is a left join, so a player with no injury row comes
+        # back as NaN. NormalizedPick types this as a Literal and NaN is not one
+        # of the options — "no injury row" means None, not "unknown float".
+        # Built element-wise on purpose: `.where(..., None)` on a float column
+        # re-coerces None straight back to NaN.
+        merged["injury_status"] = pd.Series(
+            [None if pd.isna(v) else v for v in merged["injury_status"]],
+            index=merged.index,
+            dtype=object,
+        )
     if "top_drivers" in merged.columns:
         merged["top_drivers"] = merged["top_drivers"].map(_normalize_top_drivers)
     records = merged.to_dict("records")
