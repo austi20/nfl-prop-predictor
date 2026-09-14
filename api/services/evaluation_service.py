@@ -21,7 +21,7 @@ from api.schemas import (
 )
 from api.settings import AppSettings
 from data.nflverse_loader import load_weekly
-from eval.calibration_pipeline import STAT_SPECS
+from eval.calibration_pipeline import STAT_SPECS, spec_for
 from eval.parlay_builder import build_parlay_candidates, summarize_parlays
 from eval.prop_pricer import (
     PropCalibrator,
@@ -121,7 +121,15 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
     weekly = scoring_weekly(settings, request.season)
     models = _model_bundle(tuple(settings.default_train_years), request.season)
 
-    spec = STAT_SPECS[request.stat]
+    # Route to the model trained on this player's position: a back's receptions
+    # belong to the RB model, not to the receiver population.
+    player_rows = weekly[weekly["player_id"].astype(str) == request.player_id]
+    position = (
+        str(player_rows.sort_values(["season", "week"]).iloc[-1].get("position", ""))
+        if len(player_rows)
+        else ""
+    )
+    spec = spec_for(request.stat, position) or STAT_SPECS[request.stat]
     model = models[spec.model_name]
     future_row = None
     if settings.use_future_row:

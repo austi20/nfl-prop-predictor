@@ -56,10 +56,18 @@ _WEEKLY_COLS = [
     "air_yards_share",
     "wopr",
     "receiving_epa",
+    "rushing_yards",
+    "carries",
+    "rushing_tds",
 ]
 
-_TARGET_STATS = ["receptions", "receiving_yards", "receiving_tds"]
-_COUNT_STATS = {"receptions", "receiving_tds"}
+# Targets are a prop in their own right, and jet-sweep carries are the rest
+# of a receiver's box score.
+_TARGET_STATS = [
+    "receptions", "receiving_yards", "receiving_tds", "targets",
+    "rushing_yards", "carries", "rushing_tds",
+]
+_COUNT_STATS = {"receptions", "receiving_tds", "targets", "carries", "rushing_tds"}
 
 _MIN_MEAN = 1e-3
 # Cold-start (Week-1 / future season) shrinkage guards. See models/qb.py.
@@ -71,12 +79,20 @@ _DIST_TYPES: dict[str, str] = {
     "receptions": "poisson",
     "receiving_yards": "gamma",
     "receiving_tds": "poisson",
+    "targets": "poisson",
+    "rushing_yards": "tweedie",
+    "carries": "poisson",
+    "rushing_tds": "poisson",
 }
 
 _FAMILIES: dict[str, Any] = {
     "receptions": sm.families.Poisson(),
     "receiving_yards": sm.families.Gamma(sm.families.links.Log()),
     "receiving_tds": sm.families.Poisson(),
+    "targets": sm.families.Poisson(),
+    "rushing_yards": sm.families.Tweedie(var_power=1.5, link=sm.families.links.Log()),
+    "carries": sm.families.Poisson(),
+    "rushing_tds": sm.families.Poisson(),
 }
 
 
@@ -94,7 +110,7 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
     feature_cols: list[str] = []
     grp = df.groupby("player_id", group_keys=False)
 
-    for col in _TARGET_STATS + ["targets"]:
+    for col in _TARGET_STATS:
         fname = f"roll_{col}"
         df[fname] = grp[col].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
         feature_cols.append(fname)

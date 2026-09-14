@@ -57,10 +57,21 @@ _WEEKLY_COLS = [
     "passing_air_yards",
     "passing_epa",
     "dakota",
+    "rushing_yards",
+    "carries",
+    "rushing_tds",
 ]
 
-_TARGET_STATS = ["passing_yards", "passing_tds", "interceptions", "completions"]
-_COUNT_STATS = {"passing_tds", "interceptions", "completions"}
+# Every stat a quarterback accumulates. Rushing is not a rounding error for
+# the modern QB, and a prop can be written on any of these.
+_TARGET_STATS = [
+    "passing_yards", "passing_tds", "interceptions", "completions", "attempts",
+    "rushing_yards", "carries", "rushing_tds",
+]
+_COUNT_STATS = {
+    "passing_tds", "interceptions", "completions", "attempts",
+    "carries", "rushing_tds",
+}
 
 _MIN_MEAN = 1e-3
 # Cold-start (Week-1 / future season) shrinkage: cap the effective sample size so
@@ -76,6 +87,11 @@ _FAMILIES = {
     "passing_tds": sm.families.Gamma(sm.families.links.Log()),
     "interceptions": sm.families.Gamma(sm.families.links.Log()),
     "completions": sm.families.Gamma(sm.families.links.Log()),
+    "attempts": sm.families.Gamma(sm.families.links.Log()),
+    # Most QBs rush rarely and for little, so the zero mass matters.
+    "rushing_yards": sm.families.Tweedie(var_power=1.5, link=sm.families.links.Log()),
+    "carries": sm.families.Gamma(sm.families.links.Log()),
+    "rushing_tds": sm.families.Gamma(sm.families.links.Log()),
 }
 
 
@@ -100,7 +116,7 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
     feature_cols: list[str] = []
     grp = df.groupby("player_id", group_keys=False)
 
-    for col in _TARGET_STATS + ["attempts"]:
+    for col in _TARGET_STATS:
         fname = f"roll_{col}"
         df[fname] = grp[col].transform(lambda s: s.shift(1).rolling(4, min_periods=1).mean())
         feature_cols.append(fname)

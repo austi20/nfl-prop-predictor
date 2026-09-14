@@ -52,10 +52,19 @@ _WEEKLY_COLS = [
     "carries",
     "rushing_tds",
     "rushing_epa",
+    "receptions",
+    "receiving_yards",
+    "receiving_tds",
+    "targets",
 ]
 
-_TARGET_STATS = ["rushing_yards", "carries", "rushing_tds"]
-_COUNT_STATS = {"carries", "rushing_tds"}
+# A pass-catching back is half a receiver. Modelling only the rushing game
+# left the receiving half structurally inexpressible.
+_TARGET_STATS = [
+    "rushing_yards", "carries", "rushing_tds",
+    "receptions", "receiving_yards", "receiving_tds", "targets",
+]
+_COUNT_STATS = {"carries", "rushing_tds", "receptions", "receiving_tds", "targets"}
 
 _MIN_MEAN = 1e-3
 # Cold-start (Week-1 / future season) shrinkage guards. See models/qb.py.
@@ -67,12 +76,20 @@ _DIST_TYPE: dict[str, str] = {
     "rushing_yards": "tweedie",
     "carries": "poisson",
     "rushing_tds": "poisson",
+    "receptions": "poisson",
+    "receiving_yards": "gamma",
+    "receiving_tds": "poisson",
+    "targets": "poisson",
 }
 
 _FAMILIES: dict[str, Any] = {
     "rushing_yards": sm.families.Tweedie(var_power=1.5, link=sm.families.links.Log()),
     "carries": sm.families.Poisson(),
     "rushing_tds": sm.families.Poisson(),
+    "receptions": sm.families.Poisson(),
+    "receiving_yards": sm.families.Gamma(sm.families.links.Log()),
+    "receiving_tds": sm.families.Poisson(),
+    "targets": sm.families.Poisson(),
 }
 
 

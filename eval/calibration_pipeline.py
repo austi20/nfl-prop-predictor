@@ -50,6 +50,11 @@ OPTIONAL_PROP_COLUMNS = (
 )
 
 
+from models.qb import _TARGET_STATS as _QB_TARGETS  # noqa: E402
+from models.rb import _TARGET_STATS as _RB_TARGETS  # noqa: E402
+from models.wr_te import _TARGET_STATS as _WR_TE_TARGETS  # noqa: E402
+
+
 @dataclass(frozen=True)
 class StatSpec:
     stat: str
@@ -57,18 +62,51 @@ class StatSpec:
     actual_column: str
 
 
-STAT_SPECS: dict[str, StatSpec] = {
-    "passing_yards": StatSpec("passing_yards", "qb", "passing_yards"),
-    "passing_tds": StatSpec("passing_tds", "qb", "passing_tds"),
-    "interceptions": StatSpec("interceptions", "qb", "interceptions"),
-    "completions": StatSpec("completions", "qb", "completions"),
-    "rushing_yards": StatSpec("rushing_yards", "rb", "rushing_yards"),
-    "carries": StatSpec("carries", "rb", "carries"),
-    "rushing_tds": StatSpec("rushing_tds", "rb", "rushing_tds"),
-    "receptions": StatSpec("receptions", "wr_te", "receptions"),
-    "receiving_yards": StatSpec("receiving_yards", "wr_te", "receiving_yards"),
-    "receiving_tds": StatSpec("receiving_tds", "wr_te", "receiving_tds"),
+# Which model owns which stats. Several stats are shared -- a back and a receiver
+# both catch passes, a quarterback and a back both run -- so the owning model
+# depends on the player's position, not on the stat alone.
+_MODEL_STATS: dict[str, frozenset[str]] = {
+    "qb": frozenset(_QB_TARGETS),
+    "rb": frozenset(_RB_TARGETS),
+    "wr_te": frozenset(_WR_TE_TARGETS),
 }
+
+_MODEL_FOR_POSITION: dict[str, str] = {
+    "QB": "qb",
+    "RB": "rb",
+    "FB": "rb",
+    "HB": "rb",
+    "WR": "wr_te",
+    "TE": "wr_te",
+}
+
+# Where each stat belongs when the position is unknown. Stated explicitly rather
+# than derived from iteration order: the shared stats (rushing for a QB, receiving
+# for a back) would otherwise land wherever the loop happened to reach first.
+_DEFAULT_MODEL: dict[str, str] = {
+    "passing_yards": "qb", "passing_tds": "qb", "interceptions": "qb",
+    "completions": "qb", "attempts": "qb",
+    "rushing_yards": "rb", "carries": "rb", "rushing_tds": "rb",
+    "receptions": "wr_te", "receiving_yards": "wr_te",
+    "receiving_tds": "wr_te", "targets": "wr_te",
+}
+
+STAT_SPECS: dict[str, StatSpec] = {
+    stat: StatSpec(stat, model, stat) for stat, model in _DEFAULT_MODEL.items()
+}
+
+
+def spec_for(stat: str, position: str = "") -> StatSpec | None:
+    """Route a prop to the model that owns this player's position.
+
+    A running back's receptions belong to the RB model, which is trained on
+    running backs; sending them to the WR/TE model would score them against a
+    population they are not drawn from.
+    """
+    model = _MODEL_FOR_POSITION.get(str(position).upper().strip(), "")
+    if model and stat in _MODEL_STATS[model]:
+        return StatSpec(stat, model, stat)
+    return STAT_SPECS.get(stat)
 
 
 def _model_map() -> dict[str, QBModel | RBModel | WRTEModel]:
