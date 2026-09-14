@@ -102,3 +102,63 @@ def test_rookie_with_no_history_uses_rank_baseline_and_widens_spread(monkeypatch
     assert dist.mean == 95.0 * 1.15, "RB1 baseline scaled by first-round capital"
     veteran_cv = fs.default_calibration().yard_cv
     assert dist.std > veteran_cv * dist.mean, "rookie spread must be inflated"
+
+
+_BASELINES = {
+    ("RB", 1, "rushing_yards"): 95.0,
+    ("RB", 3, "rushing_yards"): 15.0,
+    ("RB", None, "rushing_yards"): 55.0,
+}
+
+
+def test_depth_chart_factor_fires_on_promotion_and_is_bounded():
+    calib = fs.default_calibration()
+    factor = fs._depth_chart_factor(
+        _BASELINES, position="RB", current=1, prior=3, calib=calib
+    )
+    assert factor.applied
+    assert factor.multiplier > 1.0
+    assert factor.multiplier <= calib.context_clamp_hi, "must stay bounded"
+    assert "RB3" in factor.reason and "RB1" in factor.reason
+
+
+def test_depth_chart_factor_neutral_when_rank_unchanged():
+    factor = fs._depth_chart_factor(
+        _BASELINES, position="RB", current=2, prior=2, calib=fs.default_calibration()
+    )
+    assert not factor.applied
+    assert factor.multiplier == 1.0
+
+
+def test_depth_chart_factor_neutral_when_rank_unknown():
+    calib = fs.default_calibration()
+    assert not fs._depth_chart_factor(
+        _BASELINES, position="RB", current=None, prior=3, calib=calib
+    ).applied
+    assert not fs._depth_chart_factor(
+        _BASELINES, position="RB", current=1, prior=None, calib=calib
+    ).applied
+
+
+def _factor(name, multiplier, applied):
+    return fs.FantasyContextFactor(
+        name=name, label=name, multiplier=multiplier, applied=applied,
+        affected_stats=["rushing_yards"], reason="x",
+    )
+
+
+def test_usage_trend_is_suppressed_when_depth_chart_fires():
+    resolved = fs._resolve_role_precedence(
+        [_factor("depth_chart", 1.2, True), _factor("usage_trend", 1.1, True)]
+    )
+    by_name = {f.name: f for f in resolved}
+    assert by_name["depth_chart"].applied
+    assert not by_name["usage_trend"].applied, "a role change must not be priced twice"
+    assert "superseded" in by_name["usage_trend"].reason
+
+
+def test_usage_trend_survives_when_depth_chart_is_neutral():
+    resolved = fs._resolve_role_precedence(
+        [_factor("depth_chart", 1.0, False), _factor("usage_trend", 1.1, True)]
+    )
+    assert {f.name: f.applied for f in resolved}["usage_trend"]

@@ -993,6 +993,97 @@ def _usage_factor(
     )
 
 
+def _depth_chart_factor(
+    baselines: dict[tuple[str, int | None, str], float],
+    *,
+    position: str,
+    current: int | None,
+    prior: int | None,
+    calib: FantasyCalibration,
+) -> FantasyContextFactor:
+    """The role change the trailing window cannot see.
+
+    `usage_trend` only detects a move that happened *within* a season. An
+    offseason promotion — the RB2 who is RB1 because the starter left — leaves
+    no such trace, and the trailing average keeps projecting the old job.
+
+    The magnitude is the empirical gap between the two depth buckets' own
+    baselines, damped, never a hand-picked constant. That is what stops a
+    promotion inventing a projection the data cannot support.
+    """
+    normalized = position.upper().strip()
+    positive = _positive_stats_for_position(normalized)
+    if current is None or prior is None:
+        return _neutral_factor(
+            "depth_chart", "Depth chart",
+            "Depth-chart rank unavailable for this player.", positive,
+        )
+
+    from data.depth_chart import bucket
+
+    cur_b, prior_b = bucket(current, normalized), bucket(prior, normalized)
+    if cur_b is None or prior_b is None or cur_b == prior_b:
+        return _neutral_factor(
+            "depth_chart", "Depth chart",
+            f"Still listed {normalized}{cur_b or current} — no role change.", positive,
+        )
+
+    # Compare the two roles on the position's headline volume stat.
+    stat = _TRAILING_STATS_BY_POSITION.get(normalized, ("",))[0]
+    new_base = _baseline(baselines, normalized, cur_b, stat)
+    old_base = _baseline(baselines, normalized, prior_b, stat)
+    if old_base <= 0 or new_base <= 0:
+        return _neutral_factor(
+            "depth_chart", "Depth chart",
+            "No baseline for one of the two depth slots.", positive,
+        )
+
+    ratio = new_base / old_base
+    multiplier = float(
+        np.clip(
+            1.0 + calib.depth_chart_damping * (ratio - 1.0),
+            calib.context_clamp_lo,
+            calib.context_clamp_hi,
+        )
+    )
+    direction = "Promoted" if cur_b < prior_b else "Demoted"
+    return FantasyContextFactor(
+        name="depth_chart",
+        label="Depth chart",
+        multiplier=round(multiplier, 4),
+        applied=abs(multiplier - 1.0) > 1e-3,
+        affected_stats=positive,
+        reason=(
+            f"{direction}: {normalized}{prior_b} -> {normalized}{cur_b}. "
+            f"The trailing average is still {normalized}{prior_b} usage."
+        ),
+    )
+
+
+def _resolve_role_precedence(
+    factors: list[FantasyContextFactor],
+) -> list[FantasyContextFactor]:
+    """A role change must be priced once. When the depth chart fires, the
+    within-season usage trend is describing the same move — stand it down."""
+    depth = next((f for f in factors if f.name == "depth_chart"), None)
+    if depth is None or not depth.applied:
+        return factors
+    out: list[FantasyContextFactor] = []
+    for factor in factors:
+        if factor.name == "usage_trend" and factor.applied:
+            out.append(
+                _neutral_factor(
+                    "usage_trend",
+                    "Usage trend",
+                    "Role move already priced by the depth chart — superseded.",
+                    list(factor.affected_stats),
+                )
+            )
+        else:
+            out.append(factor)
+    return out
+
+
 def _coach_factor(
     context: dict | None,
     coach_ppg: dict[str, tuple[float, int]],
@@ -1155,6 +1246,16 @@ def _context_factors(
 
         game_id = game_id_for(seasons, season=season, week=week, team=recent_team)
 
+    try:
+        from data.depth_chart import current_rank, prior_rank
+
+        _depth_ranks = (
+            current_rank(player_id, int(season), int(week), seasons),
+            prior_rank(player_id, int(season), int(week), seasons),
+        )
+    except Exception:  # noqa: BLE001 - depth data is an enhancement, never a gate
+        _depth_ranks = (None, None)
+
     factors: list[FantasyContextFactor] = [
         _qb_support_factor(
             weekly,
@@ -1194,6 +1295,13 @@ def _context_factors(
             position=position,
             seasons=seasons,
         ),
+        _depth_chart_factor(
+            _baselines_for(weekly),
+            position=position,
+            current=_depth_ranks[0],
+            prior=_depth_ranks[1],
+            calib=calib or default_calibration(),
+        ),
         _news_factor(team=recent_team, opponent_team=opponent_team, position=position),
         _coach_factor(context, coach_ppg, position=position),
         _rest_factor(context, position=position),
@@ -1207,7 +1315,7 @@ def _context_factors(
         )
     )
     factors.extend(_game_script_factors(context, position=position))
-    return factors
+    return _resolve_role_precedence(factors)
 
 
 # Injury "Out"/"Doubtful" are deliberate near-zeros; every other factor is a
