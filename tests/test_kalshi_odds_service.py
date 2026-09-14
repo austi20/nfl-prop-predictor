@@ -104,3 +104,34 @@ def test_nfl_game_lines_empty_on_unpriced(monkeypatch):
     monkeypatch.setattr(kos, "_client", lambda: _Empty())
     kos.nfl_game_lines.cache_clear()
     assert kos.nfl_game_lines(2026, 3) == {}
+
+
+def test_mid_yes_prob_reads_the_dollars_schema():
+    """Kalshi moved from integer-cent fields to decimal `_dollars` strings.
+    Reading only the old names made every quote look absent and silently
+    disabled the game-line override entirely."""
+    import api.services.kalshi_odds_service as ko
+
+    modern = {"yes_bid_dollars": "0.4000", "yes_ask_dollars": "0.4400"}
+    assert ko._mid_yes_prob(modern) == pytest.approx(0.42)
+
+
+def test_mid_yes_prob_still_reads_legacy_cents():
+    import api.services.kalshi_odds_service as ko
+
+    assert ko._mid_yes_prob({"yes_bid": 40, "yes_ask": 44}) == pytest.approx(0.42)
+
+
+def test_mid_yes_prob_derives_yes_from_a_no_only_book():
+    import api.services.kalshi_odds_service as ko
+
+    # no_bid 0.94 / no_ask 0.97 -> yes mid 1 - 0.955
+    assert ko._mid_yes_prob(
+        {"no_bid_dollars": "0.9400", "no_ask_dollars": "0.9700"}
+    ) == pytest.approx(0.045)
+
+
+def test_mid_yes_prob_none_when_nothing_is_quoted():
+    import api.services.kalshi_odds_service as ko
+
+    assert ko._mid_yes_prob({"floor_strike": 10.5}) is None

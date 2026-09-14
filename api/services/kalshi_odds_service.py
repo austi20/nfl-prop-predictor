@@ -38,12 +38,39 @@ def _client():
     )
 
 
+def _price(market: dict, key: str) -> float | None:
+    """A 0..1 price from either Kalshi schema.
+
+    The API now returns decimal strings under `<key>_dollars`; it previously
+    returned integer cents under `<key>`. Reading only the old field made every
+    quote look absent, which silently disabled the whole game-line override.
+    """
+    raw = market.get(f"{key}_dollars")
+    if raw not in (None, ""):
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            pass
+    cents = market.get(key)
+    if cents not in (None, ""):
+        try:
+            return float(cents) / 100.0
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
 def _mid_yes_prob(market: dict) -> float | None:
-    bid, ask = market.get("yes_bid"), market.get("yes_ask")
+    bid, ask = _price(market, "yes_bid"), _price(market, "yes_ask")
+    if bid is None and ask is None:
+        # A one-sided book still prices the yes leg through its no quotes.
+        no_bid, no_ask = _price(market, "no_bid"), _price(market, "no_ask")
+        if no_bid is not None and no_ask is not None:
+            return 1.0 - (no_bid + no_ask) / 2.0
     if bid is not None and ask is not None and (bid or ask):
-        return (float(bid) + float(ask)) / 200.0
-    last = market.get("last_price")
-    return float(last) / 100.0 if last else None
+        return (bid + ask) / 2.0
+    last = _price(market, "last_price")
+    return last if last else None
 
 
 def _invert_ladder(markets: list[dict]) -> float | None:
