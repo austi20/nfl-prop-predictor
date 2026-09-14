@@ -5,6 +5,61 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m5.1 - 2026-09-14
+
+**Automated calibration sweep extended to the role-context knobs; verify_fantasy_calibration.py now passes clean.**
+
+- **Extended the eval-cache sweep to `depth_chart_damping`, `role_change_retention`,
+  `rookie_cv_inflation`** - the same fully-automated approach already used for
+  `glm_blend_weight`/`yard_cv`/etc, applied to the three new v0.9-m5 knobs.
+  These affect the trailing-anchor mean/std and the depth-chart multiplier at
+  the moment they're computed, not as a value reapplied afterward, so the
+  2741-row eval cache gained a schema v2: each row now also carries
+  `n`/`rank_bucket`/`prior_bucket`/`rookie_multiplier`/`recent`/`base`/
+  `depth_chart_ratio`, and `_apply_calib_to_row` recomputes the blend from
+  those via `_form_weight_for`/`_depth_chart_ratio` (extracted from
+  `api/services/fantasy_service.py` - the same functions production uses, not
+  a second implementation). `load_eval_cache` rejects a stale schema loudly
+  instead of a deep `KeyError`.
+- **Fidelity guarded, not assumed** - `validate_new_knobs()` cross-checks the
+  analytic replay against the real production functions under 5 calibrations
+  that each push one knob far from default: max relative mean-FP error
+  0.00006 (n=40 rows x 5 perturbations). The sweep refuses to touch the new
+  knobs if this ever exceeds 1%.
+- **`market_clamp_lo/hi` deliberately NOT swept** - Kalshi only exposes
+  currently-open markets, so a finished 2025 season has zero historical quotes
+  to backtest against (confirmed empty `{}` fetches). Left at their v0.9-m5
+  defaults pending real quote capture on a live season.
+- **The gate that was failing by design now passes.** First automated run hit
+  MAE 4.67/|bias| 0.320/rank 0.635 - genuinely better than default on every
+  axis, but 0.002 over `verify_fantasy_calibration.py`'s own no-regression
+  bias bound. Making that bound a hard per-candidate constraint through every
+  search phase was tried and made things worse: phase 1's very first improving
+  move already has |bias|=0.46, so a strict gate rejects it and the whole
+  search sticks at unmodified defaults - bias-compliance only emerges as an
+  accumulated property of many axes moving together in coordinate descent. A
+  new Phase 4 instead searches only the local neighborhood of the already-good
+  optimum for a compliant point (falls back to the uncompromised phase-3
+  result if none exists). Final: **MAE 4.78->4.67, |bias| 0.32->0.30, rank
+  0.615->0.634, boom_err 0.042->0.022** - every metric better, none regressed.
+- **Net effect on the sweep's own answer**: it set `depth_chart_damping=0.0`
+  and `role_change_retention~0.96` (both near-off) and `rookie_cv_inflation=3.0`
+  (its upper search bound, on only 16/2741 rookie-debut rows - low confidence,
+  flagged). On the aggregate 2025 backtest the explicit depth-chart multiplier
+  and the extra trailing-discount don't pull their weight; the
+  rank-conditioned baseline (structural, not a tunable knob, always active)
+  is already doing the real work. Bhayshul Tuten (RB2->RB1, the case that
+  motivated all of this) still projects **10.99** on the live 2026 W2 board -
+  down from the untuned v0.9-m5 default's 11.37, but still a genuine ~14% lift
+  over the pre-role-context ~9.6, now carried by the rank-conditioned baseline
+  plus a small real `usage_trend` nudge rather than the explicit factor.
+- **`scripts/verify_role_context.py`** (anti-30x-runaway guard): 76 entries,
+  0 implausible, floor <= projection <= ceiling throughout - confirms the
+  re-tune didn't reopen the failure mode that got the original role-change
+  attempt rejected.
+
+---
+
 ## v0.9-m5 - 2026-09-13
 
 **Player role context: depth-chart rank, rookies, market anchoring, full stat coverage.**
