@@ -227,7 +227,13 @@ def build_calibration_rows(
         years = sorted(set(train_years + holdout_years))
         weekly = load_weekly(years)
 
-    actual_columns = sorted({spec.actual_column for spec in STAT_SPECS.values()})
+    # Take the outcome columns the frame actually carries. A weekly frame may
+    # predate a stat, or be a position-specific slice, and a prop on a stat with
+    # no outcome column is dropped downstream anyway — requiring every column up
+    # front turns that into a hard failure.
+    actual_columns = sorted(
+        {spec.actual_column for spec in STAT_SPECS.values()} & set(weekly.columns)
+    )
     outcome_cols = ["player_id", "season", "week", *actual_columns]
     weekly_outcomes = weekly[outcome_cols].copy()
     weekly_outcomes = weekly_outcomes.drop_duplicates(subset=["player_id", "season", "week"])

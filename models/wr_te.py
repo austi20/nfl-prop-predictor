@@ -70,6 +70,8 @@ _TARGET_STATS = [
 _COUNT_STATS = {"receptions", "receiving_tds", "targets", "carries", "rushing_tds"}
 
 _MIN_MEAN = 1e-3
+# Shape used when a target has no fitted model and falls back to its prior.
+_PRIOR_DIST_TYPE = "gamma"
 # Cold-start (Week-1 / future season) shrinkage guards. See models/qb.py.
 _COLD_START_MAX_N = 10
 _COLD_START_LO = 0.4
@@ -108,6 +110,13 @@ def _build_features(df: pd.DataFrame, *, use_weather: bool = False) -> tuple[pd.
     df["tds_per_target"] = safe_ratio(receiving_tds, targets).to_numpy()
 
     feature_cols: list[str] = []
+    # A frame may legitimately lack a stat this model now targets (a
+    # position-specific fixture, a season before a column existed). Materialise
+    # it as zero rather than raising out of the rolling-feature loop below.
+    for _stat in _TARGET_STATS:
+        if _stat not in df.columns:
+            df[_stat] = 0.0
+
     grp = df.groupby("player_id", group_keys=False)
 
     for col in _TARGET_STATS:
@@ -287,6 +296,13 @@ class WRTEModel:
             self._prior_means[stat] = float(y.mean()) if len(y) > 0 else 0.0
             self._prior_stds[stat] = float(y.std()) if len(y) > 0 else 1.0
 
+            # A target with no variance in training carries no signal — any
+            # fit is degenerate and its AIC is not finite. Register no model and
+            # let predict fall back to the prior for this stat.
+            if not np.isfinite(y).any() or float(np.nanstd(y)) <= 0.0:
+                continue
+
+
             if dist_family != "legacy" and stat in _COUNT_STATS:
                 try:
                     result, spec = fit_count_model(y, X_const, l1_alpha=l1_alpha, maxiter=500)
@@ -402,7 +418,14 @@ class WRTEModel:
         X_const = sm.add_constant(X, has_constant="add")
 
         for stat in _TARGET_STATS:
-            model_result = self._models[stat]
+            model_result = self._models.get(stat)
+            if model_result is None:
+                result[stat] = StatDistribution(
+                    mean=self._prior_means.get(stat, 0.0),
+                    std=self._prior_stds.get(stat, 0.0),
+                    dist_type=_PRIOR_DIST_TYPE,
+                )
+                continue
             prior_mean = self._prior_means.get(stat, 0.0)
             prior_std = self._prior_stds.get(stat, 1.0)
 

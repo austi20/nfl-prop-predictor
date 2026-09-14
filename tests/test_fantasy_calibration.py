@@ -87,9 +87,17 @@ def test_fit_glm_correction_covers_every_position():
     assert bias.get("WR/receiving_yards", 1.0) <= 1.05
 
 
-def test_default_calibration_reproduces_current_projection():
-    """A player projected under the built-in default must land where it did
-    before the calibration refactor (Bijan 2026 W1 was 17.9)."""
+def test_default_calibration_projects_an_elite_rb1_in_range():
+    """An elite RB1 under the built-in default must land in a plausible band.
+
+    This was pinned to [16.5, 19.0] to guard the calibration refactor, when the
+    board was compressed: every back regressed toward a position-wide baseline
+    that averaged in every RB3 in the league. Rank-conditioned baselines
+    (v0.9-m5) regress an RB1 toward the RB1 archetype instead, which lifts the
+    top of the board — Bijan 2026 W1 moved 17.9 -> 19.5. The 2025 backtest
+    confirms the change is an improvement rather than inflation: rank
+    correlation 0.574 -> 0.620 and MAE 5.12 -> 4.79 uncalibrated.
+    """
     from api.settings import AppSettings
     from api.services.fantasy_service import build_fantasy_summary
 
@@ -99,7 +107,7 @@ def test_default_calibration_reproduces_current_projection():
         recent_team="ATL", opponent_team="PIT", game_id="2026_01_ATL_PIT",
         scoring_mode="full_ppr",
     )
-    assert 16.5 <= fs.projected_points <= 19.0
+    assert 16.5 <= fs.projected_points <= 21.0
 
 
 def test_depth_chart_knobs_round_trip_through_dict():
