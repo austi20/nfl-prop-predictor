@@ -5,6 +5,127 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m5 - 2026-09-13
+
+**Player role context: depth-chart rank, rookies, market anchoring, full stat coverage.**
+
+- **Depth-chart rank is now a first-class input** (`data/depth_chart.py`, new;
+  `load_depth_charts`/`load_draft_picks` in `nflverse_loader`). The board
+  projected players into the role they *had*: the trailing anchor averaged a
+  player's last 8 games and regressed toward a **position-wide** baseline, both
+  of which encode the old job. `_usage_factor` could not help - it compares the
+  last 3 games to games 4-8 back, a *within-season* detector that sees nothing
+  in an offseason promotion. nflverse publishes two incompatible depth-chart
+  schemas (weekly `depth_team` through 2024, dated ESPN snapshots from 2025);
+  both normalize to `(gsis_id, season, week, team, position, rank, asof)`. The
+  modern feed has no week column, so snapshot timestamps are mapped onto NFL
+  weeks from the schedule and collapsed to the last snapshot per week - keeping
+  the in-season progression `prior_rank` needs rather than only the newest chart.
+- **Rank-conditioned baselines** - `_baselines_for` re-keys from
+  `(position, stat)` to `(position, depth bucket, stat)`. Buckets cap at 3+
+  because the legacy `depth_team` never exceeds 3. Lookup falls back exact
+  bucket -> position-wide -> 0.0, so a missing depth chart reproduces the old
+  board exactly. Measured separation: RB1 57.7 rush yds / RB2 27.1 / RB3 14.1;
+  WR1 52.6 / WR2 23.5 / WR3 14.1; QB1 238.4 / QB2 100.4.
+- **`_depth_chart_factor` + role-change retention** - the factor alone could not
+  close the gap: at 8 games of history the trailing average holds 67% of the
+  weight and the GLM (which reads the player's own rolling features) is equally
+  stale. `role_change_retention` discounts both by how far the slot moved; the
+  weight flows to the rank-conditioned baseline for the role now held. Unmoved
+  and unknown slots retain 1.0, so those paths are numerically unchanged.
+  Bhayshul Tuten (RB2 -> RB1) 9.63 -> 11.37 on the live 2026 W2 board.
+- **Rookies admitted to the board** (`data/draft.py`, new) - slate `_prescore`
+  returned `0.0` below three trailing games, so every rookie sorted last inside
+  the per-team depth cap and was cut. They now score off depth slot scaled by
+  draft capital, with `rookie_cv_inflation` widening the spread so the
+  floor/ceiling stays honest about the uncertainty.
+- **Market anchoring from the Kalshi coin-flip line**
+  (`api/services/market_lines.py`, new) - a traded market has already absorbed
+  the depth chart, the injury report and the beat news, so where a quote exists
+  it outranks anything inferred from history. Precedence is
+  **market > depth_chart > usage_trend**, each tier stripping the stats it
+  covers from the tier below so a role change is priced once. The market states
+  a probability, not a point estimate, so the scale factor is solved by
+  bisection until the model's own distribution family reproduces
+  `P(stat >= strike)` at the traded strike; the search runs inside
+  `[market_clamp_lo, market_clamp_hi]`, which bounds it by construction. Market
+  bypasses the +/-22% context clamp (it is a statement, not a nudge) and is
+  cached to disk with a 15-minute TTL because the slate fans out across spawn
+  workers. Live 2026 W1: model had Mahomes at 58% over 224.5 passing yards,
+  Kalshi at 48% -> x0.83, directly correcting the known QB over-projection.
+- **Full per-position stat coverage** - the GLMs modelled a subset of each
+  position's box score, so a pass-catching back's receiving and a rushing QB's
+  rushing were structurally inexpressible and a prop on them was rejected as
+  unsupported. QB gains attempts/rushing_yards/carries/rushing_tds; RB gains
+  receptions/receiving_yards/receiving_tds/targets; WR/TE gains targets and the
+  rushing trio. Supported prop stats 10 -> 12. Several stats are now shared, so
+  props route by the player's **position** (`spec_for`), not by stat alone: a
+  back's receptions go to the RB model, trained on backs, instead of the
+  receiver population. `_MODEL_STATS_BY_POSITION` now mirrors
+  `_TRAILING_STATS_BY_POSITION`, and `_predict_distributions` groups stats by
+  model (each `predict` returns everything that model owns, so the per-stat loop
+  was re-running the same model up to five times per player).
+- **Fixed: Kalshi game lines were silently dead** -
+  `kalshi_odds_service._mid_yes_prob` read the integer-cent `yes_bid`/`yes_ask`
+  fields; the API now returns decimal `*_dollars` strings. Measured on a live
+  active event, 0/45 rungs priced before, 45/45 after. `nfl_game_lines()` had
+  been returning nothing, so `_game_script_factors` fell back to schedule totals
+  on every request.
+- **Fixed: the backtest scored a different model than shipped** -
+  `_eval_row_task` did not pass depth ranks to
+  `_trailing_fantasy_distributions`. `MODEL_SPECS` also repeated the target-stat
+  lists, so a newly modelled stat would ship with no out-of-sample evidence; it
+  now derives them from the models.
+- **Validation** - holdout (train 2015-2024, score 2025) flat after the feature
+  matrix grew: passing_yards MAE 79.348 -> 79.583 with bias 24.815 -> 24.389,
+  RB rushing_yards MAE 22.696 -> 22.688, WR receiving_yards unchanged. Boundary
+  probes in `docs/breakpoints/p8_evaluation.md`: a 1000x baseline ratio clamps
+  to 1.22, so the 30x runaway that got the previous role-change attempt rejected
+  is structurally unreachable.
+
+---
+
+## v0.9-m4 - 2026-09-11
+
+**Fantasy start/sit tiers + unlimited board; live prop board and parlay slip from Kalshi.**
+
+- **Fantasy tiers** (`eval/fantasy_tiers.py`) — six start/sit groups (Start no
+  doubt / Feels good / W Flex / Shakey Flex / Avoid / Do Not Play) assigned per
+  ranked list against 12-team-league starter demand, with cut boundaries
+  snapped to the nearest real scoring gap rather than a hard rank line.
+  `_apply_tiers` in `fantasy_slate_service.py` runs it three ways per board:
+  cumulative (`overall_*`), per position (`position_*`), and over the RB/WR/TE
+  flex pool (`flex_*`); fields added to `FantasySlateEntry` +
+  `FantasySlateResponse.tier_order/tier_labels`.
+- **Whole-board fantasy list** — `GET /api/fantasy/slate/{season}?limit=` now
+  defaults to `limit=0` (every projectable starter, ~300 players, no more
+  65-player cap); a positive limit still applies the old per-position budget
+  slice. Sidecar prewarm switched to the whole board too. This-week page
+  (`this-week-page.tsx`) adds a player/team search box and a view switcher
+  (Cumulative / QB / RB / WR / TE / FLEX) that groups rows under tier headers
+  instead of one flat numbered list.
+- **Live prop board from Kalshi** (`api/services/prop_board_service.py`, new)
+  — Kalshi lists a ladder of yes/no strikes per player stat, not a single
+  line, so the board takes the rung trading nearest a coin flip (yes price in
+  a genuine two-sided book, spread <= 25c, mid within the near-even band) as
+  the de-facto line, matching the project's "closest to +/-0 tracks Vegas"
+  rule. Covers the 7 Kalshi series that map onto the GLM's stats (passing/
+  rushing/receiving yards, TDs, completions, carries, receptions). Each
+  surviving line runs through the existing `evaluate_prop` GLM path for
+  model probability, no-vig market probability, edge and EV. Cached per
+  (season, week, limit) behind a one-build lock, same pattern as the fantasy
+  slate; new `GET /api/props/board/{season}?week=&limit=` route and sidecar
+  prewarm (`AppSettings.prewarm_prop_board`).
+- **Props + parlay GUI, following NBABets v2's pattern** — `/props`
+  (`dashboard-page.tsx`) is now the live board (stat/side/min-edge filters,
+  search, sort by edge/EV/probability) instead of the old 2018-2024 replay
+  viewer; `PlayerCard` gets an "Add to slip" toggle. Parlay legs are picked
+  off the board into a runtime-only cart (`app-store.ts`), and
+  `/parlays` (`parlay-builder-page.tsx`) prices the selected legs via the
+  existing `/api/parlays/build`. Real order execution stays out of scope
+  (paper trading untouched); the old backtest dashboard content is not
+  ported forward — that history is still in `/api/slate` if needed later.
+
 ## v0.9.0 - 2026-09-10
 
 **Version-string unification + desktop packaging + doc refresh.** No behaviour change.
