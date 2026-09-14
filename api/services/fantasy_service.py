@@ -1235,17 +1235,23 @@ def _resolve_role_precedence(
                 applied=factor.applied, affected_stats=remaining, reason=factor.reason,
             )
         elif factor.name == "usage_trend" and factor.applied:
-            superseded_by = "the market" if priced else "the depth chart"
-            remaining = [
-                s
-                for s in factor.affected_stats
-                if s not in priced and not depth_fires
-            ]
+            # The depth chart covers every positive stat for the position, so when
+            # it fires it supersedes the usage trend outright rather than per-stat.
+            if depth_fires:
+                out.append(
+                    _neutral_factor(
+                        "usage_trend", "Usage trend",
+                        "Role move already priced by the depth chart — superseded.",
+                        list(factor.affected_stats),
+                    )
+                )
+                continue
+            remaining = [s for s in factor.affected_stats if s not in priced]
             if not remaining:
                 out.append(
                     _neutral_factor(
                         "usage_trend", "Usage trend",
-                        f"Role move already priced by {superseded_by} — superseded.",
+                        "Role move already priced by the market — superseded.",
                         list(factor.affected_stats),
                     )
                 )
