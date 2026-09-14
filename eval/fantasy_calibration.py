@@ -18,6 +18,7 @@ from pathlib import Path
 _FACTOR_NAMES = (
     "game_environment", "coaching", "opponent_matchup", "usage_trend", "rest",
     "news", "qb_support", "position_group_form", "weather", "game_script",
+    "depth_chart",
 )
 # The three collinear "this is a good offense" factors that get a joint sub-cap.
 OFFENSE_STACK_FACTORS = ("game_environment", "coaching", "qb_support")
@@ -36,6 +37,13 @@ class FantasyCalibration:
     context_clamp_lo: float = 0.78
     context_clamp_hi: float = 1.22
     offense_stack_cap: float = 1.30  # >= context_clamp_hi -> no-op at the default
+    # How much of the empirical bucket-to-bucket baseline gap a rank change is
+    # allowed to claim. 1.0 would assert the promoted player instantly becomes
+    # the average starter; half of it is the honest read.
+    depth_chart_damping: float = 0.5
+    # Rookies have no trailing sample, so their spread is a guess about a guess.
+    # Widen it rather than showing a falsely confident floor/ceiling.
+    rookie_cv_inflation: float = 1.35
     factor_strength: dict[str, float] = field(
         default_factory=lambda: {name: 1.0 for name in _FACTOR_NAMES}
     )
@@ -59,6 +67,8 @@ class FantasyCalibration:
             "context_clamp_lo": self.context_clamp_lo,
             "context_clamp_hi": self.context_clamp_hi,
             "offense_stack_cap": self.offense_stack_cap,
+            "depth_chart_damping": self.depth_chart_damping,
+            "rookie_cv_inflation": self.rookie_cv_inflation,
             "factor_strength": dict(self.factor_strength),
             "glm_bias": dict(self.glm_bias),
             "glm_var_inflation": dict(self.glm_var_inflation),
@@ -82,6 +92,8 @@ def _from_dict(d: dict) -> FantasyCalibration:
         context_clamp_lo=float(d.get("context_clamp_lo", base.context_clamp_lo)),
         context_clamp_hi=float(d.get("context_clamp_hi", base.context_clamp_hi)),
         offense_stack_cap=float(d.get("offense_stack_cap", base.offense_stack_cap)),
+        depth_chart_damping=float(d.get("depth_chart_damping", base.depth_chart_damping)),
+        rookie_cv_inflation=float(d.get("rookie_cv_inflation", base.rookie_cv_inflation)),
         factor_strength={k: float(v) for k, v in fs.items()},
         glm_bias={str(k): float(v) for k, v in (d.get("glm_bias") or {}).items()},
         glm_var_inflation={str(k): float(v) for k, v in (d.get("glm_var_inflation") or {}).items()},

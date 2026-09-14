@@ -100,3 +100,17 @@ def test_default_calibration_reproduces_current_projection():
         scoring_mode="full_ppr",
     )
     assert 16.5 <= fs.projected_points <= 19.0
+
+
+def test_depth_chart_knobs_round_trip_through_dict():
+    from eval.fantasy_calibration import _from_dict, default_calibration
+
+    base = default_calibration()
+    assert base.strength("depth_chart") == 1.0
+    assert base.rookie_cv_inflation == 1.35
+    assert base.depth_chart_damping == 0.5
+
+    restored = _from_dict(base.to_dict())
+    assert restored.rookie_cv_inflation == base.rookie_cv_inflation
+    assert restored.depth_chart_damping == base.depth_chart_damping
+    assert restored.strength("depth_chart") == 1.0

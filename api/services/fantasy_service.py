@@ -217,8 +217,80 @@ _YARD_CV, _COUNT_CV = 0.55, 0.85          # spread when the model gives no distr
 _BASELINE_CACHE: dict[tuple[int, ...], dict[tuple[str, str], float]] = {}
 
 
-def _baselines_for(weekly: pd.DataFrame) -> dict[tuple[str, str], float]:
-    """Per-(position, stat) league mean over the frame — the regression target.
+def _rank_lookup(weekly: pd.DataFrame) -> pd.DataFrame:
+    """Normalized depth ranks covering the seasons present in `weekly`."""
+    if "season" not in weekly.columns or not len(weekly):
+        return pd.DataFrame()
+    try:
+        from data.depth_chart import rank_frame
+
+        seasons = tuple(sorted(int(s) for s in weekly["season"].unique()))
+        return rank_frame(seasons)
+    except Exception:  # noqa: BLE001 - no depth data must degrade, not fail
+        return pd.DataFrame()
+
+
+def _seasons_span(weekly: pd.DataFrame, season: int | None = None) -> tuple[int, ...]:
+    """The season tuple the depth-chart and draft caches are keyed on."""
+    known = (
+        {int(s) for s in weekly["season"].unique()}
+        if "season" in weekly.columns and len(weekly)
+        else set()
+    )
+    if season is not None:
+        known.add(int(season))
+    return tuple(sorted(known))
+
+
+def _rookie_capital_multiplier(player_id: str, weekly: pd.DataFrame) -> float:
+    """Draft-capital scale for a player with no NFL history. A first-round back
+    and an undrafted one can sit in the same depth slot; this is what separates
+    them when there is no other evidence."""
+    try:
+        from data.draft import capital_multiplier, draft_capital
+
+        return capital_multiplier(draft_capital(player_id, _seasons_span(weekly)))
+    except Exception:  # noqa: BLE001
+        return 1.0
+
+
+def _current_depth_rank(
+    weekly: pd.DataFrame, player_id: str, season: int, week: int
+) -> int | None:
+    try:
+        from data.depth_chart import current_rank
+
+        return current_rank(
+            player_id, int(season), int(week), _seasons_span(weekly, season)
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _baseline(
+    baselines: dict[tuple[str, int | None, str], float],
+    position: str,
+    rank_bucket: int | None,
+    stat: str,
+) -> float:
+    """Exact bucket -> position-wide -> 0.0. The middle rung is the old behavior,
+    so a missing or unusable depth chart reproduces it exactly."""
+    if rank_bucket is not None:
+        hit = baselines.get((position, rank_bucket, stat))
+        if hit is not None:
+            return float(hit)
+    return float(baselines.get((position, None, stat), 0.0))
+
+
+def _baselines_for(weekly: pd.DataFrame) -> dict[tuple[str, int | None, str], float]:
+    """Per-(position, depth-rank bucket, stat) league mean over the frame — the
+    regression target. The ``None`` bucket is the position-wide mean every lookup
+    falls back to.
+
+    Conditioning on depth rank is what lets a promoted RB2 regress toward the RB1
+    archetype instead of the average of every RB in the league, which is itself
+    RB3-shaped.
+
     Cached on the frame's season span (the frame itself is content-stable per
     `scoring_weekly`'s own cache)."""
     if "season" not in weekly.columns or not len(weekly):
@@ -227,16 +299,49 @@ def _baselines_for(weekly: pd.DataFrame) -> dict[tuple[str, str], float]:
     cached = _BASELINE_CACHE.get(key)
     if cached is not None:
         return cached
-    out: dict[tuple[str, str], float] = {}
-    if "position" in weekly.columns:
-        pos_upper = weekly["position"].astype(str).str.upper()
-        for position, stats in _TRAILING_STATS_BY_POSITION.items():
-            rows = weekly[pos_upper == position]
-            for stat in stats:
-                out[(position, stat)] = (
-                    float(rows[stat].fillna(0.0).mean())
-                    if stat in rows.columns and len(rows) else 0.0
+
+    out: dict[tuple[str, int | None, str], float] = {}
+    if "position" not in weekly.columns:
+        _BASELINE_CACHE[key] = out
+        return out
+
+    frame = weekly.copy()
+    frame["_pos"] = frame["position"].astype(str).str.upper()
+
+    ranks = _rank_lookup(weekly)
+    if not ranks.empty and "player_id" in frame.columns:
+        from data.depth_chart import bucket
+
+        keyed = ranks.assign(
+            _bucket=[
+                bucket(r, p)
+                for r, p in zip(ranks["rank"], ranks["position"], strict=False)
+            ]
+        )[["gsis_id", "season", "week", "_bucket"]].dropna(subset=["_bucket"])
+        frame = frame.merge(
+            keyed,
+            left_on=["player_id", "season", "week"],
+            right_on=["gsis_id", "season", "week"],
+            how="left",
+        )
+    else:
+        frame["_bucket"] = None
+
+    for position, stats in _TRAILING_STATS_BY_POSITION.items():
+        rows = frame[frame["_pos"] == position]
+        ranked = rows.dropna(subset=["_bucket"]) if "_bucket" in rows.columns else rows.iloc[0:0]
+        for stat in stats:
+            if stat not in rows.columns:
+                out[(position, None, stat)] = 0.0
+                continue
+            out[(position, None, stat)] = (
+                float(rows[stat].fillna(0.0).mean()) if len(rows) else 0.0
+            )
+            for bucket_value, group in ranked.groupby("_bucket"):
+                out[(position, int(bucket_value), stat)] = float(
+                    group[stat].fillna(0.0).mean()
                 )
+
     _BASELINE_CACHE[key] = out
     return out
 
@@ -250,6 +355,7 @@ def _trailing_fantasy_distributions(
     position: str,
     model_distributions: dict[str, StatDistribution],
     calib: FantasyCalibration | None = None,
+    depth_rank: int | None = None,
 ) -> dict[str, StatDistribution]:
     calib = calib or default_calibration()
     normalized = position.upper().strip()
@@ -257,6 +363,9 @@ def _trailing_fantasy_distributions(
     if not stats:
         return dict(model_distributions)
 
+    from data.depth_chart import bucket as _rank_bucket
+
+    rank_bucket = _rank_bucket(depth_rank, normalized)
     baselines = _baselines_for(weekly)
     hist = _player_rows(weekly, player_id)
     if not hist.empty:
@@ -268,17 +377,24 @@ def _trailing_fantasy_distributions(
     n = len(hist)
     recency = np.linspace(0.5, 1.0, n) if n else np.array([])
     form_weight = n / (n + _TRAILING_REGRESS_GAMES) if n else 0.0
+    # No NFL history at all: the depth slot and what the draft said about him is
+    # the entire signal. `form_weight` is 0 here, so this scales the baseline.
+    rookie_multiplier = 1.0 if n else _rookie_capital_multiplier(player_id, weekly)
 
     distributions: dict[str, StatDistribution] = {}
     for stat in stats:
-        base = float(baselines.get((normalized, stat), 0.0))
+        base = _baseline(baselines, normalized, rank_bucket, stat)
         if n and stat in hist.columns:
             recent = float(np.average(hist[stat].fillna(0.0).to_numpy(dtype=float), weights=recency))
         else:
             recent = base
-        trailing = form_weight * recent + (1.0 - form_weight) * base
+        trailing = (
+            form_weight * recent + (1.0 - form_weight) * base if n else base * rookie_multiplier
+        )
 
         cv = calib.yard_cv if stat in _YARDAGE_STATS else calib.count_cv
+        if not n:
+            cv *= calib.rookie_cv_inflation
         cv_floor = cv * calib.cv_floor_frac  # 0 at default -> no change to today's spread
 
         model_dist = model_distributions.get(stat)
@@ -1159,6 +1275,7 @@ def build_fantasy_summary(
         position=normalized_position,
         recent_team=recent_team,
     )
+    depth_rank = _current_depth_rank(weekly, player_id, season, week)
     distributions = _trailing_fantasy_distributions(
         weekly,
         player_id=player_id,
@@ -1167,6 +1284,7 @@ def build_fantasy_summary(
         position=normalized_position,
         model_distributions=model_distributions,
         calib=calib,
+        depth_rank=depth_rank,
     )
     factors = _context_factors(
         settings,
