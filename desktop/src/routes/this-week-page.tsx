@@ -52,6 +52,22 @@ function RangeBar({ entry }: { entry: FantasySlateEntry }) {
   )
 }
 
+// Out and Doubtful mean no start; everything else is a risk flag.
+function InjuryBadge({ status }: { status: string }) {
+  const severe = status === 'Out' || status === 'Doubtful'
+  return (
+    <span
+      className={`shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase ${
+        severe
+          ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
+          : 'border-amber-400/40 bg-amber-400/10 text-amber-200'
+      }`}
+    >
+      {status}
+    </span>
+  )
+}
+
 function SlateRow({ rank, tier, entry }: { rank: number; tier: string; entry: FantasySlateEntry }) {
   return (
     <Link
@@ -73,6 +89,7 @@ function SlateRow({ rank, tier, entry }: { rank: number; tier: string; entry: Fa
           <span className="truncate text-sm font-semibold text-slate-50">
             {entry.player_name || entry.player_id}
           </span>
+          {entry.injury_status && <InjuryBadge status={entry.injury_status} />}
         </div>
         <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-slate-400">
           {entry.recent_team} vs {entry.opponent_team}
@@ -135,7 +152,8 @@ export function ThisWeekPage() {
     queryFn: ({ signal }) =>
       getFantasySlate({ season: SEASON, week: week!, scoring, limit: 0 }, signal),
     enabled: week != null,
-    staleTime: Infinity,
+    // Matches the sidecar cache age, so injury news shows on the next visit.
+    staleTime: 1000 * 60 * 30,
     gcTime: 1000 * 60 * 60,
     // The board is one slow build per key. Never fan out: no retry, no refetch
     // on focus/reconnect. While the sidecar reports not-ready, poll every 8s.

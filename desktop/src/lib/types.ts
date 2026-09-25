@@ -235,6 +235,8 @@ export type FantasySlateEntry = {
   ceiling_points: number
   boom_probability: number
   bust_probability: number
+  // This week's designation ('Out', 'Questionable', ...); empty when healthy.
+  injury_status: string
   overall_rank: number
   overall_tier: string
   position_rank: number

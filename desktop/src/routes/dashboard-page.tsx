@@ -51,7 +51,8 @@ export function DashboardPage() {
     queryKey: ['prop-board', SEASON, week],
     queryFn: ({ signal }) => getPropBoard({ season: SEASON, week: week!, limit: 200 }, signal),
     enabled: week != null,
-    staleTime: Infinity,
+    // Matches the sidecar cache age, so injury news shows on the next visit.
+    staleTime: 1000 * 60 * 30,
     gcTime: 1000 * 60 * 60,
     retry: false,
     refetchOnWindowFocus: false,
