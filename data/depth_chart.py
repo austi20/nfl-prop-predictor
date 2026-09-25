@@ -16,6 +16,7 @@ from functools import lru_cache
 
 import pandas as pd
 
+from data import injuries
 from data.nflverse_loader import load_depth_charts, load_schedules
 
 _SKILL_POSITIONS = ("QB", "RB", "WR", "TE")
@@ -199,6 +200,80 @@ def current_rank(gsis_id: str, season: int, week: int, seasons: tuple[int, ...])
         return None
     ordered = before.sort_values(["season", "week", "asof"], na_position="first")
     return int(ordered.iloc[-1]["rank"])
+
+
+@lru_cache(maxsize=4096)
+def effective_rank(gsis_id: str, season: int, week: int, seasons: tuple[int, ...]) -> int | None:
+    """`current_rank`, but stepping over teammates who are likely out this week.
+
+    The depth chart is republished daily and still lists an injured starter at
+    rank 1: it tracks the roster's pecking order, not who is available on Sunday.
+    So a backup thrust into the job keeps his backup rank, the trailing blend
+    regresses him toward the backup baseline, and the board prices a huge "under"
+    against a line the market has already moved for the promotion.
+
+    Re-ranking among the available players is enough to fix that, because the
+    rank is what selects the baseline a projection regresses toward, and
+    `role_change_retention` already discounts trailing form that was earned in a
+    different job.
+    """
+    rows = _player_rows(gsis_id, seasons)
+    if rows.empty:
+        return None
+    before = rows[
+        (rows["season"] < season) | ((rows["season"] == season) & (rows["week"] <= week))
+    ]
+    if before.empty:
+        return None
+    listing = before.sort_values(["season", "week", "asof"], na_position="first").iloc[-1]
+    own_rank = int(listing["rank"])
+
+    team, position = str(listing["team"]), str(listing["position"])
+    if not team or not position:
+        return own_rank
+
+    out = injuries.unavailable(int(season), int(week))
+    if not out:
+        return own_rank
+
+    frame = rank_frame(seasons)
+    group = frame[
+        (frame["season"] == int(listing["season"]))
+        & (frame["week"] == int(listing["week"]))
+        & (frame["team"] == team)
+        & (frame["position"] == position)
+    ]
+    if group.empty:
+        return own_rank
+    # One row per player, freshest listing, so a re-published chart does not
+    # count the same team-mate twice.
+    group = group.sort_values("asof", na_position="first").groupby("gsis_id", as_index=False).last()
+
+    ahead_out = sum(
+        1
+        for r in group.itertuples(index=False)
+        if int(r.rank) < own_rank and str(r.gsis_id) in out
+    )
+    if not ahead_out or str(gsis_id) in out:
+        return own_rank
+    return max(1, own_rank - ahead_out)
+
+
+@lru_cache(maxsize=4096)
+def game_ranks(gsis_id: str, seasons: tuple[int, ...]) -> dict[tuple[int, int], int]:
+    """{(season, week): depth rank} for every week this player was listed.
+
+    Lets a caller ask which role a particular trailing game was played in, rather
+    than only the modal role `prior_rank` reports.
+    """
+    rows = _player_rows(gsis_id, seasons)
+    if rows.empty:
+        return {}
+    played = rows[rows["week"] > 0]
+    return {
+        (int(r.season), int(r.week)): int(r.rank)
+        for r in played.itertuples(index=False)
+    }
 
 
 @lru_cache(maxsize=4096)
