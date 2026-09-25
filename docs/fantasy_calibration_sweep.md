@@ -731,3 +731,161 @@ final metrics:
 ```
 
 written -> models\fantasy_calibration.json
+
+## Sweep run
+GLM correction (bias): {"QB/interceptions": 0.6, "QB/passing_tds": 0.7646582742085342, "QB/passing_yards": 0.9756218366009062, "RB/rushing_tds": 0.6, "RB/rushing_yards": 0.8507475129809026, "TE/receiving_tds": 0.6, "TE/receiving_yards": 0.6, "TE/receptions": 0.8216926869350862, "WR/receiving_tds": 0.6, "WR/receiving_yards": 0.7257711627494392, "WR/receptions": 0.75642965204236}
+GLM correction (var_inflation): {"QB/interceptions": 1.11, "QB/passing_tds": 0.93, "QB/passing_yards": 1.06, "RB/rushing_tds": 1.11, "RB/rushing_yards": 1.3, "TE/receiving_tds": 0.93, "TE/receiving_yards": 1.23, "TE/receptions": 1.3, "WR/receiving_tds": 0.93, "WR/receiving_yards": 1.24, "WR/receptions": 1.08}
+gate_bias_max (verify_fantasy_calibration.py's own bound): 0.431463
+post-correction baseline: obj=2.741 mae=4.68 |bias|=0.56 boom_err=0.042 bust_err=0.077 rank=0.622 realism=0.00
+    QB:mae6.4/bias+0.8/max27/boom0.12v0.14 | RB:mae4.6/bias+0.2/max25/boom0.06v0.08 | WR:mae4.1/bias-0.7/max20/boom0.03v0.07 | TE:mae3.7/bias-0.5/max17/boom0.05v0.11
+- validate_new_knobs (analytic vs real trailing+depth_chart): max relative mean-FP error = 0.00006 (rookie_cv_high row=2352 (WR), n=40 rows x 5 perturbations)
+
+### Phase 1 — coarse grid
+phase-1 best (bw=0.15 yc=1.0 cap=1.25 cvf=0.7): obj=2.684 mae=4.69 |bias|=0.56 boom_err=0.038 bust_err=0.073 rank=0.622 realism=0.00
+    QB:mae6.4/bias+1.0/max28/boom0.15v0.14 | RB:mae4.6/bias+0.4/max26/boom0.07v0.08 | WR:mae4.1/bias-0.6/max21/boom0.04v0.07 | TE:mae3.7/bias-0.3/max19/boom0.06v0.11
+
+### Phase 1b — coarse grid on role-context knobs
+phase-1b best (dcd=0.0 rcr=0.65 rci=3.0): obj=2.369 mae=4.66 |bias|=0.44 boom_err=0.039 bust_err=0.069 rank=0.635 realism=0.00
+    QB:mae6.3/bias+0.7/max28/boom0.14v0.14 | RB:mae4.6/bias+0.3/max26/boom0.07v0.08 | WR:mae4.1/bias-0.4/max21/boom0.04v0.07 | TE:mae3.7/bias-0.4/max19/boom0.06v0.11
+
+### Phase 2 — coordinate descent
+pass 1: obj=2.254 mae=4.66 |bias|=0.43 boom_err=0.030 bust_err=0.067 rank=0.636 realism=0.00
+    QB:mae6.3/bias+0.7/max28/boom0.15v0.14 | RB:mae4.6/bias+0.3/max26/boom0.07v0.08 | WR:mae4.1/bias-0.4/max21/boom0.05v0.07 | TE:mae3.7/bias-0.3/max19/boom0.07v0.11
+pass 2: obj=2.230 mae=4.66 |bias|=0.42 boom_err=0.028 bust_err=0.067 rank=0.636 realism=0.00
+    QB:mae6.3/bias+0.8/max28/boom0.15v0.14 | RB:mae4.6/bias+0.3/max26/boom0.07v0.08 | WR:mae4.1/bias-0.3/max22/boom0.05v0.07 | TE:mae3.7/bias-0.3/max19/boom0.07v0.11
+pass 3: obj=2.210 mae=4.65 |bias|=0.42 boom_err=0.028 bust_err=0.065 rank=0.636 realism=0.00
+    QB:mae6.3/bias+0.8/max28/boom0.15v0.14 | RB:mae4.6/bias+0.3/max27/boom0.07v0.08 | WR:mae4.1/bias-0.3/max22/boom0.05v0.07 | TE:mae3.7/bias-0.3/max20/boom0.07v0.11
+pass 4: obj=2.204 mae=4.65 |bias|=0.41 boom_err=0.029 bust_err=0.065 rank=0.636 realism=0.00
+    QB:mae6.3/bias+0.7/max28/boom0.15v0.14 | RB:mae4.6/bias+0.3/max27/boom0.07v0.08 | WR:mae4.1/bias-0.4/max22/boom0.05v0.07 | TE:mae3.7/bias-0.3/max20/boom0.07v0.11
+
+### Phase 3 — random local polish
+phase-3 best: obj=2.184 mae=4.66 |bias|=0.40 boom_err=0.026 bust_err=0.067 rank=0.636 realism=0.00
+    QB:mae6.3/bias+0.8/max28/boom0.15v0.14 | RB:mae4.6/bias+0.3/max27/boom0.07v0.08 | WR:mae4.1/bias-0.3/max22/boom0.05v0.07 | TE:mae3.7/bias-0.2/max20/boom0.07v0.11
+
+## FINAL
+```json
+{
+  "context_clamp_hi": 1.2597304347237888,
+  "context_clamp_lo": 0.8108835000583887,
+  "count_cv": 1.3,
+  "cv_floor_frac": 0.8521541335360823,
+  "depth_chart_damping": 0.0,
+  "factor_strength": {
+    "coaching": 0.7872268805754122,
+    "depth_chart": 0.8991241884594573,
+    "game_environment": 1.0646771439168317,
+    "game_script": 0.8179856274010556,
+    "market": 1.1505418111431491,
+    "news": 0.7246628183789607,
+    "opponent_matchup": 1.071103411500277,
+    "position_group_form": 0.8925135444458586,
+    "qb_support": 1.4971685377017143,
+    "rest": 0.9392529630619791,
+    "usage_trend": 0.6886953621359637,
+    "weather": 1.0179164361012893
+  },
+  "glm_bias": {
+    "QB/interceptions": 0.6,
+    "QB/passing_tds": 0.7646582742085342,
+    "QB/passing_yards": 0.9756218366009062,
+    "RB/rushing_tds": 0.6,
+    "RB/rushing_yards": 0.8507475129809026,
+    "TE/receiving_tds": 0.6,
+    "TE/receiving_yards": 0.6,
+    "TE/receptions": 0.8216926869350862,
+    "WR/receiving_tds": 0.6,
+    "WR/receiving_yards": 0.7257711627494392,
+    "WR/receptions": 0.75642965204236
+  },
+  "glm_blend_weight": 0.07715949622952932,
+  "glm_var_inflation": {
+    "QB/interceptions": 1.11,
+    "QB/passing_tds": 0.93,
+    "QB/passing_yards": 1.06,
+    "RB/rushing_tds": 1.11,
+    "RB/rushing_yards": 1.3,
+    "TE/receiving_tds": 0.93,
+    "TE/receiving_yards": 1.23,
+    "TE/receptions": 1.3,
+    "WR/receiving_tds": 0.93,
+    "WR/receiving_yards": 1.24,
+    "WR/receptions": 1.08
+  },
+  "market_clamp_hi": 1.6,
+  "market_clamp_lo": 0.6,
+  "offense_stack_cap": 1.28,
+  "role_change_retention": 0.8412909741621974,
+  "rookie_cv_inflation": 2.969928418038401,
+  "stat_mean_hi": 1.5862317294546404,
+  "stat_mean_lo": 0.3,
+  "yard_cv": 0.9752000348938357
+}
+```
+final metrics:
+```json
+{
+  "objective": 2.1839284866889628,
+  "mae": 4.657109488723508,
+  "bias_abs": 0.4033544659456604,
+  "boom_calib_err": 0.025629829485479025,
+  "bust_calib_err": 0.06685677320039753,
+  "realism_penalty": 0.0,
+  "rank_corr": 0.6363509204066746,
+  "n": 2741,
+  "per_position": {
+    "QB": {
+      "n": 641,
+      "mae": 6.3044647027846015,
+      "bias": 0.7872403706689691,
+      "boom_calib_err": 0.02440566063708852,
+      "bust_calib_err": 0.10469867584638669,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.5167463599460143,
+      "max_proj": 27.887491055181428,
+      "pred_boom_rate": 0.15039519391881692,
+      "actual_boom_rate": 0.1372854914196568
+    },
+    "RB": {
+      "n": 700,
+      "mae": 4.555216077382154,
+      "bias": 0.3201189914401578,
+      "boom_calib_err": 0.020708084551327877,
+      "bust_calib_err": 0.040444430235633856,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.7351571181257545,
+      "max_proj": 26.773253000434497,
+      "pred_boom_rate": 0.07360727568358935,
+      "actual_boom_rate": 0.08428571428571428
+    },
+    "WR": {
+      "n": 700,
+      "mae": 4.1095999418977565,
+      "bias": -0.2851063380820539,
+      "boom_calib_err": 0.018100547139852433,
+      "bust_calib_err": 0.08795548787591352,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.6571900157621853,
+      "max_proj": 21.762954876656636,
+      "pred_boom_rate": 0.05047088143157614,
+      "actual_boom_rate": 0.06857142857142857
+    },
+    "TE": {
+      "n": 700,
+      "mae": 3.659157232829522,
+      "bias": -0.22095216359146086,
+      "boom_calib_err": 0.039305025613647265,
+      "bust_calib_err": 0.034328498843656,
+      "realism_penalty": 0.0,
+      "rank_corr": 0.6363101877927442,
+      "max_proj": 19.85984776209922,
+      "pred_boom_rate": 0.07236230761502113,
+      "actual_boom_rate": 0.10857142857142857
+    }
+  }
+}
+```
+
+written -> models\fantasy_calibration.json
+
+> 2026-09-17 re-run after the v0.9-m6 shrinkage and prop changes. Not adopted:
+> `models/fantasy_calibration.json` was restored to the v0.9-m5.1 values above.

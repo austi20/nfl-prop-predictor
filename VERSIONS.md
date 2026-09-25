@@ -5,6 +5,82 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m6 - 2026-09-17
+
+**The prop board was a wall of unders. Two causes, both fixed: a shrinkage ramp that collapsed every early-season projection onto the league mean, and a prop path that ignored a player's own recent form entirely.**
+
+- **Roster rows were duplicated once Week-2 rosters landed.** nflverse publishes
+  one roster row per player per week. `get_roster` never filtered, so every
+  player appeared twice and `_resolve_player` -- which treats 2+ matches as
+  ambiguous -- returned `None` for *every* player on the board. Week 2 matched
+  102 Kalshi events, found 363 coin-flip rungs and resolved 0 players. The same
+  resolver backs `market_lines.py`, so the fantasy board's Kalshi anchor had
+  silently been returning 0 quotes as well (now 406). `get_roster` now keeps the
+  newest week, which is both the de-duplicated and the current view.
+- **The app was pinned to Week 1.** Both desktop pages and both sidecar prewarms
+  hardcoded week 1, whose Kalshi markets have settled, so even a correct board
+  would have been empty. `current_week()` now derives it from the schedule (a
+  week holds through its own last gameday) and is exposed on
+  `GET /api/schedule/{season}`.
+- **Shrinkage: `n/(n+k)` replaced by a per-stat constant weight.** `n` counted
+  *same-season* games, so a Week-2 projection kept a third of the
+  player-specific signal and two thirds league average -- Josh Allen's trailing
+  288 passing yards came out at 207.7 against a league prior of 205.4. Measuring
+  the weight that actually minimises squared error shows it is near flat in `n`
+  (the GLM's rolling features already span season boundaries) but varies a lot
+  by stat. Weights are now fitted by least squares per stat
+  (`models/shrinkage_weights.json`, `models/shrinkage.py`). Leave-one-season-out
+  over 2018-2025 (339,830 walk-forward rows), prop-board stats: nMAE
+  0.7484 -> 0.7192, calibration-slope error 0.3807 -> 0.1075, top-form bias in
+  weeks <= 5 20.7% -> 12.1%.
+- **The prop board now prices off the fantasy projection, not the raw GLM.**
+  Least squares says a player's own trailing form deserves 50-90% of the weight
+  on most box-score stats; the fantasy path gives it ~65%, the prop path gave it
+  0%. `evaluate_prop` now uses `fantasy_service.prop_stat_projection` -- same
+  trailing blend, depth-chart role context and matchup factors -- pricing a line
+  `L` as `prob_over(L / multiplier)`, exact for any family. The Kalshi market
+  anchor is deliberately excluded: grading edge against a quote the projection
+  was fitted to would price every market at no edge. `predict()` is untouched,
+  so the locked fantasy calibration stays valid. Against the live 2026 Week-2
+  board: overall gap to market -0.066 -> -0.018, mean |gap| 0.155 -> 0.097,
+  share called under 63.5% -> 52.2%. Board median edge 0.226 -> 0.130.
+- **`attempts`/`completions`/`carries`/`targets` score no fantasy points** and so
+  were absent from the trailing blend, which left them pricing off the raw GLM
+  and dominating the board's largest edges. Covered via
+  `_PROP_ONLY_STATS_BY_POSITION`, asked for only by `prop_stat_projection`; the
+  fantasy board's own stat list is unchanged. `carries` gap to market
+  -0.147 -> -0.078.
+- **Backups promoted by an injury are projected in the starter's role.** The
+  depth chart lists the roster's pecking order, not who plays Sunday, so Drew
+  Lock stayed QB2 behind a Sam Darnold who had not practised and the board
+  called a huge under against a line the market had already moved. New
+  `data/injuries.py` turns each injury report row into P(misses the game),
+  measured on 2022-2025 skill position rows (`scripts/diag/availability_model.py`):
+  Out 1.00, Doubtful 0.995, Questionable 0.458, and inside "did not practise" a
+  real injury 0.591 against a veteran rest day 0.132. `depth_chart.effective_rank`
+  steps over teammates at or above 0.5, so a Questionable starter keeps his
+  slot. When a player's slot has moved, `_games_in_role` narrows the trailing
+  window to games played in the new role (at least 2, else the full window),
+  so Lock's four 2024 starts describe him rather than three 2025 mop up
+  appearances.
+- **The installed app now reads the fitted weights.** `shrinkage.py` first
+  looked next to its own module, which inside the frozen sidecar is PyInstaller's
+  temp dir, so the desktop build silently used the flat 0.81 fallback for every
+  stat. It now resolves through `bundle_root()` and `tauri.conf.json` ships
+  `models/shrinkage_weights.json` beside the calibration file. App version 0.9.2.
+- **Tests no longer run the prewarms.** `api.server` builds the app at import,
+  starting real Kalshi scans and model fits on background threads; the
+  prop-board one holds a process-wide lock while it runs. Harmless while it
+  prewarmed a settled week, a race once it pointed at the live one. Disabled in
+  `tests/conftest.py`; suite time 25:40 -> 11:35.
+- **Not fixed, deliberately.** `carries` remains the worst stat against market.
+  Whether the residual is genuine edge, thin week-2 liquidity or model bias is
+  not decidable without outcomes -- do not trade the board on the assumption it
+  is edge. Full analysis, including seven hypotheses tested and rejected, in
+  `docs/diag/shrinkage_tuning.md`.
+
+---
+
 ## v0.9-m5.1 - 2026-09-14
 
 **Automated calibration sweep extended to the role-context knobs; verify_fantasy_calibration.py now passes clean.**
