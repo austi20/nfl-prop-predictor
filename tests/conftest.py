@@ -13,6 +13,7 @@ import pytest
 # first AppSettings is constructed, which conftest import order guarantees.
 os.environ.setdefault("NFL_APP_PREWARM_PROP_BOARD", "0")
 os.environ.setdefault("NFL_APP_PREWARM_FANTASY_SLATE", "0")
+os.environ.setdefault("NFL_APP_REFRESH_FEEDS_ON_START", "0")
 
 
 @pytest.fixture

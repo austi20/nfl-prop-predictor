@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import uuid
 
 from fastapi import FastAPI, Request
@@ -20,6 +21,9 @@ from api.routes.players import router as players_router
 from api.routes.props import router as props_router
 from api.routes.slate import router as slate_router
 from api.services.execution_service import ExecutionService
+from api.services.fantasy_slate_service import prewarm_current_slate
+from api.services.nflverse_service import refresh_live_feeds
+from api.services.prop_board_service import prewarm_current_board
 from api.settings import AppSettings, get_settings
 from api.trading.ledger import InMemoryPortfolioLedger
 from api.trading.mapper import PickToIntentMapper
@@ -33,6 +37,17 @@ def _error_body(code: str, message: str) -> dict:
         "data": None,
         "error": {"code": code, "message": message, "request_id": str(uuid.uuid4())},
     }
+
+
+def _start_background_work(app_settings: AppSettings) -> None:
+    if app_settings.refresh_feeds_on_start:
+        refresh_live_feeds(app_settings)
+    # The fantasy board is the landing view and the prop board a Kalshi scan
+    # plus a model call per line; both run in parallel after the refresh.
+    if app_settings.prewarm_fantasy_slate:
+        threading.Thread(target=prewarm_current_slate, args=(app_settings,), daemon=True).start()
+    if app_settings.prewarm_prop_board:
+        threading.Thread(target=prewarm_current_board, args=(app_settings,), daemon=True).start()
 
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
@@ -116,28 +131,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     setup_telemetry(app, app_settings.docs_dir / "telemetry")
 
-    # The Week-1 fantasy board is the app's landing view and its first build runs
-    # a simulation per player (minutes). Warm it off-thread so the sidecar is
-    # ready by the time the user navigates.
-    if app_settings.prewarm_fantasy_slate:
-        import threading
-
-        from api.services.fantasy_slate_service import prewarm_current_slate
-
-        threading.Thread(
-            target=prewarm_current_slate, args=(app_settings,), daemon=True
-        ).start()
-
-    # Same reasoning for the Week-1 prop board: a Kalshi market scan plus a
-    # model call per surviving line, so warm it off-thread too.
-    if app_settings.prewarm_prop_board:
-        import threading
-
-        from api.services.prop_board_service import prewarm_current_board
-
-        threading.Thread(
-            target=prewarm_current_board, args=(app_settings,), daemon=True
-        ).start()
+    # Fresh feeds first, then warm the landing boards off them. One thread so
+    # the prewarms never read a cache the refresh is about to replace.
+    threading.Thread(target=_start_background_work, args=(app_settings,), daemon=True).start()
 
     return app
 

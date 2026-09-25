@@ -202,7 +202,7 @@ def current_rank(gsis_id: str, season: int, week: int, seasons: tuple[int, ...])
     return int(ordered.iloc[-1]["rank"])
 
 
-@lru_cache(maxsize=4096)
+# Not cached: the injury report it reads changes through the week.
 def effective_rank(gsis_id: str, season: int, week: int, seasons: tuple[int, ...]) -> int | None:
     """`current_rank`, but stepping over teammates who are likely out this week.
 

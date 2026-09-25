@@ -22,9 +22,7 @@ def sea_qbs(monkeypatch):
          "position": "QB", "rank": 3, "asof": pd.Timestamp("2026-09-17", tz="UTC")},
     ]
     monkeypatch.setattr(depth_chart, "rank_frame", lambda seasons: _frame(rows))
-    depth_chart.effective_rank.cache_clear()
     yield
-    depth_chart.effective_rank.cache_clear()
 
 
 def _patch_out(monkeypatch, ids: set[str]):

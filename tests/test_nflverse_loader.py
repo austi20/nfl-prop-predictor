@@ -338,6 +338,56 @@ class TestCacheStaleness:
         mock2.assert_called_once()
 
 
+class TestRefreshOnStart:
+    """The sidecar refetches every live season feed once per app run."""
+
+    _fake = _make_df(gsis_id="P1", season=2026, week=3)
+
+    def test_live_file_older_than_the_app_start_is_refetched(self, tmp_cache, monkeypatch):
+        import data.nflverse_loader as mod
+
+        monkeypatch.setattr(mod, "live_season", lambda today=None: 2026)
+        with patch("nfl_data_py.import_injuries", return_value=self._fake.copy()):
+            load_injuries([2026])
+        monkeypatch.setattr(mod, "_REFRESH_CUTOFF", time.time() + 1)
+
+        with patch("nfl_data_py.import_injuries", return_value=self._fake.copy()) as mock:
+            load_injuries([2026])
+        mock.assert_called_once()
+
+    def test_past_season_file_is_not_refetched(self, tmp_cache, monkeypatch):
+        import data.nflverse_loader as mod
+
+        monkeypatch.setattr(mod, "live_season", lambda today=None: 2026)
+        with patch("nfl_data_py.import_injuries", return_value=self._fake.copy()):
+            load_injuries([2024])
+        monkeypatch.setattr(mod, "_REFRESH_CUTOFF", time.time() + 1)
+
+        with patch("nfl_data_py.import_injuries", return_value=self._fake.copy()) as mock:
+            load_injuries([2024])
+        mock.assert_not_called()
+
+    def test_failed_refresh_falls_back_to_the_stale_file(self, tmp_cache, monkeypatch):
+        import data.nflverse_loader as mod
+
+        monkeypatch.setattr(mod, "live_season", lambda today=None: 2026)
+        with patch("nfl_data_py.import_injuries", return_value=self._fake.copy()):
+            load_injuries([2026])
+        monkeypatch.setattr(mod, "_REFRESH_CUTOFF", time.time() + 1)
+
+        with patch("nfl_data_py.import_injuries", side_effect=OSError("offline")):
+            df = load_injuries([2026])
+        assert list(df["gsis_id"]) == ["P1"]
+
+    def test_live_season_rolls_over_in_march(self):
+        from datetime import date
+
+        from data.nflverse_loader import live_season
+
+        assert live_season(date(2027, 2, 1)) == 2026
+        assert live_season(date(2026, 9, 25)) == 2026
+
+
 # ---------------------------------------------------------------------------
 # Constants tests
 # ---------------------------------------------------------------------------

@@ -21,6 +21,7 @@ import logging
 import multiprocessing
 import os
 import threading
+import time
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -38,7 +39,8 @@ from api.services.fantasy_service import (
 )
 from api.services.nflverse_service import current_week, get_roster, get_schedule
 from api.settings import AppSettings
-from data.depth_chart import bucket, current_rank
+from data import injuries
+from data.depth_chart import bucket, effective_rank
 from data.draft import capital_multiplier as _draft_capital_multiplier
 from data.draft import draft_capital
 from eval.fantasy_points import SCORING_PROFILES, ScoringMode
@@ -62,7 +64,16 @@ _BUDGET_SHARE: dict[str, float] = {"QB": 0.18, "RB": 0.33, "WR": 0.37, "TE": 0.1
 # (rookies, deep backups). Better to omit them than show a fabricated number.
 _MIN_TRAILING_GAMES = 3
 
-_SLATE_CACHE: dict[tuple[int, int, str, int, tuple[str, ...]], FantasySlateResponse] = {}
+_SLATE_CACHE: dict[tuple[int, int, str, int, tuple[str, ...]], tuple[float, FantasySlateResponse]] = {}
+# Injury designations land through the day; a board older than this rebuilds.
+_SLATE_MAX_AGE_SECONDS = 30 * 60
+
+
+def _cached_slate(key: tuple) -> FantasySlateResponse | None:
+    entry = _SLATE_CACHE.get(key)
+    if entry is None or time.time() - entry[0] > _SLATE_MAX_AGE_SECONDS:
+        return None
+    return entry[1]
 
 # One slate build at a time per process. Each build is minutes of GIL-bound
 # NumPy/statsmodels work; letting N requests (the startup prewarm + every GUI
@@ -178,6 +189,7 @@ def _project_player(task: _ProjTask) -> dict | None:
         )
     except Exception:  # noqa: BLE001
         return None
+    status, _note = injuries.player_statuses(season, week).get(pid, ("not_reported", ""))
     return {
         "player_id": pid,
         "player_name": name,
@@ -191,6 +203,7 @@ def _project_player(task: _ProjTask) -> dict | None:
         "ceiling_points": summary.p90_points,
         "boom_probability": summary.boom_probability,
         "bust_probability": summary.bust_probability,
+        "injury_status": "" if status == "not_reported" else injuries.label(status),
     }
 
 
@@ -225,14 +238,14 @@ def build_fantasy_slate(
     positions = tuple(p.upper().strip() for p in positions if p.strip())
     cache_key = (season, week, scoring_mode, limit, positions)
 
-    cached = _SLATE_CACHE.get(cache_key)
+    cached = _cached_slate(cache_key)
     if cached is not None:
         return cached
 
     if not _SLATE_LOCK.acquire(blocking=wait):
         raise SlateBuilding
     try:
-        cached = _SLATE_CACHE.get(cache_key)  # the prior holder may have built this key
+        cached = _cached_slate(cache_key)  # the prior holder may have built this key
         if cached is not None:
             return cached
         response = _compute_slate(
@@ -243,7 +256,7 @@ def build_fantasy_slate(
             limit=limit,
             positions=positions,
         )
-        _SLATE_CACHE[cache_key] = response
+        _SLATE_CACHE[cache_key] = (time.time(), response)
         return response
     finally:
         _SLATE_LOCK.release()
@@ -282,6 +295,9 @@ def _compute_slate(
 
     Candidate = tuple[float, str, str, str, str, str, str, str]
     by_group: dict[tuple[str, str], list[Candidate]] = {}
+    # Out / doubtful players: shown flagged, but never hold a starter's slot.
+    sidelined: list[tuple[float, Candidate]] = []
+    statuses = injuries.player_statuses(season, week)
     seen: set[str] = set()
     for team in matchup:
         try:
@@ -296,7 +312,7 @@ def _compute_slate(
                 continue
             seen.add(pid)
             try:
-                rank = current_rank(pid, season, week, rank_seasons)
+                rank = effective_rank(pid, season, week, rank_seasons)
                 capital = _draft_capital_multiplier(draft_capital(pid, rank_seasons))
             except Exception:  # noqa: BLE001 - depth/draft data is an enhancement
                 rank, capital = None, 1.0
@@ -312,15 +328,29 @@ def _compute_slate(
             )
             if score <= 0.0:
                 continue
-            by_group.setdefault((team, position), []).append(
-                (score, pid, player.player_name, position, team, opponent, game_id, kickoff)
+            status = statuses.get(pid, ("not_reported", ""))[0]
+            row = (
+                score * injuries.output_multiplier(status),
+                pid, player.player_name, position, team, opponent, game_id, kickoff,
             )
+            if status in ("out", "doubtful"):
+                sidelined.append((score, row))
+                continue
+            by_group.setdefault((team, position), []).append(row)
 
     # Keep only the projectable depth at each team+position...
     depth_capped: dict[str, list[Candidate]] = {}
     for (_, position), group in by_group.items():
         group.sort(key=lambda row: row[0], reverse=True)
         depth_capped.setdefault(position, []).extend(group[: _DEPTH_BY_POSITION.get(position, 3)])
+
+    # A sidelined player is listed when he would have made his team's cap
+    # healthy, so the board shows Williams as out rather than just missing.
+    for healthy_score, row in sidelined:
+        group = by_group.get((row[4], row[3]), [])
+        cap = _DEPTH_BY_POSITION.get(row[3], 3)
+        if len(group) < cap or healthy_score >= group[min(cap, len(group)) - 1][0]:
+            depth_capped.setdefault(row[3], []).append(row)
 
     # ...then take a per-position slice of the budget so RB/WR depth survives a
     # wall of interchangeable QB1 lines. Unused headroom (e.g. only 2 TEs on a

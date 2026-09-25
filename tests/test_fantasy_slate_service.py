@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import pandas as pd
 import pytest
 
@@ -87,6 +89,7 @@ def _fake_summary(_settings, *, player_id, **_kwargs) -> FantasySummary:
 def _wire(monkeypatch):
     svc._SLATE_CACHE.clear()
     monkeypatch.setattr(svc, "_SLATE_LOCK", __import__("threading").Lock())  # per-test isolation
+    monkeypatch.setattr(svc.injuries, "player_statuses", lambda season, week: {})
     # Keep projection serial in-process so the build_fantasy_summary monkeypatch
     # below is honoured (spawned workers would re-import the real one).
     monkeypatch.setattr(
@@ -171,7 +174,7 @@ def test_project_player_returns_row_dict_and_swallows_failures():
     assert set(row) == {
         "player_id", "player_name", "position", "recent_team", "opponent_team",
         "game_id", "kickoff", "projected_points", "floor_points", "ceiling_points",
-        "boom_probability", "bust_probability",
+        "boom_probability", "bust_probability", "injury_status",
     }
 
 
@@ -285,3 +288,24 @@ def test_prescore_still_zero_without_a_depth_rank():
         None, {}, season=2026, week=1, position="RB",
         weights={"rushing_yards": 0.1}, depth_rank=None, capital_multiplier=1.0,
     ) == 0.0
+
+
+def test_slate_cache_expires_so_injury_news_gets_through(monkeypatch):
+    key = (2026, 1, "full_ppr", 0, ("QB",))
+    stale = FantasySlateResponse(season=2026, week=1)
+    svc._SLATE_CACHE[key] = (0.0, stale)  # built at the epoch
+
+    assert svc._cached_slate(key) is None
+    svc._SLATE_CACHE[key] = (time.time(), stale)
+    assert svc._cached_slate(key) is stale
+
+
+
+def test_an_out_starter_is_listed_flagged_without_holding_a_slot(monkeypatch):
+    monkeypatch.setattr(svc.injuries, "player_statuses", lambda season, week: {"rb-star": ("out", "")})
+    monkeypatch.setattr(svc, "_DEPTH_BY_POSITION", {"QB": 1, "RB": 1, "WR": 4, "TE": 2})
+
+    out = svc.build_fantasy_slate(AppSettings(), season=2026, week=1, limit=0)
+
+    star = next(e for e in out.entries if e.player_id == "rb-star")
+    assert star.injury_status == "Out"

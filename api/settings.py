@@ -110,6 +110,10 @@ class AppSettings(BaseSettings):
     # as the fantasy slate prewarm -- it is a Kalshi scan plus a model call per
     # market. Disable via NFL_APP_PREWARM_PROP_BOARD=0.
     prewarm_prop_board: bool = True
+    # Refetch every current season feed (injuries, rosters, depth charts,
+    # schedule, box scores, market lines) once at startup instead of trusting
+    # a cache file up to a day old. Disable via NFL_APP_REFRESH_FEEDS_ON_START=0.
+    refresh_feeds_on_start: bool = True
 
     # Kalshi market data — refreshes the game-script total when a game's market
     # is priced (thin until near kickoff; falls back to the schedule line).

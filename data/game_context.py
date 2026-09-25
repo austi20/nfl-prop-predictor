@@ -14,6 +14,7 @@ means the home team is favored by that many points, so
 """
 from __future__ import annotations
 
+from datetime import date
 from functools import lru_cache
 
 import numpy as np
@@ -44,6 +45,21 @@ _CONTEXT_COLUMNS = (
     "stadium",
     "div_game",
 )
+
+
+def week_in_progress(schedule: pd.DataFrame, today: date | None = None) -> int:
+    """The earliest week whose last game has not been played yet.
+
+    A week stays current through its own last gameday, so Monday night reads as
+    that week. Past the last game of the season the final week sticks.
+    """
+    if "week" not in schedule.columns or "gameday" not in schedule.columns or not len(schedule):
+        return 1
+    day = (today or date.today()).isoformat()
+    last_day = schedule.groupby("week")["gameday"].max().astype(str).sort_index()
+    upcoming = last_day[last_day >= day]
+    week = upcoming.index[0] if len(upcoming) else last_day.index[-1]
+    return int(week)
 
 
 def _team_rows(sched: pd.DataFrame) -> pd.DataFrame:

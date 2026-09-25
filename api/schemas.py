@@ -434,6 +434,8 @@ class FantasySlateEntry(BaseModel):
     ceiling_points: float
     boom_probability: float
     bust_probability: float
+    # This week's designation ("Out", "Questionable", ...); empty when healthy.
+    injury_status: str = ""
     # Rank + start/sit tier within each list the player belongs to. `flex_*` is
     # None for quarterbacks, who are never a flex play.
     overall_rank: int = 0

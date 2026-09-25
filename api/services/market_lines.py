@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 
 from api.settings import AppSettings
-from data.nflverse_loader import app_root
+from data.nflverse_loader import app_root, refresh_cutoff
 
 _log = logging.getLogger(__name__)
 
@@ -63,7 +63,11 @@ def _cache_file(season: int, week: int) -> Path:
 def _read_cache(season: int, week: int) -> dict[str, list[float]] | None:
     path = _cache_file(season, week)
     try:
-        if not path.exists() or time.time() - path.stat().st_mtime > _TTL_SECONDS:
+        if not path.exists():
+            return None
+        mtime = path.stat().st_mtime
+        # Quotes from before this app run started are stale by definition.
+        if time.time() - mtime > _TTL_SECONDS or mtime < refresh_cutoff():
             return None
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 - a bad cache must not brick projections

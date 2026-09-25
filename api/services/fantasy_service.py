@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import time
 from functools import lru_cache
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,7 @@ from data.game_context import (
     coach_points_per_game,
     context_for,
 )
+from data import injuries
 from data.nflverse_loader import is_dome
 from data.weather import load_forecast
 from eval.calibration_pipeline import STAT_SPECS, spec_for
@@ -43,6 +44,9 @@ _RUSH_STATS = ("rushing_yards", "rushing_tds")
 _PASS_GAME_STATS = ("passing_yards", "passing_tds", *_RECEIVING_STATS)
 _POSITIVE_SCORING_STATS = tuple(
     stat for stat, weight in SCORING_PROFILES["full_ppr"].items() if weight > 0
+)
+_NEGATIVE_SCORING_STATS = tuple(
+    stat for stat, weight in SCORING_PROFILES["full_ppr"].items() if weight < 0
 )
 # _MODEL_STATS_BY_POSITION — which scoring stats have a GLM behind them — is
 # defined just below _TRAILING_STATS_BY_POSITION, which it mirrors.
@@ -234,6 +238,7 @@ _PROP_ONLY_STATS_BY_POSITION: dict[str, tuple[str, ...]] = {
 # board build costs one projection per player rather than one per rung.
 _PROP_PROJECTION_CACHE: dict[tuple, tuple[dict, dict]] = {}
 _PROP_PROJECTION_CACHE_MAX = 4096
+_PROP_PROJECTION_TTL_SECONDS = 15 * 60
 
 
 def _projection_stats(position: str, *, include_prop_only: bool) -> tuple[str, ...]:
@@ -838,20 +843,6 @@ def _position_group_factor(
     )
 
 
-@lru_cache(maxsize=8)
-def _read_cached_injuries(cache_dir: str, season: int) -> pd.DataFrame:
-    path = Path(cache_dir) / f"injuries_{season}.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    # Not cached yet (e.g. a fresh in-progress season) — fetch + cache once.
-    try:
-        from data.nflverse_loader import load_injuries
-
-        return load_injuries([season])
-    except Exception:  # noqa: BLE001
-        return pd.DataFrame()
-
-
 def _injury_factor(
     settings: AppSettings,
     *,
@@ -860,78 +851,30 @@ def _injury_factor(
     week: int,
     position: str,
 ) -> FantasyContextFactor:
+    """Expected share of normal output given this week's injury status.
+
+    Only this week's report counts; last week's designation says nothing about
+    Sunday. Rates are measured on regulars, see data/injuries.py.
+    """
     affected_stats = _positive_stats_for_position(position)
-    try:
-        injuries = _read_cached_injuries(str(settings.cache_dir), season)
-    except Exception:  # noqa: BLE001
-        injuries = pd.DataFrame()
-
-    if injuries.empty:
-        return _neutral_factor(
-            "injury_status",
-            "Injury status",
-            "No cached injury report is available, so injury impact is neutral.",
-            affected_stats,
-        )
-
-    id_col = next(
-        (col for col in ("player_id", "gsis_id", "player_gsis_id", "nfl_id") if col in injuries.columns),
-        None,
+    status, note = injuries.player_statuses(season, week).get(
+        str(player_id), ("not_reported", "")
     )
-    if id_col is None:
+    if status == "not_reported":
         return _neutral_factor(
             "injury_status",
             "Injury status",
-            "Cached injury data has no player identifier column.",
+            "Not on this week's injury report.",
             affected_stats,
         )
-
-    matches = injuries[injuries[id_col].astype(str) == str(player_id)].copy()
-    if "season" in matches.columns:
-        matches = matches[matches["season"].astype(int) == season]
-    if "week" in matches.columns:
-        matches = matches[matches["week"].astype(int) <= week]
-    if matches.empty:
-        return _neutral_factor(
-            "injury_status",
-            "Injury status",
-            "No matching injury report found for this player.",
-            affected_stats,
-        )
-
-    sort_cols = [col for col in ("season", "week") if col in matches.columns]
-    latest = matches.sort_values(sort_cols).iloc[-1] if sort_cols else matches.iloc[-1]
-
-    def _field(*names: str) -> str:
-        return " ".join(
-            str(latest[c]) for c in names if c in latest.index and pd.notna(latest[c])
-        ).strip().lower()
-
-    game_status = _field("game_status", "report_status", "status", "injury_report_status")
-    practice = _field("practice_status")
-
-    multiplier = 1.0
-    reason = "On the report but expected to play a normal workload."
-    # Game-status designations are the reliable signal; practice-only is weaker
-    # and dominant early in the week before the game report is filed.
-    if any(w in game_status for w in ("out", "injured reserve", " ir")):
-        multiplier, reason = 0.05, f"Ruled OUT ({game_status})."
-    elif "doubtful" in game_status:
-        multiplier, reason = 0.40, f"Doubtful ({game_status})."
-    elif "questionable" in game_status:
-        multiplier, reason = 0.92, f"Questionable ({game_status})."
-    elif "did not participate" in practice or "dnp" in practice or "did not practice" in practice:
-        multiplier, reason = 0.90, f"Did not practice ({practice}); no game status yet."
-    elif "limited" in practice:
-        multiplier, reason = 0.96, f"Limited in practice ({practice})."
-
+    multiplier = injuries.output_multiplier(status)
     return FantasyContextFactor(
         name="injury_status",
         label="Injury status",
         multiplier=multiplier,
         applied=multiplier != 1.0,
         affected_stats=affected_stats,
-        reason=reason,
+        reason=f"{injuries.label(status)} ({note}); expected {multiplier:.0%} of normal output.",
     )
 
 
@@ -1654,12 +1597,14 @@ def _stat_multipliers(
     # this stat, not a nudge, and folding it into the context clamp would throttle
     # the best information on the board down to +/-22%.
     market = {stat: 1.0 for stat in _POSITIVE_SCORING_STATS}
+    availability = 1.0
     for factor in context_factors:
         if not factor.applied:
             continue
         scaled = 1.0 + calib.strength(factor.name) * (factor.multiplier - 1.0)
         if factor.name == "injury_status":
             target = injury_hit
+            availability *= scaled
         elif factor.name == "market":
             target = market
         elif factor.name in _OFFENSE_STACK_SET:
@@ -1677,6 +1622,10 @@ def _stat_multipliers(
             np.clip(market[stat], calib.market_clamp_lo, calib.market_clamp_hi)
         )
         out[stat] = combined * market_scale * injury_hit[stat]
+    # A player who sits throws no picks either; without this an Out QB
+    # projected below zero.
+    for stat in _NEGATIVE_SCORING_STATS:
+        out[stat] = availability
     return out
 
 
@@ -1714,7 +1663,9 @@ def prop_stat_projection(
     if stat not in stats:
         return None
 
-    key = (player_id, season, week, normalized, recent_team, opponent_team, game_id)
+    # Time bucket in the key so a new injury status reaches the next board build.
+    bucket = int(time.time() // _PROP_PROJECTION_TTL_SECONDS)
+    key = (player_id, season, week, normalized, recent_team, opponent_team, game_id, bucket)
     cached = _PROP_PROJECTION_CACHE.get(key)
     if cached is not None:
         distributions, multipliers = cached

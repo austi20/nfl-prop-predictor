@@ -103,24 +103,30 @@ def test_opponent_matchup_boosts_vs_soft_defense():
     assert "SF allows" in fac.reason
 
 
-def test_injury_factor_catches_did_not_participate(tmp_path, monkeypatch):
-    inj = pd.DataFrame([dict(
-        gsis_id="00-0038542", season=2026, week=1,
-        report_status=None, practice_status="Did Not Participate In Practice",
-    )])
-    import api.services.fantasy_service as fs
-    fs._read_cached_injuries.cache_clear()
-    monkeypatch.setattr(fs, "_read_cached_injuries", lambda *_a: inj)
+def _patch_statuses(monkeypatch, statuses: dict):
+    from data import injuries
+    monkeypatch.setattr(injuries, "player_statuses", lambda season, week: statuses)
+
+
+def test_injury_factor_uses_measured_rate_for_did_not_participate(monkeypatch):
+    _patch_statuses(monkeypatch, {"00-0038542": ("dnp_injured", "NFL injury report")})
     fac = _injury_factor(AppSettings(), player_id="00-0038542", season=2026, week=1, position="RB")
-    assert fac.applied and fac.multiplier == 0.90 and "did not practice" in fac.reason.lower()
+    assert fac.applied and "did not practice" in fac.reason.lower()
+    assert 0.3 < fac.multiplier < 0.4
 
 
-def test_injury_factor_out_is_near_zero(monkeypatch):
-    inj = pd.DataFrame([dict(gsis_id="p1", season=2026, week=1, report_status="Out", practice_status="Did Not Participate In Practice")])
-    import api.services.fantasy_service as fs
-    monkeypatch.setattr(fs, "_read_cached_injuries", lambda *_a: inj)
+def test_injury_factor_out_and_doubtful_are_near_zero(monkeypatch):
+    _patch_statuses(monkeypatch, {"p1": ("out", ""), "p2": ("doubtful", "ESPN: McVay")})
+    out = _injury_factor(AppSettings(), player_id="p1", season=2026, week=1, position="WR")
+    doubtful = _injury_factor(AppSettings(), player_id="p2", season=2026, week=1, position="WR")
+    assert out.multiplier == doubtful.multiplier == 0.05
+    assert "McVay" in doubtful.reason
+
+
+def test_injury_factor_is_neutral_when_not_reported(monkeypatch):
+    _patch_statuses(monkeypatch, {})
     fac = _injury_factor(AppSettings(), player_id="p1", season=2026, week=1, position="WR")
-    assert fac.multiplier == 0.05
+    assert not fac.applied and fac.multiplier == 1.0
 
 
 def test_stat_multiplier_product_is_clamped_but_injury_escapes():

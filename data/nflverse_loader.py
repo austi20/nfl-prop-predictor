@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import time
 import warnings
+from datetime import date
 from urllib.error import HTTPError
 from pathlib import Path
 from typing import Literal
@@ -107,11 +109,48 @@ def _cache_path(data_type: str, years: list[int] | None = None) -> Path:
     return _CACHE_DIR / filename
 
 
+# Files for the live season written before this moment are stale. 0 = off.
+# The sidecar sets it at startup so every current-season feed is refetched once.
+# Kept in the environment too so the slate's spawned workers inherit it.
+_REFRESH_ENV = "NFL_APP_REFRESH_CUTOFF"
+_REFRESH_CUTOFF = float(os.environ.get(_REFRESH_ENV, "0") or 0)
+# Two prewarm threads can ask for the same file at once; one download, one write.
+_FETCH_LOCK = threading.RLock()
+
+
+def live_season(today: date | None = None) -> int:
+    """NFL season in progress; January and February belong to the prior one."""
+    day = today or date.today()
+    return day.year if day.month >= 3 else day.year - 1
+
+
+def refresh_live_feeds_on_start() -> None:
+    """Treat every cached live season file as stale until refetched once."""
+    global _REFRESH_CUTOFF
+    _REFRESH_CUTOFF = time.time()
+    os.environ[_REFRESH_ENV] = str(_REFRESH_CUTOFF)
+
+
+def refresh_cutoff() -> float:
+    """When this app run started refreshing feeds; 0 when it is not."""
+    return _REFRESH_CUTOFF
+
+
+def _is_live_file(path: Path) -> bool:
+    tag = path.stem.rsplit("_", 1)[-1]
+    years = tag.split("-")
+    if not all(y.isdigit() for y in years):
+        return True  # no year tag (player_ids): always current
+    return str(live_season()) in years
+
+
 def _is_fresh(path: Path) -> bool:
     if not path.exists():
         return False
-    age = time.time() - path.stat().st_mtime
-    return age < _CACHE_MAX_AGE_SECONDS
+    mtime = path.stat().st_mtime
+    if mtime < _REFRESH_CUTOFF and _is_live_file(path):
+        return False
+    return time.time() - mtime < _CACHE_MAX_AGE_SECONDS
 
 
 def _load_or_fetch(
@@ -119,12 +158,26 @@ def _load_or_fetch(
     fetch_fn,
     force_refresh: bool,
 ) -> pd.DataFrame:
-    if not force_refresh and _is_fresh(cache_file):
-        return pd.read_parquet(cache_file, engine="pyarrow")
-    df = fetch_fn()
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(cache_file, engine="pyarrow", index=False)
-    return df
+    with _FETCH_LOCK:
+        if not force_refresh and _is_fresh(cache_file):
+            return pd.read_parquet(cache_file, engine="pyarrow")
+        try:
+            df = fetch_fn()
+        except Exception:
+            # Offline or nflverse down: a stale file beats no data.
+            if cache_file.exists():
+                warnings.warn(f"refresh failed, using stale {cache_file.name}", stacklevel=2)
+                return pd.read_parquet(cache_file, engine="pyarrow")
+            raise
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        # Temp file + rename, so a worker process never reads half a file.
+        tmp = cache_file.with_name(f"{cache_file.stem}.{os.getpid()}.tmp")
+        try:
+            df.to_parquet(tmp, engine="pyarrow", index=False)
+            os.replace(tmp, cache_file)
+        except OSError:
+            tmp.unlink(missing_ok=True)  # another process won the write
+        return df
 
 
 def _fetch_weekly_direct(years: list[int]) -> pd.DataFrame:

@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+import time
 import unicodedata
 
 from api.schemas import NormalizedPick, PropBoardResponse, PropEvaluationRequest
@@ -50,7 +51,16 @@ _SERIES_STAT: dict[str, str] = {
 
 _NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
 
-_BOARD_CACHE: dict[tuple[int, int, int], PropBoardResponse] = {}
+_BOARD_CACHE: dict[tuple[int, int, int], tuple[float, PropBoardResponse]] = {}
+# Prices and injuries move through the day; a board older than this rebuilds.
+_BOARD_MAX_AGE_SECONDS = 30 * 60
+
+
+def _cached_board(key: tuple[int, int, int]) -> PropBoardResponse | None:
+    entry = _BOARD_CACHE.get(key)
+    if entry is None or time.time() - entry[0] > _BOARD_MAX_AGE_SECONDS:
+        return None
+    return entry[1]
 _BOARD_LOCK = threading.Lock()
 
 
@@ -313,18 +323,18 @@ def build_prop_board(
     wait: bool = False,
 ) -> PropBoardResponse:
     cache_key = (season, week, limit)
-    cached = _BOARD_CACHE.get(cache_key)
+    cached = _cached_board(cache_key)
     if cached is not None:
         return cached
 
     if not _BOARD_LOCK.acquire(blocking=wait):
         raise BoardBuilding
     try:
-        cached = _BOARD_CACHE.get(cache_key)
+        cached = _cached_board(cache_key)
         if cached is not None:
             return cached
         response = _compute_board(settings, season=season, week=week, limit=limit)
-        _BOARD_CACHE[cache_key] = response
+        _BOARD_CACHE[cache_key] = (time.time(), response)
         return response
     finally:
         _BOARD_LOCK.release()

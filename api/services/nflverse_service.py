@@ -6,6 +6,7 @@ roster". Both loaders already parquet-cache, so this just shapes the frame.
 """
 from __future__ import annotations
 
+import logging
 import math
 import warnings
 from datetime import date
@@ -14,7 +15,18 @@ from functools import lru_cache
 import pandas as pd
 
 from api.schemas import GameRow, RosterPlayer
-from data.nflverse_loader import load_rosters, load_schedules
+from api.services.evaluation_service import scoring_weekly
+from api.settings import AppSettings
+from data import depth_chart, injuries
+from data.game_context import week_in_progress
+from data.nflverse_loader import (
+    live_season,
+    load_rosters,
+    load_schedules,
+    refresh_live_feeds_on_start,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _clean_str(value: object) -> str:
@@ -58,20 +70,32 @@ def _roster_frame(season: int) -> pd.DataFrame:
 
 
 def current_week(season: int, today: date | None = None) -> int:
-    """The week the app should open on: the earliest one still being played.
+    """The week the app should open on: the earliest one still being played."""
+    return week_in_progress(_schedule_frame(season), today)
 
-    A week stays current through its own last gameday, so Monday night reads as
-    that week rather than rolling over on Sunday evening. Past the last game of
-    the season the final week sticks.
+
+def refresh_live_feeds(settings: AppSettings) -> None:
+    """Refetch every current season feed once, at sidecar start.
+
+    Runs in the main process before the prewarms so the slate's worker
+    processes read files that were just rewritten. Anything missed here still
+    refreshes on first use. Each feed is best effort; a failure keeps the old
+    file (see nflverse_loader._load_or_fetch).
     """
-    df = _schedule_frame(season)
-    if "week" not in df.columns or "gameday" not in df.columns or not len(df):
-        return 1
-    day = (today or date.today()).isoformat()
-    last_day = df.groupby("week")["gameday"].max().astype(str).sort_index()
-    upcoming = last_day[last_day >= day]
-    week = upcoming.index[0] if len(upcoming) else last_day.index[-1]
-    return int(week)
+    refresh_live_feeds_on_start()
+    season = live_season()
+    steps = (
+        lambda: current_week(season),
+        lambda: _roster_frame(season),
+        lambda: depth_chart.rank_frame((season,)),
+        lambda: injuries.player_statuses(season, current_week(season)),
+        lambda: scoring_weekly(settings, season),
+    )
+    for step in steps:
+        try:
+            step()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("feed refresh step failed: %s", exc)
 
 
 def get_schedule(season: int, week: int | None = None) -> list[GameRow]:
