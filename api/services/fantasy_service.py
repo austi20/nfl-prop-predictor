@@ -1061,9 +1061,9 @@ def _usage_factor(
     try:
         from data.usage import usage_trend
 
-        # only completed seasons — snap/NGS files for an in-progress season 404
-        completed = tuple(s for s in seasons if s < int(season)) or seasons
-        trend = usage_trend(player_id, int(season), int(week), completed)
+        # Current season included: its role changes are the point. A season
+        # with no file yet falls back inside the loaders.
+        trend = usage_trend(player_id, int(season), int(week), seasons)
     except Exception:  # noqa: BLE001
         trend = None
     if not trend:
@@ -1467,7 +1467,8 @@ def _rest_factor(context: dict | None, *, position: str) -> FantasyContextFactor
     reason = "Normal week of rest."
     if rest >= 10:
         multiplier = 1.02
-        reason = f"Coming off a bye ({rest:.0f} days), slight freshness bump."
+        # 10+ days is a bye or a Thursday game the week before.
+        reason = f"Extra rest ({rest:.0f} days), slight freshness bump."
     elif rest <= 4:
         multiplier = 0.98
         reason = f"Short week ({rest:.0f} days), slight drag."
