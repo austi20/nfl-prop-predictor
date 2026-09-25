@@ -1,0 +1,36 @@
+{
+  "_fit": "log(|actual - mean| + 0.5) ~ log mean + log shrunk CV + TD share, 2018-2023",
+  "k_shrink": 8.0,
+  "position_cv": {
+    "QB": 0.611,
+    "RB": 0.797,
+    "TE": 0.8309,
+    "WR": 0.8091
+  },
+  "positions": {
+    "QB": {
+      "const": 2.0699,
+      "log_mean": 0.1997,
+      "log_cv": 0.4395,
+      "td_share": -0.6051
+    },
+    "RB": {
+      "const": 1.0008,
+      "log_mean": 0.4308,
+      "log_cv": 0.1824,
+      "td_share": 0.1549
+    },
+    "TE": {
+      "const": 0.7374,
+      "log_mean": 0.4915,
+      "log_cv": 0.0167,
+      "td_share": 0.1385
+    },
+    "WR": {
+      "const": 0.9701,
+      "log_mean": 0.4553,
+      "log_cv": 0.1925,
+      "td_share": 0.0922
+    }
+  }
+}

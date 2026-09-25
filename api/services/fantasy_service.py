@@ -23,6 +23,7 @@ from data.game_context import (
 from data import injuries
 from data.nflverse_loader import is_dome
 from data.weather import load_forecast
+from eval.fantasy_spread import player_volatility, target_sd
 from eval.calibration_pipeline import STAT_SPECS, spec_for
 from eval.fantasy_calibration import (
     FantasyCalibration,
@@ -1727,6 +1728,13 @@ def prop_stat_projection(
     return distribution, multiplier
 
 
+def _player_history(weekly: pd.DataFrame, player_id: str, season: int, week: int) -> pd.DataFrame:
+    """The player's games before this one, oldest first."""
+    rows = weekly[weekly["player_id"] == player_id]
+    rows = rows[(rows["season"] < season) | ((rows["season"] == season) & (rows["week"] < week))]
+    return rows.sort_values(["season", "week"])
+
+
 def build_fantasy_summary(
     settings: AppSettings,
     *,
@@ -1796,14 +1804,30 @@ def build_fantasy_summary(
             factors = _resolve_role_precedence([*factors, *market])
 
     seed = stable_simulation_seed(player_id, season, week, mode)
+    multipliers = _stat_multipliers(factors, calib)
     projection = project_fantasy_points(
         distributions,
         position=normalized_position,
         scoring_mode=mode,
-        stat_multipliers=_stat_multipliers(factors, calib),
+        stat_multipliers=multipliers,
         seed=seed,
         calib=calib,
     )
+    # Second pass with this player's own spread around the same mean.
+    games, own_cv, td_share = player_volatility(
+        _player_history(weekly, player_id, season, week)
+    )
+    sd = target_sd(normalized_position, projection.projected_points, games, own_cv, td_share)
+    if sd is not None:
+        projection = project_fantasy_points(
+            distributions,
+            position=normalized_position,
+            scoring_mode=mode,
+            stat_multipliers=multipliers,
+            seed=seed,
+            calib=calib,
+            total_sd=sd,
+        )
     return FantasySummary(
         projected_points=projection.projected_points,
         median_points=projection.median_points,

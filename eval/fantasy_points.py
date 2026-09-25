@@ -13,6 +13,7 @@ from typing import Literal
 
 import numpy as np
 
+from eval.fantasy_spread import rescale
 from models.base import StatDistribution
 
 ScoringMode = Literal["full_ppr", "half_ppr"]
@@ -107,6 +108,7 @@ def project_fantasy_points(
     seed: int | None = None,
     simulations: int = 5000,
     calib=None,
+    total_sd: float | None = None,
 ) -> FantasyProjection:
     weights = scoring_weights(scoring_mode)
     boom_cutoff, bust_cutoff = position_cutoffs(position)
@@ -155,6 +157,10 @@ def project_fantasy_points(
         total_samples += _sample_distribution(adjusted, rng, simulations) * weight
 
     projected_points = float(sum(float(component["projected_points"]) for component in components))
+    # Summing independent stat draws gives every player the same relative
+    # spread; the measured per player spread replaces it when known.
+    if total_sd is not None and simulations > 0:
+        total_samples = rescale(total_samples, projected_points, total_sd)
     if simulations <= 0:
         median = projected_points
         p10 = projected_points

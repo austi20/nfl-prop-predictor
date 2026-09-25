@@ -36,7 +36,8 @@
     "externalBin": ["binaries/nfl-prop-api"],
     "resources": {
       "../../models/fantasy_calibration.json": "models/fantasy_calibration.json",
-      "../../models/shrinkage_weights.json": "models/shrinkage_weights.json"
+      "../../models/shrinkage_weights.json": "models/shrinkage_weights.json",
+      "../../models/fantasy_spread.json": "models/fantasy_spread.json"
     },
     "icon": [
       "icons/32x32.png",

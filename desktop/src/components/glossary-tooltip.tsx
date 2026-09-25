@@ -8,7 +8,7 @@ const GLOSSARY: Record<string, string> = {
   'implied probability': "The probability the book assigns to an outcome, derived from the odds.",
   'fair odds': 'American odds computed from our model probability, before any book margin.',
   vig: "The book's margin built into the odds, also called juice or overround.",
-  'boom/bust': 'Boom = top-decile fantasy score; Bust = bottom-decile. Probabilities from our model distribution.',
+  'boom/bust': 'Boom = a big week (PPR: QB 24+, RB/WR 20+, TE 14+). Bust = a dud (QB 14 or less, RB 8, WR 7, TE 5). Each player gets his own spread from his projection, recent volatility and touchdown reliance.',
   shrinkage: 'A Bayesian technique pulling player estimates toward the position average to reduce noise on small samples.',
 }
 
