@@ -387,6 +387,8 @@ class GameRow(BaseModel):
 
 class ScheduleResponse(BaseModel):
     season: int
+    # The week still being played, so the UI can open on it instead of Week 1.
+    current_week: int = 1
     games: list[GameRow] = Field(default_factory=list)
 
 

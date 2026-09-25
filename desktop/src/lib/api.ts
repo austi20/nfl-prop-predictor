@@ -1,4 +1,4 @@
-import type { ExecutionEvent, FantasyPredictionResponse, FantasySlateResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, PropBoardResponse, SlateResponse } from './types'
+import type { ExecutionEvent, FantasyPredictionResponse, FantasySlateResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, PropBoardResponse, ScheduleResponse, SlateResponse } from './types'
 import { resolveApiBaseUrl } from './runtime'
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -28,6 +28,10 @@ async function request<T>(path: string, init?: RequestInit) {
 
 export async function getSlate() {
   return request<SlateResponse>('/api/slate')
+}
+
+export async function getSchedule(season: number) {
+  return request<ScheduleResponse>(`/api/schedule/${season}`)
 }
 
 export async function getPlayer(playerId: string) {

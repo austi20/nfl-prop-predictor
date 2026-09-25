@@ -4,11 +4,12 @@ import { useMemo, useState } from 'react'
 import { PlayerCard } from '../components/player-card'
 import { Card, CardContent } from '../components/ui/card'
 import { getPropBoard } from '../lib/api'
+import { useCurrentWeek } from '../lib/use-current-week'
 import { useAppStore } from '../store/app-store'
 import type { Pick } from '../lib/types'
 
-// No season/week service yet -- Week 1 of the 2026 season is the live board.
-// Bump SEASON here at the season rollover (this-week-page.tsx has the match).
+// The week comes from the schedule; only the season is pinned. Bump SEASON at
+// the season rollover (this-week-page.tsx has the match).
 const SEASON = 2026
 const WEEKS = Array.from({ length: 18 }, (_, i) => i + 1)
 const SIDES = ['ALL', 'OVER', 'UNDER'] as const
@@ -30,7 +31,12 @@ function sortPicks(picks: Pick[], sort: SortOption): Pick[] {
 }
 
 export function DashboardPage() {
-  const [week, setWeek] = useState(1)
+  // The live week wins until the user picks one. Kalshi settles a week's
+  // markets once it is played, so opening on Week 1 shows an empty board.
+  const currentWeek = useCurrentWeek(SEASON)
+  const [picked, setPicked] = useState<number | null>(null)
+  const week = picked ?? currentWeek
+  const setWeek = setPicked
   const [stat, setStat] = useState('ALL')
   const [side, setSide] = useState<SideFilter>('ALL')
   const [sort, setSort] = useState<SortOption>('Best edge')
@@ -43,7 +49,8 @@ export function DashboardPage() {
 
   const { data, isError, error } = useQuery({
     queryKey: ['prop-board', SEASON, week],
-    queryFn: ({ signal }) => getPropBoard({ season: SEASON, week, limit: 200 }, signal),
+    queryFn: ({ signal }) => getPropBoard({ season: SEASON, week: week!, limit: 200 }, signal),
+    enabled: week != null,
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60,
     retry: false,
@@ -96,7 +103,7 @@ export function DashboardPage() {
               <label className="flex items-center gap-2 text-xs text-slate-400">
                 <span className="font-mono uppercase tracking-[0.18em]">Week</span>
                 <select
-                  value={week}
+                  value={week ?? ''}
                   onChange={(e) => setWeek(Number(e.target.value))}
                   className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-100"
                 >

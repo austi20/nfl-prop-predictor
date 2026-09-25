@@ -23,7 +23,7 @@ import unicodedata
 from api.schemas import NormalizedPick, PropBoardResponse, PropEvaluationRequest
 from api.services.evaluation_service import evaluate_prop
 from api.services.kalshi_odds_service import _blob_has_team, _client, _event_game_key
-from api.services.nflverse_service import get_roster, get_schedule
+from api.services.nflverse_service import current_week, get_roster, get_schedule
 from api.settings import AppSettings
 from data.nflverse_loader import load_schedules
 from eval.prop_pricer import fair_price_to_american
@@ -331,13 +331,21 @@ def build_prop_board(
 
 
 _PREWARM_SEASON = 2026
-_PREWARM_WEEK = 1
+# The cache key is (season, week, limit), so this has to be the limit the GUI
+# asks for or the prewarmed board is never read (dashboard-page.tsx).
+_PREWARM_LIMIT = 200
 
 
 def prewarm_current_board(settings: AppSettings) -> None:
     """Best-effort: build the default board off-thread so the first GUI open is
     a cache hit. Kalshi being unreachable just leaves the cache cold."""
     try:
-        build_prop_board(settings, season=_PREWARM_SEASON, week=_PREWARM_WEEK, wait=True)
+        build_prop_board(
+            settings,
+            season=_PREWARM_SEASON,
+            week=current_week(_PREWARM_SEASON),
+            limit=_PREWARM_LIMIT,
+            wait=True,
+        )
     except Exception:  # noqa: BLE001
         pass

@@ -324,3 +324,8 @@ export type SlateResponse = {
   breakdowns: Record<string, BreakdownRow[]>
   source: string
 }
+
+export type ScheduleResponse = {
+  season: number
+  current_week: number
+}

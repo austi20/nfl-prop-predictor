@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from datetime import date
 from functools import lru_cache
 
 import pandas as pd
@@ -56,6 +57,23 @@ def _roster_frame(season: int) -> pd.DataFrame:
         return load_rosters([season])
 
 
+def current_week(season: int, today: date | None = None) -> int:
+    """The week the app should open on: the earliest one still being played.
+
+    A week stays current through its own last gameday, so Monday night reads as
+    that week rather than rolling over on Sunday evening. Past the last game of
+    the season the final week sticks.
+    """
+    df = _schedule_frame(season)
+    if "week" not in df.columns or "gameday" not in df.columns or not len(df):
+        return 1
+    day = (today or date.today()).isoformat()
+    last_day = df.groupby("week")["gameday"].max().astype(str).sort_index()
+    upcoming = last_day[last_day >= day]
+    week = upcoming.index[0] if len(upcoming) else last_day.index[-1]
+    return int(week)
+
+
 def get_schedule(season: int, week: int | None = None) -> list[GameRow]:
     df = _schedule_frame(season)
     if "week" in df.columns and week is not None:
@@ -97,6 +115,13 @@ def get_roster(
 ) -> tuple[list[RosterPlayer], int | None]:
     df = _roster_frame(season)
     week_val = _clean_int(df["week"].max()) if "week" in df.columns and len(df) else None
+
+    # nflverse publishes one roster row per player per week, so a season in
+    # progress returns the same player once per week played. Keep the newest
+    # week: it is both the de-duplicated view and the current one, so a player
+    # who changed team or status since Week 1 reads correctly.
+    if week_val is not None:
+        df = df[df["week"] == week_val]
 
     if team and "team" in df.columns:
         df = df[df["team"].astype(str).str.upper() == team.upper()]

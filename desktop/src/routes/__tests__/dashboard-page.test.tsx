@@ -78,6 +78,8 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe('DashboardPage', () => {
   beforeEach(() => {
+    // The page reads the live week off the schedule before it asks for a board.
+    vi.spyOn(api, 'getSchedule').mockResolvedValue({ season: 2026, current_week: 1 })
     vi.spyOn(api, 'getPropBoard').mockResolvedValue(MOCK_BOARD as any)
   })
 

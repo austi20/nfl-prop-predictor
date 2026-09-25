@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from api.schemas import RosterResponse, ScheduleResponse
-from api.services.nflverse_service import get_roster, get_schedule
+from api.services.nflverse_service import current_week, get_roster, get_schedule
 
 router = APIRouter(tags=["nflverse"])
 
@@ -15,9 +15,10 @@ def get_schedule_route(
 ) -> ScheduleResponse:
     try:
         games = get_schedule(season, week)
+        live_week = current_week(season)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"schedule unavailable: {exc}") from exc
-    return ScheduleResponse(season=season, games=games)
+    return ScheduleResponse(season=season, current_week=live_week, games=games)
 
 
 @router.get("/roster/{season}", response_model=RosterResponse)

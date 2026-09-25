@@ -6,10 +6,11 @@ import { Card, CardContent } from '../components/ui/card'
 import { TierBadge } from '../components/tier-badge'
 import { getFantasySlate } from '../lib/api'
 import { num } from '../lib/format'
+import { useCurrentWeek } from '../lib/use-current-week'
 import type { FantasySlateEntry, FantasySlateResponse } from '../lib/types'
 
-// The app has no season/week service yet; Week 1 of the 2026 season is the live
-// slate. Bump SEASON here at the season rollover.
+// The week comes from the schedule; only the season is pinned. Bump SEASON at
+// the season rollover (dashboard-page.tsx has the match).
 const SEASON = 2026
 const WEEKS = Array.from({ length: 18 }, (_, i) => i + 1)
 const VIEWS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX'] as const
@@ -117,7 +118,12 @@ function groupByTier(
 }
 
 export function ThisWeekPage() {
-  const [week, setWeek] = useState(1)
+  // Week follows the schedule until the user picks one, so the board opens on
+  // the week actually being played rather than Week 1.
+  const currentWeek = useCurrentWeek(SEASON)
+  const [picked, setPicked] = useState<number | null>(null)
+  const week = picked ?? currentWeek
+  const setWeek = setPicked
   const [scoring, setScoring] = useState<Scoring>('full_ppr')
   const [view, setView] = useState<ViewFilter>('ALL')
   const [search, setSearch] = useState('')
@@ -126,7 +132,9 @@ export function ThisWeekPage() {
     queryKey: ['fantasy-slate', SEASON, week, scoring],
     // limit 0 asks for the whole board; matches the sidecar's prewarm key so
     // the first open is a cache hit.
-    queryFn: ({ signal }) => getFantasySlate({ season: SEASON, week, scoring, limit: 0 }, signal),
+    queryFn: ({ signal }) =>
+      getFantasySlate({ season: SEASON, week: week!, scoring, limit: 0 }, signal),
+    enabled: week != null,
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60,
     // The board is one slow build per key. Never fan out: no retry, no refetch
@@ -182,7 +190,7 @@ export function ThisWeekPage() {
               <label className="flex items-center gap-2 text-xs text-slate-400">
                 <span className="font-mono uppercase tracking-[0.18em]">Week</span>
                 <select
-                  value={week}
+                  value={week ?? ''}
                   onChange={(e) => setWeek(Number(e.target.value))}
                   className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-100"
                 >

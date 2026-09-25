@@ -11,8 +11,8 @@ keep it fast by:
   4. caching the response per (season, week, scoring, limit), behind a lock so
      only one build runs at a time.
 
-The sidecar prewarms the Week-1 board at startup so the first GUI open is a
-cache hit; a mid-session week/scoring switch is a ~30s build with a polling
+The sidecar prewarms the current week's board at startup so the first GUI open
+is a cache hit; a mid-session week/scoring switch is a ~30s build with a polling
 "building" state in the UI.
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ from api.services.fantasy_service import (
     _baselines_for,
     build_fantasy_summary,
 )
-from api.services.nflverse_service import get_roster, get_schedule
+from api.services.nflverse_service import current_week, get_roster, get_schedule
 from api.settings import AppSettings
 from data.depth_chart import bucket, current_rank
 from data.draft import capital_multiplier as _draft_capital_multiplier
@@ -385,9 +385,9 @@ def _apply_tiers(entries: list[FantasySlateEntry]) -> None:
 
 
 # The live slate the desktop app opens on. Bump at the season rollover (the GUI
-# has the matching SEASON constant in this-week-page.tsx).
+# has the matching SEASON constant in this-week-page.tsx). The week follows the
+# schedule, so the prewarmed key stays the one the GUI actually asks for.
 _PREWARM_SEASON = 2026
-_PREWARM_WEEK = 1
 _PREWARM_LIMIT = 0  # whole board - the GUI asks for the same key
 
 
@@ -398,7 +398,7 @@ def prewarm_current_slate(settings: AppSettings) -> None:
         build_fantasy_slate(
             settings,
             season=_PREWARM_SEASON,
-            week=_PREWARM_WEEK,
+            week=current_week(_PREWARM_SEASON),
             scoring_mode="full_ppr",
             limit=_PREWARM_LIMIT,
             wait=True,
