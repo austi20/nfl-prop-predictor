@@ -241,6 +241,16 @@ def build_fantasy_slate(
     cached = _cached_slate(cache_key)
     if cached is not None:
         return cached
+    stale = _SLATE_CACHE.get(cache_key)
+    if stale is not None and not wait:
+        # Serve the old board and rebuild behind it, so an expiry never blanks it.
+        if _SLATE_LOCK.acquire(blocking=False):
+            threading.Thread(
+                target=_rebuild_slate,
+                args=(settings, cache_key),
+                daemon=True,
+            ).start()
+        return stale[1]
 
     if not _SLATE_LOCK.acquire(blocking=wait):
         raise SlateBuilding
@@ -258,6 +268,26 @@ def build_fantasy_slate(
         )
         _SLATE_CACHE[cache_key] = (time.time(), response)
         return response
+    finally:
+        _SLATE_LOCK.release()
+
+
+
+def _rebuild_slate(settings: AppSettings, cache_key: tuple) -> None:
+    """Background refresh. The caller already holds _SLATE_LOCK."""
+    season, week, scoring_mode, limit, positions = cache_key
+    try:
+        response = _compute_slate(
+            settings,
+            season=season,
+            week=week,
+            scoring_mode=scoring_mode,
+            limit=limit,
+            positions=positions,
+        )
+        _SLATE_CACHE[cache_key] = (time.time(), response)
+    except Exception:  # noqa: BLE001 - the stale board keeps serving
+        _log.warning("fantasy slate background rebuild failed", exc_info=True)
     finally:
         _SLATE_LOCK.release()
 

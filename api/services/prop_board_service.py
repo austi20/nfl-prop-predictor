@@ -326,6 +326,14 @@ def build_prop_board(
     cached = _cached_board(cache_key)
     if cached is not None:
         return cached
+    stale = _BOARD_CACHE.get(cache_key)
+    if stale is not None and not wait:
+        # Serve the old board and rebuild behind it; a cold build is minutes.
+        if _BOARD_LOCK.acquire(blocking=False):
+            threading.Thread(
+                target=_rebuild_board, args=(settings, season, week, limit), daemon=True
+            ).start()
+        return stale[1]
 
     if not _BOARD_LOCK.acquire(blocking=wait):
         raise BoardBuilding
@@ -336,6 +344,18 @@ def build_prop_board(
         response = _compute_board(settings, season=season, week=week, limit=limit)
         _BOARD_CACHE[cache_key] = (time.time(), response)
         return response
+    finally:
+        _BOARD_LOCK.release()
+
+
+
+def _rebuild_board(settings: AppSettings, season: int, week: int, limit: int) -> None:
+    """Background refresh. The caller already holds _BOARD_LOCK."""
+    try:
+        response = _compute_board(settings, season=season, week=week, limit=limit)
+        _BOARD_CACHE[(season, week, limit)] = (time.time(), response)
+    except Exception:  # noqa: BLE001 - the stale board keeps serving
+        _log.warning("prop board background rebuild failed", exc_info=True)
     finally:
         _BOARD_LOCK.release()
 

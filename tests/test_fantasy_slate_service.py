@@ -309,3 +309,21 @@ def test_an_out_starter_is_listed_flagged_without_holding_a_slot(monkeypatch):
 
     star = next(e for e in out.entries if e.player_id == "rb-star")
     assert star.injury_status == "Out"
+
+
+def test_an_expired_slate_is_served_while_it_rebuilds(monkeypatch):
+    key = (2026, 1, "full_ppr", 0, svc._SKILL_POSITIONS)
+    stale = FantasySlateResponse(season=2026, week=1, games=7)
+    svc._SLATE_CACHE[key] = (0.0, stale)
+    rebuilt: list[tuple] = []
+
+    def fake_rebuild(settings, cache_key):
+        rebuilt.append(cache_key)
+        svc._SLATE_LOCK.release()  # the real rebuild releases the lock it was handed
+
+    monkeypatch.setattr(svc, "_rebuild_slate", fake_rebuild)
+
+    out = svc.build_fantasy_slate(AppSettings(), season=2026, week=1, limit=0)
+
+    assert out is stale
+    assert rebuilt == [key]
