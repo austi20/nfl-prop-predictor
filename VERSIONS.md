@@ -5,6 +5,50 @@ Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan
 
 ---
 
+## v0.9-m7 - 2026-09-25 (app 0.9.3)
+
+**Injuries were silently wrong, and boom/bust was a function of the projection alone. Both fixed; every live feed now refreshes when the app starts.**
+
+- **Injuries.** The installed app read an injury file cached on Sep 10 and
+  never refetched it (`_read_cached_injuries` skipped the freshness check), and
+  it carried a player's last reported status into later weeks. Caleb Williams
+  and Puka Nacua, both doubtful for Week 3, projected as healthy.
+  `data/injuries.py` now overlays ESPN's live injuries feed on nflverse for the
+  week in progress (the more severe game designation wins; IR counts as out)
+  and uses this week's rows only.
+- **What a status is worth, measured on regulars** (8+ touches a game,
+  2022-2025, `scripts/diag/injury_impact.py`): not one of 88 doubtful regulars
+  played, so doubtful = out; questionable plays 69% at 84% volume (0.58 of
+  normal, was 0.92); a DNP with no status 0.36 (was 0.90). Negative stats scale
+  too, so an out QB no longer projects below zero (Williams was -0.7).
+- **Slate.** Injury adjusted depth rank and an availability weighted prescore,
+  so the healthy backup takes the team slot and an out or doubtful starter is
+  still listed with a badge. The This Week board shows the designation.
+- **Refresh on start.** The sidecar refetches every live season feed (injuries,
+  rosters, depth charts, schedule, box scores, player ids, Kalshi lines) before
+  it prewarms; a failed download falls back to the old file, and parquet writes
+  are atomic. Boards older than 30 min are served while a rebuild runs behind
+  them, so an expiry never blanks the page; the GUI refetches on the same clock.
+- **Boom/bust.** Every player had the same coefficient of variation, so boom
+  correlated 0.92-0.98 with projection. Measured on 2018-2023
+  (`scripts/diag/boom_bust_drivers.py`): spread grows with about the square
+  root of the projection, widens for volatile players, and narrows for TD
+  reliant QBs. Implied total, spread and dome showed no effect on spread (all
+  t < 2); they move the projection instead, so they are left there. The
+  simulated totals are rescaled to the fitted per player sd
+  (`eval/fantasy_spread.py`, `models/fantasy_spread.json`, bundled). On the
+  locked 2025 backtest mean boom calibration error 0.022 -> 0.018 and bust
+  0.067 -> 0.056 (RB bust 0.033 -> 0.043 is the one regression). Players at
+  the same projection still differ by only a few points of boom: the data does
+  not support more. The board row shows bust next to boom.
+- **Usage trend read only completed seasons**, so in Week 3 its "last 3 games"
+  were the end of 2025 and no 2026 role change could register.
+- **Not fixed.** A cold prop board build takes about 14 minutes (Kalshi scan
+  plus a projection per line); it is prewarmed at start and refreshed behind
+  the cached copy.
+
+---
+
 ## v0.9-m6 - 2026-09-17
 
 **The prop board was a wall of unders. Two causes, both fixed: a shrinkage ramp that collapsed every early-season projection onto the league mean, and a prop path that ignored a player's own recent form entirely.**

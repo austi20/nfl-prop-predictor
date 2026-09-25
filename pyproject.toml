@@ -1,6 +1,6 @@
 [project]
 name = "nfl-prop-predictor"
-version = "0.9.2"
+version = "0.9.3"
 description = "NFL player-prop probability engine + Kalshi execution sidecar + Tauri desktop app"
 requires-python = ">=3.13"
 dependencies = [
