@@ -39,6 +39,7 @@ from models.feature_utils import (
     safe_ratio,
 )
 from models.glm_utils import fit_glm_with_optional_regularization
+from models.shrinkage import shrinkage_weight
 
 _WEEKLY_COLS = [
     "player_id",
@@ -76,6 +77,8 @@ _COUNT_STATS = {
 _MIN_MEAN = 1e-3
 # Shape used when a target has no fitted model and falls back to its prior.
 _PRIOR_DIST_TYPE = "gamma"
+# Name this model uses in models/shrinkage_weights.json.
+_MODEL_NAME = "qb"
 # Cold-start (Week-1 / future season) shrinkage: cap the effective sample size so
 # even an established player keeps meaningful regression toward the prior, and
 # clamp the projected mean to a band around the player's own trailing average so
@@ -477,8 +480,9 @@ class QBModel:
                 else:
                     shrunk_mean = prior_mean
             else:
-                n = len(player_rows)
-                shrunk_mean = prior_mean + (n / (n + self._k)) * (pred_mean - prior_mean)
+                w = shrinkage_weight(_MODEL_NAME, stat)
+                shrunk_mean = prior_mean + w * (pred_mean - prior_mean)
+                shrunk_mean = float(np.clip(shrunk_mean, _MIN_MEAN, ceiling))
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
             if self._dist_family == "decomposed" and stat == "passing_yards":

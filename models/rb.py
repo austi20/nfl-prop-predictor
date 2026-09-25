@@ -39,6 +39,7 @@ from models.feature_utils import (
     safe_ratio,
 )
 from models.glm_utils import fit_glm_with_optional_regularization
+from models.shrinkage import shrinkage_weight
 
 _WEEKLY_COLS = [
     "player_id",
@@ -69,6 +70,8 @@ _COUNT_STATS = {"carries", "rushing_tds", "receptions", "receiving_tds", "target
 _MIN_MEAN = 1e-3
 # Shape used when a target has no fitted model and falls back to its prior.
 _PRIOR_DIST_TYPE = "tweedie"
+# Name this model uses in models/shrinkage_weights.json.
+_MODEL_NAME = "rb"
 # Cold-start (Week-1 / future season) shrinkage guards. See models/qb.py.
 _COLD_START_MAX_N = 10
 _COLD_START_LO = 0.4
@@ -416,8 +419,9 @@ class RBModel:
                 else:
                     shrunk_mean = prior_mean
             else:
-                n = len(player_rows)
-                shrunk_mean = prior_mean + (n / (n + self._k)) * (pred_mean - prior_mean)
+                w = shrinkage_weight(_MODEL_NAME, stat)
+                shrunk_mean = prior_mean + w * (pred_mean - prior_mean)
+                shrunk_mean = float(np.clip(shrunk_mean, _MIN_MEAN, ceiling))
             shrunk_mean = max(shrunk_mean, _MIN_MEAN)
 
             if self._dist_family == "decomposed" and stat == "rushing_yards":

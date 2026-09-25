@@ -116,6 +116,12 @@ These per-stat locks are realized by the per-position default `dist_family` in
 
 All three models default to `k=2`, `l1_alpha=0.0`, `use_weather=False`.
 
+Since v0.9-m6, `k` only sets the cold start (future season) GLM weight. The
+in season shrinkage toward the league prior is a per stat constant fitted by
+least squares (`models/shrinkage.py`, `models/shrinkage_weights.json`), because
+`n/(n+k)` counted same season games and collapsed early weeks onto the mean.
+Evidence in `docs/diag/shrinkage_tuning.md`.
+
 ### Why these knobs (universal findings)
 
 1. **k=2 is universally best.** Pooled holdout log_loss is monotonically

@@ -1,0 +1,153 @@
+{
+  "_source": "ingredients_wf8.parquet",
+  "_seasons": [
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "_fit": "least squares on (actual - prior) ~ w * (glm - prior), walk-forward rows only",
+  "default": 0.8086,
+  "weights": {
+    "qb/attempts": 0.8492,
+    "qb/carries": 0.7378,
+    "qb/completions": 0.8706,
+    "qb/interceptions": 0.7413,
+    "qb/passing_tds": 0.9315,
+    "qb/passing_yards": 0.7918,
+    "qb/rushing_tds": 0.7175,
+    "qb/rushing_yards": 0.6747,
+    "rb/carries": 0.8068,
+    "rb/receiving_tds": 0.8801,
+    "rb/receiving_yards": 0.5993,
+    "rb/receptions": 0.7392,
+    "rb/rushing_tds": 1.0275,
+    "rb/rushing_yards": 0.9131,
+    "rb/targets": 0.71,
+    "wr_te/carries": 2.1104,
+    "wr_te/receiving_tds": 0.9329,
+    "wr_te/receiving_yards": 0.7424,
+    "wr_te/receptions": 0.8347,
+    "wr_te/rushing_tds": 0.4927,
+    "wr_te/rushing_yards": 1.158,
+    "wr_te/targets": 0.8105
+  },
+  "blend": {
+    "qb/attempts": [
+      0.3773,
+      0.4351
+    ],
+    "qb/carries": [
+      0.2879,
+      0.5063
+    ],
+    "qb/completions": [
+      0.3665,
+      0.4395
+    ],
+    "qb/interceptions": [
+      0.5792,
+      0.0252
+    ],
+    "qb/passing_tds": [
+      0.6614,
+      0.1559
+    ],
+    "qb/passing_yards": [
+      0.3003,
+      0.4679
+    ],
+    "qb/rushing_tds": [
+      0.4232,
+      0.2403
+    ],
+    "qb/rushing_yards": [
+      0.1816,
+      0.5879
+    ],
+    "rb/carries": [
+      0.0916,
+      0.7505
+    ],
+    "rb/receiving_tds": [
+      0.4842,
+      0.1444
+    ],
+    "rb/receiving_yards": [
+      0.3062,
+      0.3097
+    ],
+    "rb/receptions": [
+      0.2137,
+      0.5062
+    ],
+    "rb/rushing_tds": [
+      0.7197,
+      0.1781
+    ],
+    "rb/rushing_yards": [
+      0.3718,
+      0.4804
+    ],
+    "rb/targets": [
+      0.0928,
+      0.6254
+    ],
+    "wr_te/carries": [
+      0.1608,
+      0.7422
+    ],
+    "wr_te/receiving_tds": [
+      0.7687,
+      0.062
+    ],
+    "wr_te/receiving_yards": [
+      0.2916,
+      0.4714
+    ],
+    "wr_te/receptions": [
+      0.139,
+      0.6599
+    ],
+    "wr_te/rushing_tds": [
+      0.1265,
+      0.263
+    ],
+    "wr_te/rushing_yards": [
+      0.527,
+      0.3543
+    ],
+    "wr_te/targets": [
+      0.0226,
+      0.7945
+    ]
+  },
+  "loo_cv": {
+    "qb/attempts": 0.0132,
+    "qb/carries": 0.0092,
+    "qb/completions": 0.0143,
+    "qb/interceptions": 0.0595,
+    "qb/passing_tds": 0.0171,
+    "qb/passing_yards": 0.0158,
+    "qb/rushing_tds": 0.0527,
+    "qb/rushing_yards": 0.0131,
+    "rb/carries": 0.0087,
+    "rb/receiving_tds": 0.0442,
+    "rb/receiving_yards": 0.0275,
+    "rb/receptions": 0.0222,
+    "rb/rushing_tds": 0.0095,
+    "rb/rushing_yards": 0.0097,
+    "rb/targets": 0.0242,
+    "wr_te/carries": 0.0239,
+    "wr_te/receiving_tds": 0.0093,
+    "wr_te/receiving_yards": 0.0046,
+    "wr_te/receptions": 0.005,
+    "wr_te/rushing_tds": 0.2703,
+    "wr_te/rushing_yards": 0.0276,
+    "wr_te/targets": 0.0039
+  }
+}

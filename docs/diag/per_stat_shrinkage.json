@@ -1,0 +1,112 @@
+{
+  "qb/attempts": [
+    0.0,
+    0,
+    0.5
+  ],
+  "qb/carries": [
+    0.0,
+    8,
+    1.0
+  ],
+  "qb/completions": [
+    0.25,
+    0,
+    0.5
+  ],
+  "qb/interceptions": [
+    0.0,
+    0,
+    0.5
+  ],
+  "qb/passing_tds": [
+    0.0,
+    0,
+    0.5
+  ],
+  "qb/passing_yards": [
+    0.0,
+    0,
+    0.5
+  ],
+  "qb/rushing_tds": [
+    0.0,
+    2,
+    0.5
+  ],
+  "qb/rushing_yards": [
+    0.5,
+    8,
+    8.0
+  ],
+  "rb/carries": [
+    0.5,
+    2,
+    4.0
+  ],
+  "rb/receiving_tds": [
+    0.0,
+    0,
+    0.5
+  ],
+  "rb/receiving_yards": [
+    0.0,
+    4,
+    4.0
+  ],
+  "rb/receptions": [
+    0.5,
+    4,
+    4.0
+  ],
+  "rb/rushing_tds": [
+    0.5,
+    8,
+    0.5
+  ],
+  "rb/rushing_yards": [
+    0.0,
+    1,
+    0.5
+  ],
+  "rb/targets": [
+    0.0,
+    4,
+    2.0
+  ],
+  "wr_te/carries": [
+    0.5,
+    0,
+    8.0
+  ],
+  "wr_te/receiving_tds": [
+    0.0,
+    0,
+    0.5
+  ],
+  "wr_te/receiving_yards": [
+    0.5,
+    2,
+    8.0
+  ],
+  "wr_te/receptions": [
+    0.25,
+    2,
+    2.0
+  ],
+  "wr_te/rushing_tds": [
+    0.0,
+    2,
+    4.0
+  ],
+  "wr_te/rushing_yards": [
+    0.5,
+    0,
+    0.5
+  ],
+  "wr_te/targets": [
+    0.5,
+    4,
+    8.0
+  ]
+}
