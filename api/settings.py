@@ -92,6 +92,11 @@ class AppSettings(BaseSettings):
     # effort: coverage is thin and a market outage falls back to model priors.
     # Disable via NFL_APP_USE_MARKET_ANCHOR=0.
     use_market_anchor: bool = True
+    # Price props off the fantasy projection (trailing blend + depth-chart role
+    # + matchup factors, market anchor excluded) rather than the raw GLM, so the
+    # prop and fantasy boards agree about a player. Disable via
+    # NFL_APP_USE_FANTASY_PROJECTION_FOR_PROPS=0.
+    use_fantasy_projection_for_props: bool = True
     # Process-pool size for the fantasy-slate player loop. 0 = auto
     # (~70% of cores). 1 disables the pool (serial). Env NFL_APP_FANTASY_SLATE_WORKERS.
     fantasy_slate_workers: int = 0

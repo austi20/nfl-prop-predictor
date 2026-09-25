@@ -158,9 +158,35 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
     )
     distribution = distributions[request.stat]
 
+    # Price against the fantasy board's projection rather than the raw GLM, so
+    # the two surfaces cannot disagree about the same player. `prop_stat_projection`
+    # returns a multiplier instead of a rescaled distribution because scaling a
+    # line is exact for any family: P(m*X > L) == P(X > L/m).
+    priced_line = request.line
+    if settings.use_fantasy_projection_for_props:
+        from api.services.fantasy_service import prop_stat_projection
+
+        try:
+            projected = prop_stat_projection(
+                settings,
+                player_id=request.player_id,
+                season=request.season,
+                week=request.week,
+                position=position,
+                recent_team=request.recent_team or "",
+                opponent_team=request.opponent_team,
+                stat=request.stat,
+                game_id=request.game_id or "",
+            )
+        except Exception:  # noqa: BLE001 - a projection failure must not drop the prop
+            projected = None
+        if projected is not None:
+            distribution, multiplier = projected
+            priced_line = request.line / multiplier
+
     calibrator = _calibrator_from_request(settings, request.calibrator_path)
     market = price_two_sided_prop(
-        raw_prob_over=float(distribution.prob_over(request.line)),
+        raw_prob_over=float(distribution.prob_over(priced_line)),
         over_odds=request.over_odds,
         under_odds=request.under_odds,
         calibrator=calibrator,

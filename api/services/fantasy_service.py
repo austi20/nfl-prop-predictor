@@ -134,12 +134,13 @@ def _predict_distributions(
     opponent_team: str,
     position: str,
     recent_team: str = "",
+    stats: tuple[str, ...] | None = None,
 ) -> dict[str, StatDistribution]:
     train_years = tuple(settings.default_train_years)
     models = _model_bundle(train_years, season)
 
     normalized = position.upper().strip()
-    wanted = _MODEL_STATS_BY_POSITION.get(normalized, ())
+    wanted = _MODEL_STATS_BY_POSITION.get(normalized, ()) if stats is None else stats
     if not wanted:
         return {}
 
@@ -174,7 +175,7 @@ def _predict_distributions(
             future_row = None
 
     distributions: dict[str, StatDistribution] = {}
-    for model_name, stats in by_model.items():
+    for model_name, model_stats in by_model.items():
         predicted = models[model_name].predict(
             player_id=player_id,
             season=season,
@@ -182,7 +183,7 @@ def _predict_distributions(
             opp_team=opponent_team,
             future_row=future_row,
         )
-        for stat in stats:
+        for stat in model_stats:
             if stat in predicted:
                 distributions[stat] = predicted[stat]
     return distributions
@@ -214,6 +215,36 @@ _MODEL_STATS_BY_POSITION: dict[str, tuple[str, ...]] = dict(_TRAILING_STATS_BY_P
 
 _YARDAGE_STATS = frozenset({"passing_yards", "rushing_yards", "receiving_yards"})
 
+# Stats Kalshi prices that score no fantasy points, so they are absent from
+# _TRAILING_STATS_BY_POSITION. Without them the prop board priced attempts,
+# completions and carries off the raw GLM while every other stat used the
+# trailing blend -- and those three then dominated the board's largest edges.
+# Only `prop_stat_projection` asks for them; the fantasy board's own stat list
+# is unchanged, so its output is untouched.
+_PROP_ONLY_STATS_BY_POSITION: dict[str, tuple[str, ...]] = {
+    "QB": ("completions", "attempts", "carries"),
+    "RB": ("carries", "targets"),
+    "WR": ("targets",),
+    "TE": ("targets",),
+}
+
+
+# The prop board quotes several stats per player, and each one would otherwise
+# redo that player's GLM prediction and context factors. Memoise per player so a
+# board build costs one projection per player rather than one per rung.
+_PROP_PROJECTION_CACHE: dict[tuple, tuple[dict, dict]] = {}
+_PROP_PROJECTION_CACHE_MAX = 4096
+
+
+def _projection_stats(position: str, *, include_prop_only: bool) -> tuple[str, ...]:
+    stats = _TRAILING_STATS_BY_POSITION.get(position, ())
+    if not include_prop_only:
+        return stats
+    extra = tuple(
+        s for s in _PROP_ONLY_STATS_BY_POSITION.get(position, ()) if s not in stats
+    )
+    return stats + extra
+
 
 @lru_cache(maxsize=4)
 def _calibration(path: str) -> FantasyCalibration:
@@ -222,7 +253,11 @@ def _calibration(path: str) -> FantasyCalibration:
 
 def _settings_calibration(settings: AppSettings) -> FantasyCalibration:
     return _calibration(getattr(settings, "fantasy_calibration_path", "") or "")
+
+
 _TRAILING_WINDOW = 8          # most recent games that inform the projection
+# Fewest same-role games needed before they replace a mixed-role trailing window.
+_MIN_ROLE_GAMES = 2
 _TRAILING_REGRESS_GAMES = 4.0  # pseudo-count pulling a thin sample to the baseline
 _MODEL_BLEND_WEIGHT = 0.35     # how much the GLM mean moves a covered stat
 _STAT_MEAN_LO, _STAT_MEAN_HI = 0.45, 1.7  # clamp band around the trailing mean
@@ -303,13 +338,20 @@ def _rookie_capital_multiplier(player_id: str, weekly: pd.DataFrame) -> float:
 def _depth_ranks_for(
     weekly: pd.DataFrame, player_id: str, season: int, week: int
 ) -> tuple[int | None, int | None]:
-    """(current slot, slot the trailing games were played in)."""
+    """(current slot, slot the trailing games were played in).
+
+    The current slot steps over team-mates the injury report says are likely
+    out. The published chart lists the roster's pecking order, not who is
+    available on Sunday, so a backup starting in place of an injured man keeps
+    his backup rank and gets projected on backup usage against a line the market
+    has already moved.
+    """
     try:
-        from data.depth_chart import current_rank, prior_rank
+        from data.depth_chart import effective_rank, prior_rank
 
         seasons = _seasons_span(weekly, season)
         return (
-            current_rank(player_id, int(season), int(week), seasons),
+            effective_rank(player_id, int(season), int(week), seasons),
             prior_rank(player_id, int(season), int(week), seasons),
         )
     except Exception:  # noqa: BLE001 - depth data is an enhancement, never a gate
@@ -376,7 +418,8 @@ def _baselines_for(weekly: pd.DataFrame) -> dict[tuple[str, int | None, str], fl
     else:
         frame["_bucket"] = None
 
-    for position, stats in _TRAILING_STATS_BY_POSITION.items():
+    for position in _TRAILING_STATS_BY_POSITION:
+        stats = _projection_stats(position, include_prop_only=True)
         rows = frame[frame["_pos"] == position]
         ranked = rows.dropna(subset=["_bucket"]) if "_bucket" in rows.columns else rows.iloc[0:0]
         for stat in stats:
@@ -395,6 +438,53 @@ def _baselines_for(weekly: pd.DataFrame) -> dict[tuple[str, int | None, str], fl
     return out
 
 
+def _games_in_role(
+    hist: pd.DataFrame,
+    player_id: str,
+    weekly: pd.DataFrame,
+    season: int,
+    position: str,
+    rank_bucket: int | None,
+    prior_bucket: int | None,
+) -> pd.DataFrame:
+    """On a role change, keep the trailing games actually played in the new role.
+
+    A backup promoted because the starter is hurt has a trailing average that
+    mixes real starts with games he barely appeared in. Drew Lock's window held
+    four 2024 starts (49, 39, 23, 29 attempts) alongside three 2025 mop-up
+    appearances (3, 0, 0); averaging them called him a 17-attempt quarterback
+    against a 29.5 line. His starts are the sample that describes the job he is
+    about to do.
+
+    Only fires when the slot actually moved and enough same-role games exist.
+    Every unmoved player keeps the full window, so the great majority of the
+    board is untouched.
+    """
+    if rank_bucket is None or prior_bucket is None or rank_bucket == prior_bucket:
+        return hist
+    if hist.empty or "week" not in hist.columns:
+        return hist
+    try:
+        from data.depth_chart import bucket as _rank_bucket
+        from data.depth_chart import game_ranks
+
+        ranks = game_ranks(player_id, _seasons_span(weekly, season))
+    except Exception:  # noqa: BLE001 - depth data is an enhancement, never a gate
+        return hist
+    if not ranks:
+        return hist
+
+    same = [
+        _rank_bucket(ranks.get((int(r.season), int(r.week))), position) == rank_bucket
+        for r in hist.itertuples(index=False)
+    ]
+    matched = hist[pd.Series(same, index=hist.index)]
+    # Two games is thin, but it is a sample of the right job against a window
+    # that is measuring the wrong one. Below that the rank-conditioned baseline
+    # is the better anchor, and `form_weight` already leans on it.
+    return matched if len(matched) >= _MIN_ROLE_GAMES else hist
+
+
 def _trailing_fantasy_distributions(
     weekly: pd.DataFrame,
     *,
@@ -406,11 +496,13 @@ def _trailing_fantasy_distributions(
     calib: FantasyCalibration | None = None,
     depth_rank: int | None = None,
     prior_depth_rank: int | None = None,
+    stats: tuple[str, ...] | None = None,
     _raw_out: dict | None = None,
 ) -> dict[str, StatDistribution]:
     calib = calib or default_calibration()
     normalized = position.upper().strip()
-    stats = _TRAILING_STATS_BY_POSITION.get(normalized)
+    if stats is None:
+        stats = _TRAILING_STATS_BY_POSITION.get(normalized)
     if not stats:
         return dict(model_distributions)
 
@@ -425,6 +517,7 @@ def _trailing_fantasy_distributions(
             (hist["season"] < season)
             | ((hist["season"] == season) & (hist["week"] < week))
         ].sort_values(["season", "week"]).tail(_TRAILING_WINDOW)
+        hist = _games_in_role(hist, player_id, weekly, season, normalized, rank_bucket, prior_bucket)
 
     n = len(hist)
     recency = np.linspace(0.5, 1.0, n) if n else np.array([])
@@ -1585,6 +1678,102 @@ def _stat_multipliers(
         )
         out[stat] = combined * market_scale * injury_hit[stat]
     return out
+
+
+def prop_stat_projection(
+    settings: AppSettings,
+    *,
+    player_id: str,
+    season: int,
+    week: int,
+    position: str,
+    recent_team: str,
+    opponent_team: str,
+    stat: str,
+    game_id: str = "",
+) -> tuple[StatDistribution, float] | None:
+    """The fantasy board's view of one stat, for pricing a prop against it.
+
+    The prop path used to price the raw GLM. Least squares on walk-forward rows
+    says a player's own trailing form deserves 50-90% of the weight on most box
+    score stats, and the GLM alone cannot see a depth-chart role change -- which
+    is why the board's wildest edges sat on backups. Reusing the fantasy
+    pipeline here is what makes the two surfaces agree about a player.
+
+    The Kalshi market anchor is deliberately excluded. Fitting a projection to a
+    quote and then grading edge against that same quote prices every market at
+    no edge by construction.
+
+    Returns `(distribution, multiplier)`; the caller prices a line `L` as
+    `distribution.prob_over(L / multiplier)`, which is exact because
+    `P(m*X > L) == P(X > L/m)`. Returns None when the position has no
+    projection for this stat, and the caller keeps the GLM distribution.
+    """
+    normalized = position.upper().strip()
+    stats = _projection_stats(normalized, include_prop_only=True)
+    if stat not in stats:
+        return None
+
+    key = (player_id, season, week, normalized, recent_team, opponent_team, game_id)
+    cached = _PROP_PROJECTION_CACHE.get(key)
+    if cached is not None:
+        distributions, multipliers = cached
+        distribution = distributions.get(stat)
+        if distribution is None or distribution.mean <= 0:
+            return None
+        return distribution, float(multipliers.get(stat, 1.0))
+
+    weekly = scoring_weekly(settings, season)
+    calib = _settings_calibration(settings)
+    model_distributions = _predict_distributions(
+        settings,
+        player_id=player_id,
+        season=season,
+        week=week,
+        opponent_team=opponent_team,
+        position=normalized,
+        recent_team=recent_team,
+        stats=stats,
+    )
+    depth_rank, prior_depth_rank = _depth_ranks_for(weekly, player_id, season, week)
+    distributions = _trailing_fantasy_distributions(
+        weekly,
+        player_id=player_id,
+        season=season,
+        week=week,
+        position=normalized,
+        model_distributions=model_distributions,
+        calib=calib,
+        depth_rank=depth_rank,
+        prior_depth_rank=prior_depth_rank,
+        stats=stats,
+    )
+    distribution = distributions.get(stat)
+    if distribution is None or distribution.mean <= 0:
+        return None
+
+    factors = _context_factors(
+        settings,
+        weekly,
+        player_id=player_id,
+        season=season,
+        week=week,
+        position=normalized,
+        recent_team=recent_team,
+        opponent_team=opponent_team,
+        scoring_mode="full_ppr",
+        game_id=game_id,
+        calib=calib,
+    )
+    multipliers = _stat_multipliers(factors, calib)
+    if len(_PROP_PROJECTION_CACHE) >= _PROP_PROJECTION_CACHE_MAX:
+        _PROP_PROJECTION_CACHE.clear()
+    _PROP_PROJECTION_CACHE[key] = (distributions, multipliers)
+
+    multiplier = float(multipliers.get(stat, 1.0))
+    if not np.isfinite(multiplier) or multiplier <= 1e-6:
+        multiplier = 1.0
+    return distribution, multiplier
 
 
 def build_fantasy_summary(
