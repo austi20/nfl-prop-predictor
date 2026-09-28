@@ -1800,7 +1800,6 @@ def build_fantasy_summary(
     multipliers = _stat_multipliers(factors, calib)
     projection = project_fantasy_points(
         distributions,
-        position=normalized_position,
         scoring_mode=mode,
         stat_multipliers=multipliers,
         seed=seed,
@@ -1814,7 +1813,6 @@ def build_fantasy_summary(
     if sd is not None:
         projection = project_fantasy_points(
             distributions,
-            position=normalized_position,
             scoring_mode=mode,
             stat_multipliers=multipliers,
             seed=seed,

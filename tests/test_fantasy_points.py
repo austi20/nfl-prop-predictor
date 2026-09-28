@@ -4,8 +4,10 @@ import numpy as np
 
 from api.services.fantasy_service import _weather_factors
 from eval.fantasy_points import (
-    position_cutoffs,
+    BOOM_MULTIPLIER,
+    BUST_MULTIPLIER,
     project_fantasy_points,
+    relative_cutoffs,
     stable_simulation_seed,
 )
 from models.base import StatDistribution
@@ -27,26 +29,23 @@ def test_full_ppr_scoring_from_component_means():
             "receiving_yards": _dist(70.0),
             "receiving_tds": _dist(0.5),
         },
-        position="QB",
         scoring_mode="full_ppr",
         simulations=0,
     )
 
     assert projection.projected_points == 36.0
-    assert projection.boom_cutoff == 24.0
-    assert projection.bust_cutoff == 14.0
+    assert projection.boom_cutoff == 36.0 * 1.5
+    assert projection.bust_cutoff == 36.0 * 0.5
 
 
 def test_half_ppr_keeps_same_interface_with_lower_reception_weight():
     full = project_fantasy_points(
         {"receptions": _dist(6.0), "receiving_yards": _dist(60.0)},
-        position="WR",
         scoring_mode="full_ppr",
         simulations=0,
     )
     half = project_fantasy_points(
         {"receptions": _dist(6.0), "receiving_yards": _dist(60.0)},
-        position="WR",
         scoring_mode="half_ppr",
         simulations=0,
     )
@@ -64,19 +63,54 @@ def test_boom_bust_probabilities_are_deterministic_for_same_seed():
     }
     seed = stable_simulation_seed("rb1", 2024, 10, "full_ppr")
 
-    first = project_fantasy_points(distributions, position="RB", seed=seed)
-    second = project_fantasy_points(distributions, position="RB", seed=seed)
+    first = project_fantasy_points(distributions, seed=seed)
+    second = project_fantasy_points(distributions, seed=seed)
 
     assert np.isclose(first.boom_probability, second.boom_probability)
     assert np.isclose(first.bust_probability, second.bust_probability)
     assert np.isclose(first.median_points, second.median_points)
 
 
-def test_position_cutoffs_for_supported_positions():
-    assert position_cutoffs("QB") == (24.0, 14.0)
-    assert position_cutoffs("RB") == (20.0, 8.0)
-    assert position_cutoffs("WR") == (20.0, 7.0)
-    assert position_cutoffs("TE") == (14.0, 5.0)
+def test_relative_cutoffs_scale_with_the_projection():
+    assert relative_cutoffs(20.0) == (20.0 * BOOM_MULTIPLIER, 20.0 * BUST_MULTIPLIER)
+    assert relative_cutoffs(0.0) == (0.0, 0.0)
+    assert relative_cutoffs(-1.0) == (0.0, 0.0)
+
+
+def _wr() -> dict[str, StatDistribution]:
+    return {
+        "receptions": _dist(5.0, 2.5, "poisson"),
+        "receiving_yards": _dist(65.0, 30.0, "gamma"),
+        "receiving_tds": _dist(0.4, 0.6, "poisson"),
+    }
+
+
+def test_boom_and_bust_are_the_sample_share_past_each_cutoff():
+    projection = project_fantasy_points(_wr(), seed=7, simulations=20000)
+    boom_cut, bust_cut = relative_cutoffs(projection.projected_points)
+    assert projection.boom_cutoff == boom_cut
+    assert projection.bust_cutoff == bust_cut
+    assert 0.05 < projection.boom_probability < 0.5
+    assert 0.05 < projection.bust_probability < 0.5
+
+
+def test_a_wider_spread_raises_both_boom_and_bust_at_the_same_projection():
+    steady = project_fantasy_points(_wr(), seed=7, simulations=20000, total_sd=4.0)
+    volatile = project_fantasy_points(_wr(), seed=7, simulations=20000, total_sd=9.0)
+    assert steady.projected_points == volatile.projected_points
+    assert volatile.boom_probability > steady.boom_probability
+    assert volatile.bust_probability > steady.bust_probability
+
+
+def test_half_ppr_cutoffs_follow_the_half_ppr_projection():
+    half = project_fantasy_points(_wr(), scoring_mode="half_ppr", simulations=0)
+    assert half.boom_cutoff == half.projected_points * BOOM_MULTIPLIER
+
+
+def test_a_zero_projection_never_booms():
+    projection = project_fantasy_points({}, seed=1)
+    assert projection.boom_probability == 0.0
+    assert projection.bust_probability == 1.0
 
 
 def test_weather_factors_neutral_without_a_game_id():

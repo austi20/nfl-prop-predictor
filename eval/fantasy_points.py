@@ -43,12 +43,15 @@ SCORING_PROFILES: dict[ScoringMode, dict[str, float]] = {
 
 ZERO_WEIGHT_STATS = ("carries", "completions")
 
-POSITION_CUTOFFS: dict[str, tuple[float, float]] = {
-    "QB": (24.0, 14.0),
-    "RB": (20.0, 8.0),
-    "WR": (20.0, 7.0),
-    "TE": (14.0, 5.0),
-}
+# Boom = beat the projection by half again; bust = score half of it or less.
+BOOM_MULTIPLIER = 1.5
+BUST_MULTIPLIER = 0.5
+
+
+def relative_cutoffs(projected_points: float) -> tuple[float, float]:
+    if projected_points <= 0:
+        return 0.0, 0.0
+    return projected_points * BOOM_MULTIPLIER, projected_points * BUST_MULTIPLIER
 
 
 @dataclass(frozen=True)
@@ -73,13 +76,6 @@ def scoring_weights(scoring_mode: ScoringMode) -> dict[str, float]:
         raise ValueError(f"Unsupported fantasy scoring mode: {scoring_mode}") from exc
 
 
-def position_cutoffs(position: str) -> tuple[float, float]:
-    normalized = position.upper().strip()
-    if normalized not in POSITION_CUTOFFS:
-        raise ValueError(f"Unsupported fantasy position: {position}")
-    return POSITION_CUTOFFS[normalized]
-
-
 def stable_simulation_seed(
     player_id: str,
     season: int,
@@ -102,7 +98,6 @@ def _sample_distribution(
 def project_fantasy_points(
     distributions: dict[str, StatDistribution],
     *,
-    position: str,
     scoring_mode: ScoringMode = "full_ppr",
     stat_multipliers: dict[str, float] | None = None,
     seed: int | None = None,
@@ -111,7 +106,6 @@ def project_fantasy_points(
     total_sd: float | None = None,
 ) -> FantasyProjection:
     weights = scoring_weights(scoring_mode)
-    boom_cutoff, bust_cutoff = position_cutoffs(position)
     multipliers = stat_multipliers or {}
     rng = np.random.default_rng(seed)
 
@@ -161,12 +155,13 @@ def project_fantasy_points(
     # spread; the measured per player spread replaces it when known.
     if total_sd is not None and simulations > 0:
         total_samples = rescale(total_samples, projected_points, total_sd)
-    if simulations <= 0:
-        median = projected_points
-        p10 = projected_points
-        p90 = projected_points
-        boom = 1.0 if projected_points >= boom_cutoff else 0.0
-        bust = 1.0 if projected_points <= bust_cutoff else 0.0
+    boom_cutoff, bust_cutoff = relative_cutoffs(projected_points)
+    if projected_points <= 0:
+        median = p10 = p90 = projected_points
+        boom, bust = 0.0, 1.0
+    elif simulations <= 0:
+        median = p10 = p90 = projected_points
+        boom, bust = 0.0, 0.0
     else:
         median = float(np.quantile(total_samples, 0.5))
         p10 = float(np.quantile(total_samples, 0.1))

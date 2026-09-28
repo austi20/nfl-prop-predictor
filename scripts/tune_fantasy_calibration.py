@@ -19,8 +19,6 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from eval.fantasy_calibration import (
-    _BOOM,
-    _BUST,
     _OFFENSE_SET,
     _YARDAGE,
     _apply_calib_to_row,
@@ -32,6 +30,7 @@ from eval.fantasy_calibration import (
     load_eval_cache,
     save_calibration,
 )
+from eval.fantasy_points import BOOM_MULTIPLIER, BUST_MULTIPLIER
 
 ARTIFACT = Path("models/fantasy_calibration.json")
 CORRECTION = Path("models/fantasy_glm_correction.json")
@@ -86,10 +85,9 @@ def validate_approx(n: int = 200, seed: int = 3) -> float:
     diffs = []
     for i in pick:
         r = cache["rows"][int(i)]
-        pos = r["position"]
         # analytic P(boom)
         m, sd = _apply_calib_to_row(r, calib)
-        p_analytic, _ = _boom_bust_prob(m, sd, _BOOM[pos], _BUST[pos])
+        p_analytic, _ = _boom_bust_prob(m, sd, BOOM_MULTIPLIER * m, BUST_MULTIPLIER * m)
         # real 5000-sim MC over the same per-stat blended dists (pre-context),
         # with context applied via stat_multipliers exactly like build_fantasy_summary
         dists: dict[str, StatDistribution] = {}
@@ -125,7 +123,7 @@ def validate_approx(n: int = 200, seed: int = 3) -> float:
                               calib.context_clamp_lo, calib.context_clamp_hi))
             for st in dists
         }
-        proj = project_fantasy_points(dists, position=pos, scoring_mode="full_ppr",
+        proj = project_fantasy_points(dists, scoring_mode="full_ppr",
                                       stat_multipliers=sm, seed=int(i), simulations=5000, calib=calib)
         diffs.append(abs(p_analytic - proj.boom_probability))
     mad = float(np.mean(diffs))
