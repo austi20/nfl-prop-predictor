@@ -25,3 +25,13 @@ export function units(value: unknown, digits = 3, dash = DASH): string {
   const s = value.toFixed(digits)
   return `${value > 0 ? '+' : ''}${s}u`
 }
+
+/** "22% · 21.0+": chance of a boom and the points it takes. */
+export function boomLabel(prob: unknown, cutoff: unknown): string {
+  return `${pct(prob, 0)} · ${finite(cutoff) ? `${cutoff.toFixed(1)}+` : DASH}`
+}
+
+/** "25% · ≤7.0": chance of a bust and the points that make one. */
+export function bustLabel(prob: unknown, cutoff: unknown): string {
+  return `${pct(prob, 0)} · ${finite(cutoff) ? `≤${cutoff.toFixed(1)}` : DASH}`
+}

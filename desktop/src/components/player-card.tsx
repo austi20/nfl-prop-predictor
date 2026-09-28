@@ -7,6 +7,7 @@ import { DistChart } from './dist-chart'
 import { EdgeBadge } from './edge-badge'
 import { InjuryPill } from './injury-pill'
 import { WeatherBadge } from './weather-badge'
+import { boomLabel, bustLabel } from '../lib/format'
 
 import { Card, CardContent } from './ui/card'
 
@@ -14,10 +15,6 @@ type PlayerCardProps = {
   pick: Pick
   selected?: boolean
   onToggleSelect?: (pick: Pick) => void
-}
-
-function fantasyPercent(value: number) {
-  return `${Math.round(value * 100)}%`
 }
 
 export function PlayerCard({ pick, selected, onToggleSelect }: PlayerCardProps) {
@@ -78,10 +75,10 @@ export function PlayerCard({ pick, selected, onToggleSelect }: PlayerCardProps) 
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 font-mono text-[11px] uppercase tracking-[0.16em]">
                   <div className="rounded-xl bg-slate-950/40 px-3 py-2 text-emerald-200">
-                    Boom {fantasyPercent(fantasy.boom_probability)}
+                    Boom {boomLabel(fantasy.boom_probability, fantasy.boom_cutoff)}
                   </div>
                   <div className="rounded-xl bg-slate-950/40 px-3 py-2 text-rose-200">
-                    Bust {fantasyPercent(fantasy.bust_probability)}
+                    Bust {bustLabel(fantasy.bust_probability, fantasy.bust_cutoff)}
                   </div>
                 </div>
                 <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">

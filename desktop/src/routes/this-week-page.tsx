@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import { Card, CardContent } from '../components/ui/card'
 import { TierBadge } from '../components/tier-badge'
 import { getFantasySlate } from '../lib/api'
-import { num } from '../lib/format'
+import { boomLabel, bustLabel, num } from '../lib/format'
 import { useCurrentWeek } from '../lib/use-current-week'
 import type { FantasySlateEntry, FantasySlateResponse } from '../lib/types'
 
@@ -72,7 +72,7 @@ function SlateRow({ rank, tier, entry }: { rank: number; tier: string; entry: Fa
   return (
     <Link
       to={`/player/${encodeURIComponent(entry.player_id)}`}
-      aria-label={`${rank}. ${entry.player_name || entry.player_id}, ${entry.position} ${entry.recent_team} vs ${entry.opponent_team}, ${tier}. Projected ${num(entry.projected_points)} points, range ${num(entry.floor_points)} to ${num(entry.ceiling_points)}, boom ${Math.round(entry.boom_probability * 100)}%, bust ${Math.round(entry.bust_probability * 100)}%.`}
+      aria-label={`${rank}. ${entry.player_name || entry.player_id}, ${entry.position} ${entry.recent_team} vs ${entry.opponent_team}, ${tier}. Projected ${num(entry.projected_points)} points, range ${num(entry.floor_points)} to ${num(entry.ceiling_points)}, boom ${boomLabel(entry.boom_probability, entry.boom_cutoff)}, bust ${bustLabel(entry.bust_probability, entry.bust_cutoff)}.`}
       className="grid grid-cols-[2rem_1fr_auto] items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition-colors hover:border-emerald-400/30 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300 sm:grid-cols-[2rem_1.4fr_1.1fr_auto]"
     >
       <div className="font-mono text-sm text-slate-500">{rank}</div>
@@ -99,10 +99,10 @@ function SlateRow({ rank, tier, entry }: { rank: number; tier: string; entry: Fa
 
       <div className="hidden flex-col gap-1 sm:flex">
         <RangeBar entry={entry} />
-        <div className="flex justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
+        <div className="flex flex-wrap justify-between gap-x-2 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
           <span>flr {num(entry.floor_points)}</span>
-          <span className="text-emerald-300">boom {Math.round(entry.boom_probability * 100)}%</span>
-          <span className="text-rose-300">bust {Math.round(entry.bust_probability * 100)}%</span>
+          <span className="text-emerald-300">boom {boomLabel(entry.boom_probability, entry.boom_cutoff)}</span>
+          <span className="text-rose-300">bust {bustLabel(entry.bust_probability, entry.bust_cutoff)}</span>
           <span>ceil {num(entry.ceiling_points)}</span>
         </div>
       </div>
