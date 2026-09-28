@@ -203,6 +203,8 @@ def _project_player(task: _ProjTask) -> dict | None:
         "ceiling_points": summary.p90_points,
         "boom_probability": summary.boom_probability,
         "bust_probability": summary.bust_probability,
+        "boom_cutoff": summary.boom_cutoff,
+        "bust_cutoff": summary.bust_cutoff,
         "injury_status": "" if status == "not_reported" else injuries.label(status),
     }
 

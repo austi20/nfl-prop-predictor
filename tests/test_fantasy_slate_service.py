@@ -137,6 +137,7 @@ def test_slate_ranks_by_projection_and_drops_thin_or_absent_history():
     top = out.entries[0]
     assert top.opponent_team == "TB"
     assert top.floor_points < top.projected_points < top.ceiling_points
+    assert top.boom_cutoff == 20.0 and top.bust_cutoff == 8.0
 
 
 def test_slate_limit_sizes_the_per_position_budget():
@@ -174,7 +175,7 @@ def test_project_player_returns_row_dict_and_swallows_failures():
     assert set(row) == {
         "player_id", "player_name", "position", "recent_team", "opponent_team",
         "game_id", "kickoff", "projected_points", "floor_points", "ceiling_points",
-        "boom_probability", "bust_probability", "injury_status",
+        "boom_probability", "bust_probability", "boom_cutoff", "bust_cutoff", "injury_status",
     }
 
 
@@ -242,6 +243,7 @@ def test_apply_tiers_ranks_each_list_independently():
             recent_team="X", opponent_team="Y",
             projected_points=pts, floor_points=pts - 2, ceiling_points=pts + 2,
             boom_probability=0.3, bust_probability=0.2,
+            boom_cutoff=6.0, bust_cutoff=2.0,
         )
         for i, (pos, pts) in enumerate(
             [("QB", 24.0), ("RB", 20.0), ("WR", 18.0), ("RB", 12.0), ("TE", 8.0)]

@@ -425,6 +425,9 @@ class FantasySlateEntry(BaseModel):
     ceiling_points: float
     boom_probability: float
     bust_probability: float
+    # Points at which the week counts as a boom / bust (1.5x / 0.5x projection).
+    boom_cutoff: float = 0.0
+    bust_cutoff: float = 0.0
     # This week's designation ("Out", "Questionable", ...); empty when healthy.
     injury_status: str = ""
     # Rank + start/sit tier within each list the player belongs to. `flex_*` is
