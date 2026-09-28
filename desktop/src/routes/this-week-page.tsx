@@ -99,11 +99,13 @@ function SlateRow({ rank, tier, entry }: { rank: number; tier: string; entry: Fa
 
       <div className="hidden flex-col gap-1 sm:flex">
         <RangeBar entry={entry} />
-        <div className="flex flex-wrap justify-between gap-x-2 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
+        <div className="flex justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
           <span>flr {num(entry.floor_points)}</span>
+          <span>ceil {num(entry.ceiling_points)}</span>
+        </div>
+        <div className="flex justify-between gap-x-2 font-mono text-[10px] uppercase tracking-[0.14em]">
           <span className="text-emerald-300">boom {boomLabel(entry.boom_probability, entry.boom_cutoff)}</span>
           <span className="text-rose-300">bust {bustLabel(entry.bust_probability, entry.bust_cutoff)}</span>
-          <span>ceil {num(entry.ceiling_points)}</span>
         </div>
       </div>
 
