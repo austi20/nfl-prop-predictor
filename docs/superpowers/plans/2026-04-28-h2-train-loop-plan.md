@@ -1,5 +1,7 @@
 # H2 train_loop.py Implementation Plan
 
+> **SUPERSEDED.** Ran with 7 holdouts (2019-2025), not 6. See the matching spec.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the deterministic walk-forward ablation harness (`scripts/train_loop.py`) that produces `docs/training/season_<YYYY>_results.csv` per the H2 spec.

@@ -98,7 +98,7 @@ export function PlayerDetailPage() {
           className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Dashboard
+          This Week
         </Link>
         <button
           onClick={() => setAnalystOpen((v) => !v)}

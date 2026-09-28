@@ -211,7 +211,7 @@ def test_concurrent_builds_compute_once(monkeypatch):
 
     try:
         svc.build_fantasy_slate(AppSettings(), season=2026, week=1, limit=25)
-    except BaseException as exc:  # noqa: BLE001
+    except BaseException as exc:
         nonwaiter_error.append(exc)
 
     may_finish.set()

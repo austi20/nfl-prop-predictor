@@ -1,4 +1,4 @@
-import type { ExecutionEvent, FantasyPredictionResponse, FantasySlateResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, PropBoardResponse, ScheduleResponse, SlateResponse } from './types'
+import type { ExecutionEvent, FantasySlateResponse, IntentStatus, Pick, PlayerDetailResponse, ParlayBuildResponse, Portfolio, PropBoardResponse, ScheduleResponse, SlateResponse } from './types'
 import { resolveApiBaseUrl } from './runtime'
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -68,22 +68,6 @@ export async function getFantasySlate(
   if (params.limit !== undefined) query.set('limit', String(params.limit))
   return request<FantasySlateResponse>(`/api/fantasy/slate/${params.season}?${query.toString()}`, {
     signal,
-  })
-}
-
-export async function predictFantasy(payload: {
-  player_id: string
-  season: number
-  week: number
-  position?: string
-  opponent_team?: string
-  recent_team?: string
-  game_id?: string
-  scoring_mode?: 'full_ppr' | 'half_ppr'
-}) {
-  return request<FantasyPredictionResponse>('/api/fantasy/predict', {
-    method: 'POST',
-    body: JSON.stringify(payload),
   })
 }
 

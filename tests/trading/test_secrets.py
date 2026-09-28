@@ -31,7 +31,7 @@ def _use_in_memory_keyring(monkeypatch):
     yield
 
 
-from api.trading.secrets import delete, load, store  # noqa: E402 — import after monkeypatch fixture
+from api.trading.secrets import delete, load, store
 
 
 def test_store_and_load_round_trip() -> None:

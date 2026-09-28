@@ -35,5 +35,5 @@ def get_prop_board(
         return PropBoardResponse(season=season, week=week, ready=False)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(status_code=502, detail=f"prop board unavailable: {exc}") from exc

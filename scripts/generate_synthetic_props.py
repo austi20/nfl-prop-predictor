@@ -62,10 +62,6 @@ _SHRINKAGE_K = 20.0
 _NO_VIG_MIN = 0.08
 _NO_VIG_MAX = 0.92
 _ODDS_OUTLIER_ABS = 800
-_YARDAGE_VOLUME_STATS = frozenset({
-    "passing_yards", "rushing_yards", "receiving_yards",
-    "receptions", "carries", "completions",
-})
 _TD_INT_STATS = frozenset({
     "passing_tds", "rushing_tds", "receiving_tds", "interceptions",
 })
@@ -117,7 +113,6 @@ def _build_rows(
     for stat in ALL_STATS:
         if stat not in df.columns:
             continue
-        filled = df[stat].fillna(0.0)
         df[f"_mean_{stat}"] = df.groupby("player_id", group_keys=False)[stat].transform(
             lambda s: rolling_mean(s.fillna(0.0), window=window)
         )

@@ -70,7 +70,7 @@ def _read_cache(season: int, week: int) -> dict[str, list[float]] | None:
         if time.time() - mtime > _TTL_SECONDS or mtime < refresh_cutoff():
             return None
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001 - a bad cache must not brick projections
+    except Exception:
         return None
 
 
@@ -79,7 +79,7 @@ def _write_cache(season: int, week: int, payload: dict[str, list[float]]) -> Non
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-    except Exception:  # noqa: BLE001
+    except Exception:
         _log.debug("market lines: cache write failed", exc_info=True)
 
 
@@ -118,7 +118,7 @@ def _fetch(season: int, week: int) -> dict[str, list[float]]:
         for series, stat in _SERIES_STAT.items():
             try:
                 events = list(_iter_events(client, series))
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 _log.warning("market lines: %s unavailable (%s)", series, exc)
                 continue
             for event in events:
@@ -175,7 +175,7 @@ def player_stat_lines(
             exc_info=True,
         )
         return {}
-    except Exception:  # noqa: BLE001 - market data is an enhancement, never a gate
+    except Exception:
         _log.warning("market lines: fetch failed for %s wk %s", season, week, exc_info=True)
         return {}
     _write_cache(season, week, lines)

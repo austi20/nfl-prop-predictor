@@ -1,5 +1,7 @@
 # Modernization Roadmap (Phases 2-7) — Cross-Phase Design
 
+> **ARCHIVED.** NBA v2 is archived and P2-P7 were not pursued. Only the §5 P3 Layer B breakpoint gate remains in force (`tests/test_breakpoint_doc_gate.py`).
+
 **Date:** 2026-06-10
 **Scope:** Cross-phase sequencing, dependencies, kill criteria, and re-brainstorm triggers for porting NBABets v2 patterns into NFLStatsPredictor. Per-phase implementation specs are out of scope here and will be authored individually at the re-brainstorm triggers named below.
 **Status:** Design (awaiting user sign-off before writing-plans).

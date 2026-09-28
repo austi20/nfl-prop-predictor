@@ -10,7 +10,7 @@ import { useCurrentWeek } from '../lib/use-current-week'
 import type { FantasySlateEntry, FantasySlateResponse } from '../lib/types'
 
 // The week comes from the schedule; only the season is pinned. Bump SEASON at
-// the season rollover (dashboard-page.tsx has the match).
+// the season rollover (props-page.tsx has the match).
 const SEASON = 2026
 const WEEKS = Array.from({ length: 18 }, (_, i) => i + 1)
 const VIEWS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX'] as const

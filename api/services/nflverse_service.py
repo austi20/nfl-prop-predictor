@@ -94,7 +94,7 @@ def refresh_live_feeds(settings: AppSettings) -> None:
     for step in steps:
         try:
             step()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("feed refresh step failed: %s", exc)
 
 

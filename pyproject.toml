@@ -1,13 +1,12 @@
 [project]
 name = "nfl-prop-predictor"
 version = "0.9.3"
-description = "NFL player-prop probability engine + Kalshi execution sidecar + Tauri desktop app"
+description = "NFL fantasy projections and player prop pricing, with a Tauri desktop app"
 requires-python = ">=3.13"
 dependencies = [
     "nfl-data-py>=0.3.2",
     "pandas>=2.0",
     "pyarrow>=24.0.0",
-    "pytest>=9.0.3",
     "requests>=2.33.1",
     "scikit-learn>=1.8.0",
     "scipy>=1.17.1",
@@ -17,8 +16,6 @@ dependencies = [
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
     "httpx>=0.28.0",
-    "pyinstaller>=6.14.0",
-    "sse-starlette>=3.3.4",
     "opentelemetry-api>=1.28.0",
     "opentelemetry-sdk>=1.28.0",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
@@ -27,15 +24,12 @@ dependencies = [
     "statsmodels>=0.14.0",
     "jinja2>=3.1.6",
     "python-dotenv>=1.2.2",
-    # Backs the restart-surviving trading ledger and kill switch
-    # (api/db/, api/trading/sql_ledger.py) from docs/modernization_plan.md P0-P1.
-    "sqlalchemy>=2.0.0",
 ]
 
 [dependency-groups]
-# These were present in the venv but declared nowhere, so locking the SQLAlchemy
-# dependency pruned them. Declared here so they survive the next `uv sync`.
 dev = [
+    "pytest>=9.0.3",
+    "pyinstaller>=6.14.0",
     "ruff>=0.15.0",
     "mypy>=1.13",
 ]

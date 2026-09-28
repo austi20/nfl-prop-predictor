@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 from uuid import uuid4
 
@@ -17,7 +18,9 @@ os.environ.setdefault("NFL_APP_REFRESH_FEEDS_ON_START", "0")
 
 
 @pytest.fixture
-def tmp_path() -> Path:
+def tmp_path():
     path = Path("tmp") / "test-artifacts" / uuid4().hex
     path.mkdir(parents=True, exist_ok=True)
-    return path.resolve()
+    yield path.resolve()
+    # left 4600 dirs behind before this
+    shutil.rmtree(path, ignore_errors=True)

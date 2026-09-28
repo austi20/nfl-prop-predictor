@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pytest
 
 from api.trading.risk import StaticRiskEngine
 from api.trading.types import ExecutionIntent, MarketRef, PortfolioState, Position

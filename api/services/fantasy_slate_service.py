@@ -187,7 +187,7 @@ def _project_player(task: _ProjTask) -> dict | None:
             game_id=gid,
             scoring_mode=scoring_mode,
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
     status, _note = injuries.player_statuses(season, week).get(pid, ("not_reported", ""))
     return {
@@ -217,7 +217,7 @@ def _run_projection_tasks(settings: AppSettings, tasks: list[_ProjTask]) -> list
         ctx = multiprocessing.get_context("spawn")
         with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
             results = list(pool.map(_project_player, tasks, chunksize=1))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _log.warning("fantasy slate: process pool unavailable (%s); running serially", exc)
         results = list(map(_project_player, tasks))
     return [r for r in results if r is not None]
@@ -286,7 +286,7 @@ def _rebuild_slate(settings: AppSettings, cache_key: tuple) -> None:
             positions=positions,
         )
         _SLATE_CACHE[cache_key] = (time.time(), response)
-    except Exception:  # noqa: BLE001 - the stale board keeps serving
+    except Exception:
         _log.warning("fantasy slate background rebuild failed", exc_info=True)
     finally:
         _SLATE_LOCK.release()
@@ -332,7 +332,7 @@ def _compute_slate(
     for team in matchup:
         try:
             players, _ = get_roster(season, team=team, position=",".join(positions))
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
         opponent, game_id, kickoff = matchup[team]
         for player in players:
@@ -344,7 +344,7 @@ def _compute_slate(
             try:
                 rank = effective_rank(pid, season, week, rank_seasons)
                 capital = _draft_capital_multiplier(draft_capital(pid, rank_seasons))
-            except Exception:  # noqa: BLE001 - depth/draft data is an enhancement
+            except Exception:
                 rank, capital = None, 1.0
             score = _prescore(
                 history.get(pid),
@@ -463,5 +463,5 @@ def prewarm_current_slate(settings: AppSettings) -> None:
             limit=_PREWARM_LIMIT,
             wait=True,
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass

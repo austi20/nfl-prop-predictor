@@ -50,7 +50,6 @@ def test_small_spread_has_no_script_tilt():
 
 
 def test_coach_factor_neutral_near_average_outlier_moves():
-    positive = ["rushing_yards"]
     near_avg = _coach_factor({"coach": "Mid Guy"}, {"Mid Guy": (23.0, 60)}, position="RB")
     assert not near_avg.applied
     elite = _coach_factor({"coach": "Bruce Arians"}, {"Bruce Arians": (29.8, 49)}, position="RB")

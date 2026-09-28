@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -146,7 +145,7 @@ def test_load_weekly_with_weather_joins_correctly():
     assert len(buf_rows) == 2
     assert (buf_rows["temp_f"] == 72.0).all()
     assert (buf_rows["wind_mph"] == 12.0).all()
-    assert (buf_rows["indoor"] == False).all()  # noqa: E712
+    assert (buf_rows["indoor"] == False).all()
 
     kc_rows = result[result["game_id"] == "2023_01_NE_KC"]
     assert len(kc_rows) == 1

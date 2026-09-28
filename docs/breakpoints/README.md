@@ -11,7 +11,7 @@ cases, outliers, exception paths, and silently-wrong scenarios.
 
 ## What
 
-Each roadmap phase (P2, P3, P4, P5, P6, P7) produces one
+Each gated phase (P8 so far) produces one
 `p<N>_evaluation.md` here, copied from `_template.md` and filled in.
 
 ## When

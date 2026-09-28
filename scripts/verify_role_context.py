@@ -20,8 +20,8 @@ from pathlib import Path
 warnings.simplefilter("ignore")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from api.services.fantasy_slate_service import build_fantasy_slate  # noqa: E402
-from api.settings import AppSettings  # noqa: E402
+from api.services.fantasy_slate_service import build_fantasy_slate
+from api.settings import AppSettings
 
 # A single game's realistic ceiling per position, generous on purpose: this is a
 # runaway detector, not a calibration check.

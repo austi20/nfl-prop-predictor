@@ -1,4 +1,4 @@
-"""Step 4 paper-trade replay pipeline from local historical prop lines."""
+"""Paper-trade replay pipeline from local historical prop lines."""
 
 from __future__ import annotations
 

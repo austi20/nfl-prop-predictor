@@ -6,13 +6,9 @@ without running a real GLM fit.
 
 from __future__ import annotations
 
-import hashlib
-import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from scripts.train_loop import (
     HOLDOUT_SEASONS,

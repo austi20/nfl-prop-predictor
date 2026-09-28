@@ -70,7 +70,7 @@ def _week_starts(season: int) -> tuple[tuple[int, pd.Timestamp], ...]:
     """
     try:
         sched = load_schedules([int(season)])
-    except Exception:  # noqa: BLE001 - an unpublished season 404s
+    except Exception:
         return ()
     if sched.empty or "gameday" not in sched.columns or "week" not in sched.columns:
         return ()
@@ -164,7 +164,7 @@ def rank_frame(seasons: tuple[int, ...]) -> pd.DataFrame:
     for season in seasons:
         try:
             raw = load_depth_charts([int(season)])
-        except Exception:  # noqa: BLE001 - an unpublished season 404s
+        except Exception:
             continue
         if raw.empty:
             continue

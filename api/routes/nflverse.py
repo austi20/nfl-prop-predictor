@@ -16,7 +16,7 @@ def get_schedule_route(
     try:
         games = get_schedule(season, week)
         live_week = current_week(season)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(status_code=502, detail=f"schedule unavailable: {exc}") from exc
     return ScheduleResponse(season=season, current_week=live_week, games=games)
 
@@ -33,6 +33,6 @@ def get_roster_route(
         players, week = get_roster(
             season, team=team, position=position, status=status or None, skill_only=skill_only
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(status_code=502, detail=f"roster unavailable: {exc}") from exc
     return RosterResponse(season=season, week=week, players=players)

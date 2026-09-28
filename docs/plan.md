@@ -1,9 +1,8 @@
 # NFL Prop Prediction Desktop App - Implementation Plan
 
-> **STATUS: COMPLETE (historical).** This is the original April 2026 kickoff plan
-> (port the NBA app to NFL). All of it shipped through v0.8c - see `VERSIONS.md`.
+> **STATUS: HISTORICAL.** The original April 2026 kickoff plan (port the NBA app to NFL).
+> Partially realized: no BALLDONTLIE, no K/DEF models, no live odds go-live. See `VERSIONS.md`.
 > Kept for the data-source research and early architecture rationale only.
-> Active roadmap: `docs/modernization_plan.md`.
 
 ## Context
 

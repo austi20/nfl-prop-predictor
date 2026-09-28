@@ -21,10 +21,6 @@ from typing import Any, Callable
 
 import pandas as pd
 
-_QB_STATS = ["passing_yards", "passing_tds", "interceptions", "completions"]
-_RB_STATS = ["rushing_yards", "carries", "rushing_tds"]
-_WR_TE_STATS = ["receptions", "receiving_yards", "receiving_tds"]
-
 
 def _builder_for(position: str) -> tuple[Callable, list[str]]:
     """Return (builder_fn, accepted_positions) for a position group."""

@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from urllib.error import HTTPError
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -35,8 +35,6 @@ from data.nflverse_loader import (
     load_snap_counts,
     load_team_desc,
     load_weekly,
-    _cache_path,
-    _CACHE_DIR,
 )
 
 # ---------------------------------------------------------------------------
@@ -321,9 +319,8 @@ class TestCacheStaleness:
     _fake = _make_df(player_id="P1", season=2023, week=1)
 
     def test_stale_cache_triggers_refetch(self, tmp_cache, monkeypatch):
-        import data.nflverse_loader as mod
 
-        with patch("nfl_data_py.import_weekly_data", return_value=self._fake.copy()) as mock:
+        with patch("nfl_data_py.import_weekly_data", return_value=self._fake.copy()):
             load_weekly(_SMALL_YEARS)
 
         # Make the cache file appear older than 24h

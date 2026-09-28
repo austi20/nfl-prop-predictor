@@ -68,7 +68,7 @@ class KalshiClient:
                         "KALSHI-ACCESS-SIGNATURE": sign_request(self._private_key, ts, method, path),
                     }
                 )
-            except Exception:  # noqa: BLE001 - unsigned GET still works for market data
+            except Exception:
                 pass
         return headers
 

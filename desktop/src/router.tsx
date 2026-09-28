@@ -1,7 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 
 import App from './App'
-import { DashboardPage } from './routes/dashboard-page'
+import { PropsPage } from './routes/props-page'
 import { ExecutionPage } from './routes/execution-page'
 import { PlayerDetailPage } from './routes/player-detail-page'
 import { ParlayBuilderPage } from './routes/parlay-builder-page'
@@ -24,7 +24,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'props',
-        element: <DashboardPage />,
+        element: <PropsPage />,
       },
       {
         path: 'parlays',

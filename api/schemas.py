@@ -361,15 +361,6 @@ class ParlayBuildResponse(BaseModel):
     summary: ParlaySummary = Field(default_factory=ParlaySummary)
 
 
-class AnalystStreamEvent(BaseModel):
-    event: Literal["status", "token", "tool_call", "complete", "error"]
-    message: str = ""
-    token: str = ""
-    tool_call: dict[str, Any] | None = None
-    complete: bool = False
-    error: str = ""
-
-
 class GameRow(BaseModel):
     game_id: str
     week: int

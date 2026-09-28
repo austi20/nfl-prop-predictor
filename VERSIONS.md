@@ -1,9 +1,36 @@
 # Version History
 
 Note: entries are listed newest first and oldest last.
-Note: versioning follows `v0.x` or `v0.x.y`, where `x` maps to the numbered plan step in `docs/plan.md` for the current active work phase and optional `.y` is reserved for sub-updates within that active step. If work is currently under Step 4, then related fixes or improvements still version as `v0.4.y` until the active step changes.
+Note: milestones are `v0.9-m<N>`; app releases use semver `0.9.x` (pyproject, package.json, tauri.conf, Cargo). Older `v0.x` entries followed the step numbering in `docs/plan.md`.
 
 ---
+
+## v0.9-m7.1 - 2026-09-28 (cleanup, no app release)
+
+**Repo deep clean. No behavior change to projections.**
+
+- Deleted unwired code: SQL ledger scaffold (`api/db/`, `sql_ledger.py`,
+  `kill_switch.py`), Kalshi `adapter.py` / `ws.py`, `trading/adapters.py`,
+  `trading/pricing.py`, `KalshiMapper`, `models/game_sim.py`,
+  `data/odds_client.py`, `eval/calibration_fit.py`, `llm/tools_nfl.py`, `ui/`,
+  `main.py`, and the tests that covered only them.
+- Deleted one-off scripts (season eve dry runs, Kalshi series discovery, 15
+  exploratory `scripts/diag/` scripts) and their orphan outputs, the 2024 and
+  2024-2025 paper trade artifact sets, and unused JSON breakdowns.
+- Deleted superseded docs: `Step4Plan.md`, `handoff_modernization.md`,
+  `modernization_plan.md`, `desktop/GUI_OVERHAUL_PLAN.md`, `memory/`. NBA v2 is
+  archived; archive banners added to the remaining historical plans.
+- Dead settings removed: `use_calibration`, `use_no_vig`,
+  `correlation_penalty_enabled`, `training_props_path`, `kalshi_*` (Kalshi
+  reads are unauthenticated).
+- Dependencies: dropped `sse-starlette`, `sqlalchemy`; moved `pytest`,
+  `pyinstaller` to dev. Desktop dropped 38 unused packages (Radix, recharts,
+  playwright, ...) and declared the missing `@testing-library/dom` peer.
+- Desktop: `DashboardPage` renamed `PropsPage`; "Dashboard" labels now say
+  "This Week"; unused components, assets, format helpers and persisted store
+  prefs removed.
+- `tests/conftest.py` `tmp_path` now deletes its folder (4,600 were left in
+  `tmp/test-artifacts`). Ruff pyflakes clean.
 
 ## v0.9-m7 - 2026-09-25 (app 0.9.3)
 

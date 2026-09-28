@@ -1,12 +1,10 @@
 from __future__ import annotations
 from unittest.mock import patch
 import numpy as np
-import pytest
 from models.base import StatDistribution
 from models.qb import QBModel
 from models.rb import RBModel
 from models.wr_te import WRTEModel
-from models.game_sim import simulate_game, GameSimResult
 
 
 def test_stat_distribution_prob_over_gamma():
@@ -84,23 +82,3 @@ def test_qb_model_fit_and_predict():
     assert "passing_yards" in result
     assert result["passing_yards"].mean > 0
     assert result["passing_yards"].prob_over(100.0) > 0
-
-
-def test_simulate_game_basic():
-    rng = np.random.default_rng(42)
-    result = simulate_game("KC", "LAC", spread=7.0, total=48.0, n_sims=10_000, rng=rng)
-
-    assert 0 < result.home_win_prob < 1
-    assert 0 < result.over_prob < 1
-    assert result.home_win_prob > 0.55
-    assert len(result.home_scores) == 10_000
-    assert len(result.away_scores) == 10_000
-    assert abs(result.home_scores.mean() - 27.5) < 2.0
-    assert abs(result.away_scores.mean() - 20.5) < 2.0
-
-
-def test_simulate_game_even_matchup():
-    rng = np.random.default_rng(0)
-    result = simulate_game("KC", "LAC", spread=0.0, total=44.0, n_sims=50_000, rng=rng)
-
-    assert abs(result.home_win_prob - 0.5) < 0.05

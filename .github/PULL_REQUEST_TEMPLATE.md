@@ -4,7 +4,7 @@
 
 ## Phase
 
-<which roadmap phase, if any — e.g. P2 readiness, P6c trading routes, or "n/a">
+<which roadmap phase, if any — e.g. P8 player role context, v0.9-m7 injuries, or "n/a">
 
 ## Test plan
 

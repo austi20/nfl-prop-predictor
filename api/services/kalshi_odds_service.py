@@ -137,7 +137,7 @@ def nfl_game_lines(season: int, week: int) -> dict[str, dict]:
             for series, field in (("KXNFLTOTAL", "total"), ("KXNFLSPREAD", "spread")):
                 try:
                     events = client.get_events(series_ticker=series, status="open", limit=100)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     continue
                 for ev in events.get("events", []):
                     key = _event_game_key(str(ev.get("event_ticker", "")))
@@ -158,5 +158,5 @@ def nfl_game_lines(season: int, week: int) -> dict[str, dict]:
                     out[gid][field] = value
         # keep only games where we actually got a total
         return {g: v for g, v in out.items() if v.get("total") is not None}
-    except Exception:  # noqa: BLE001
+    except Exception:
         return {}

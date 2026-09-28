@@ -167,7 +167,7 @@ def _roster_index(season: int, teams: set[str]) -> dict[str, list]:
     for team in teams:
         try:
             players, _ = get_roster(season, team=team, skill_only=True, status=None)
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
         for player in players:
             index.setdefault(_norm_name(player.player_name), []).append(player)
@@ -243,7 +243,7 @@ def _compute_board(settings: AppSettings, *, season: int, week: int, limit: int)
         for series, stat in _SERIES_STAT.items():
             try:
                 events = list(_iter_events(client, series))
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 _log.warning("prop board: %s events unavailable (%s)", series, exc)
                 continue
             for event in events:
@@ -286,7 +286,7 @@ def _compute_board(settings: AppSettings, *, season: int, week: int, limit: int)
                                 book="kalshi",
                             ),
                         )
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         continue
                     pick = result.pick
                     # evaluate_prop reads player_name/position off the weekly
@@ -354,7 +354,7 @@ def _rebuild_board(settings: AppSettings, season: int, week: int, limit: int) ->
     try:
         response = _compute_board(settings, season=season, week=week, limit=limit)
         _BOARD_CACHE[(season, week, limit)] = (time.time(), response)
-    except Exception:  # noqa: BLE001 - the stale board keeps serving
+    except Exception:
         _log.warning("prop board background rebuild failed", exc_info=True)
     finally:
         _BOARD_LOCK.release()
@@ -362,7 +362,7 @@ def _rebuild_board(settings: AppSettings, season: int, week: int, limit: int) ->
 
 _PREWARM_SEASON = 2026
 # The cache key is (season, week, limit), so this has to be the limit the GUI
-# asks for or the prewarmed board is never read (dashboard-page.tsx).
+# asks for or the prewarmed board is never read (props-page.tsx).
 _PREWARM_LIMIT = 200
 
 
@@ -377,5 +377,5 @@ def prewarm_current_board(settings: AppSettings) -> None:
             limit=_PREWARM_LIMIT,
             wait=True,
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass

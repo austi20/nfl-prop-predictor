@@ -18,7 +18,7 @@ from pathlib import Path
 warnings.simplefilter("ignore")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from eval.fantasy_calibration import (  # noqa: E402
+from eval.fantasy_calibration import (
     default_calibration,
     evaluate,
     load_calibration,

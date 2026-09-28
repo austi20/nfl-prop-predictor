@@ -1,5 +1,7 @@
 # Season-Eve 2026 Dry Runs
 
+> **HISTORICAL (2026-09-08 to 09-13).** Point in time record. Counts and flags below have moved; `VERSIONS.md` is current.
+
 **Date:** 2026-09-08 (NFL 2026 regular season opens 2026-09-09).
 **Scope:** unfreeze the project for the 2026 season — bring data current, and
 exercise the training + paper-execution pipelines end to end on the freshest

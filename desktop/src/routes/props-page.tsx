@@ -30,7 +30,7 @@ function sortPicks(picks: Pick[], sort: SortOption): Pick[] {
   return [...picks].sort((a, b) => key(b) - key(a))
 }
 
-export function DashboardPage() {
+export function PropsPage() {
   // The live week wins until the user picks one. Kalshi settles a week's
   // markets once it is played, so opening on Week 1 shows an empty board.
   const currentWeek = useCurrentWeek(SEASON)

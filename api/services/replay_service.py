@@ -86,7 +86,7 @@ def _player_lookup_df(settings: AppSettings, seasons: list[int]) -> pd.DataFrame
 def _weather_lookup_df(seasons_key: tuple[int, ...]) -> pd.DataFrame:
     try:
         weather = load_archive(list(seasons_key))
-    except Exception:  # noqa: BLE001
+    except Exception:
         return pd.DataFrame()
     if weather.empty or "game_id" not in weather.columns:
         return pd.DataFrame()
@@ -106,7 +106,7 @@ def _injury_lookup_df(cache_dir: str, seasons_key: tuple[int, ...]) -> pd.DataFr
         if path.exists():
             try:
                 frames.append(pd.read_parquet(path))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
     if not frames:
         return pd.DataFrame(columns=["player_id", "season", "week", "injury_status"])

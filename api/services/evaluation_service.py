@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any
 
 import pandas as pd
 
@@ -26,7 +25,6 @@ from eval.parlay_builder import build_parlay_candidates, summarize_parlays
 from eval.prop_pricer import (
     PropCalibrator,
     american_profit,
-    build_paper_trade_picks,
     price_two_sided_prop,
     settle_pick,
 )
@@ -147,7 +145,7 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
                 recent_team=request.recent_team or str(source.get("recent_team", "")),
                 weekly=weekly,
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             future_row = None
     distributions = model.predict(
         player_id=request.player_id,
@@ -178,7 +176,7 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
                 stat=request.stat,
                 game_id=request.game_id or "",
             )
-        except Exception:  # noqa: BLE001 - a projection failure must not drop the prop
+        except Exception:
             projected = None
         if projected is not None:
             distribution, multiplier = projected

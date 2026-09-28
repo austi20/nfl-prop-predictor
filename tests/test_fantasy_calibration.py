@@ -5,7 +5,6 @@ import json
 import pytest
 
 from eval.fantasy_calibration import (
-    FantasyCalibration,
     default_calibration,
     load_calibration,
     save_calibration,

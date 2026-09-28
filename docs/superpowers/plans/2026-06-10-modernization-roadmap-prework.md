@@ -1,5 +1,7 @@
 # Modernization Roadmap — Pre-Work Implementation Plan
 
+> **DONE (v0.9-m2).**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Land the concrete pre-work that the roadmap depends on — breakpoint evaluation infrastructure, PR/CI gates, Kalshi NFL series discovery script, preseason baseline capture script, orchestration notes — so per-phase work (P2 onward) can start cleanly.

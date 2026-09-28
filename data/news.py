@@ -27,7 +27,7 @@ def _all_articles(_bucket: int) -> list[dict]:
         resp = requests.get(_ESPN_NEWS, params={"limit": 50}, timeout=8)
         resp.raise_for_status()
         return list(resp.json().get("articles", []))
-    except Exception:  # noqa: BLE001 - callers degrade to no news
+    except Exception:
         return []
 
 

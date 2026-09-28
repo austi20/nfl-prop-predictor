@@ -22,7 +22,7 @@ _UNDRAFTED_MULTIPLIER = 0.85
 def _picks_frame(seasons: tuple[int, ...]) -> pd.DataFrame:
     try:
         return load_draft_picks(list(seasons))
-    except Exception:  # noqa: BLE001 - an unpublished class must not brick projections
+    except Exception:
         return pd.DataFrame(columns=["season", "round", "pick", "gsis_id"])
 
 

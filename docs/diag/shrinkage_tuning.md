@@ -302,13 +302,8 @@ fits on a background thread.
 uv run python scripts/diag/extract_walkforward.py \
     docs/diag/ingredients_wf8.parquet 2018 2019 2020 2021 2022 2023 2024 2025
 uv run python scripts/diag/fit_shrinkage_weights.py docs/diag/ingredients_wf8.parquet
-uv run python scripts/diag/optimal_weight.py docs/diag/ingredients_wf8.parquet
-uv run python scripts/diag/weight_stability.py docs/diag/ingredients_wf8.parquet
-uv run python scripts/diag/final_compare.py docs/diag/ingredients_wf8.parquet
-uv run python scripts/diag/tiered_weights.py docs/diag/ingredients_wf8.parquet 3
-uv run python scripts/diag/model_vs_market.py 2026 2
-uv run python scripts/diag/context_on_props.py
-uv run python scripts/diag/calibration_slope.py 2025
 ```
 
-Artifacts land in `docs/diag/`.
+The exploratory scripts behind the tables above (optimal weight, stability,
+tiered weights, model vs market, context on props, calibration slope) were
+removed after the result shipped; they are in git history before 2026-09-28.

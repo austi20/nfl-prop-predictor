@@ -28,7 +28,6 @@ _WEATHER_COLUMNS = [
     "indoor",
 ]
 
-_NUMERIC_COLS = ["temp_f", "wind_mph", "wind_dir_deg", "precip_in", "weather_code"]
 
 
 def _empty_archive() -> pd.DataFrame:
@@ -68,11 +67,11 @@ def archive_available(seasons: list[int] | None = None) -> bool:
     if seasons is None:
         try:
             return not pd.read_parquet(_ARCHIVE_PATH, engine="pyarrow").empty
-        except Exception:  # noqa: BLE001 - availability is a metadata hint
+        except Exception:
             return False
     try:
         return not load_archive(seasons).empty
-    except Exception:  # noqa: BLE001 - callers should degrade, not crash
+    except Exception:
         return False
 
 
@@ -184,5 +183,5 @@ def load_forecast(game_id: str) -> dict | None:
             "weather_code": _at("weather_code"),
             "indoor": False,
         }
-    except Exception:  # noqa: BLE001 - callers degrade to neutral weather
+    except Exception:
         return None

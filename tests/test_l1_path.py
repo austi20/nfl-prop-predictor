@@ -8,7 +8,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-import statsmodels.api as sm
 
 from models.qb import QBModel, _TARGET_STATS
 

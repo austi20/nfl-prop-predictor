@@ -448,8 +448,8 @@ def render_summary_md(
         "",
         "Same ranking as before Phase H4 — **not** the recommended production default when using per-stat configs.",
         "",
-        f"| Knob | Value |",
-        f"|------|-------|",
+        "| Knob | Value |",
+        "|------|-------|",
         f"| config_hash | `{best_hash}` |",
         f"| use_weather | {bool(best_row['use_weather'])} |",
         f"| dist_family | {best_row['dist_family']} |",
@@ -470,7 +470,7 @@ def render_summary_md(
         f"- Dist family log-loss: legacy={ablation.get('dist_legacy', 'N/A')}, "
         f"count_aware={ablation.get('dist_count_aware', 'N/A')}, "
         f"decomposed={ablation.get('dist_decomposed', 'N/A')}",
-        f"- Opponent EPA / rest days / home-away: deferred to H2.1",
+        "- Opponent EPA / rest days / home-away: deferred to H2.1",
         "",
         "## Pooled-across-seasons argmin per (position, stat) (secondary reference)",
         "",

@@ -336,7 +336,7 @@ class RBModel:
                 "RBModel.predict(opp_team=...) without future_row uses the latest "
                 "historical row's opponent context, not the upcoming opponent. "
                 "Pass future_row=build_upcoming_row(...) to use upcoming-game context. "
-                "This compatibility path will be removed after Phase H.",
+                "This compatibility path will be removed in a future release.",
                 DeprecationWarning,
                 stacklevel=2,
             )

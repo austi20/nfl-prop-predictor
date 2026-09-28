@@ -46,5 +46,5 @@ def get_fantasy_slate(
         return FantasySlateResponse(season=season, week=week, scoring_mode=scoring, ready=False)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(status_code=502, detail=f"fantasy slate unavailable: {exc}") from exc

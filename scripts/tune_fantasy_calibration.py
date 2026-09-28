@@ -18,7 +18,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from eval.fantasy_calibration import (  # noqa: E402
+from eval.fantasy_calibration import (
     _BOOM,
     _BUST,
     _OFFENSE_SET,

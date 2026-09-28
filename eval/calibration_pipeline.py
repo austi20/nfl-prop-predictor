@@ -1,4 +1,4 @@
-"""Step 3 calibration pipeline.
+"""Prop calibration pipeline (offline; the app runs with it off).
 
 Given a file of closing player prop lines for a holdout season, this module:
 - computes raw model over probabilities from the existing position models
@@ -50,9 +50,9 @@ OPTIONAL_PROP_COLUMNS = (
 )
 
 
-from models.qb import _TARGET_STATS as _QB_TARGETS  # noqa: E402
-from models.rb import _TARGET_STATS as _RB_TARGETS  # noqa: E402
-from models.wr_te import _TARGET_STATS as _WR_TE_TARGETS  # noqa: E402
+from models.qb import _TARGET_STATS as _QB_TARGETS
+from models.rb import _TARGET_STATS as _RB_TARGETS
+from models.wr_te import _TARGET_STATS as _WR_TE_TARGETS
 
 
 @dataclass(frozen=True)
@@ -292,7 +292,7 @@ def build_calibration_rows(
                         recent_team=recent_team,
                         weekly=weekly,
                     )
-            except Exception:  # noqa: BLE001 - grid flag should degrade to legacy path
+            except Exception:
                 future_row = None
         preds = model.predict(
             player_id=str(row["player_id"]),
@@ -461,7 +461,7 @@ def _parse_years(raw: str | None) -> list[int] | None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Fit Step 3 prop calibration artifacts")
+    parser = argparse.ArgumentParser(description="Fit prop calibration artifacts (offline)")
     parser.add_argument("--props-file", required=True, help="CSV/JSON/Parquet of closing prop lines")
     parser.add_argument("--train-years", default=None, help="Comma-separated training years")
     parser.add_argument("--holdout-years", default=None, help="Comma-separated holdout years")

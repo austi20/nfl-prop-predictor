@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from eval.calibration_pipeline import load_props_file
 from eval.replay_pipeline import run_replay

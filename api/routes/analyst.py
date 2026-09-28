@@ -79,7 +79,7 @@ async def _stream_llm(base_url: str, request: AnalystRequest) -> AsyncIterator[s
 
         except httpx.ConnectError:
             yield f'data: {json.dumps({"event": "error", "error": "LLM server not reachable. Start llama.cpp on port 8080."})}\n\n'
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             yield f'data: {json.dumps({"event": "error", "error": str(exc)})}\n\n'
 
     yield f'data: {json.dumps({"event": "complete", "complete": True})}\n\n'

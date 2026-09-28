@@ -115,7 +115,7 @@ def _bucket() -> int:
 def _season_report(season: int, _bucket: int) -> pd.DataFrame:
     try:
         frame = load_injuries([int(season)])
-    except Exception:  # noqa: BLE001 - an unpublished season 404s
+    except Exception:
         return pd.DataFrame()
     return frame if frame is not None else pd.DataFrame()
 
@@ -124,7 +124,7 @@ def _season_report(season: int, _bucket: int) -> pd.DataFrame:
 def _live_week(season: int, _bucket: int) -> int | None:
     try:
         return week_in_progress(load_schedules([int(season)]))
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 
@@ -152,7 +152,7 @@ def _espn_report(_bucket: int) -> dict[str, tuple[str, str]]:
         resp.raise_for_status()
         teams = resp.json().get("injuries", []) or []
         crosswalk = _espn_to_gsis()
-    except Exception:  # noqa: BLE001 - no live feed means nflverse alone
+    except Exception:
         return {}
 
     out: dict[str, tuple[str, str]] = {}

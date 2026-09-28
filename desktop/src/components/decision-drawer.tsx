@@ -19,7 +19,7 @@ function units(value?: number | null) {
 
 export function DecisionDrawer({ pick }: Props) {
   const confidence = pick.confidence ?? 'high'
-  const drivers = pick.top_drivers?.length ? pick.top_drivers : ['Drivers pending Phase H coefficients']
+  const drivers = pick.top_drivers?.length ? pick.top_drivers : ['No driver breakdown for this pick']
 
   return (
     <Dialog.Root>

@@ -13,7 +13,7 @@ from api.schemas import (
     FantasySummary,
 )
 from api.settings import AppSettings
-from api.services.evaluation_service import _model_bundle, _weekly_cache, scoring_weekly
+from api.services.evaluation_service import _model_bundle, scoring_weekly
 from data.game_context import (
     LEAGUE_IMPLIED_POINTS,
     LEAGUE_POINTS_PER_GAME,
@@ -176,7 +176,7 @@ def _predict_distributions(
                 recent_team=recent_team,
                 weekly=weekly,
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             future_row = None
 
     distributions: dict[str, StatDistribution] = {}
@@ -265,9 +265,6 @@ _TRAILING_WINDOW = 8          # most recent games that inform the projection
 # Fewest same-role games needed before they replace a mixed-role trailing window.
 _MIN_ROLE_GAMES = 2
 _TRAILING_REGRESS_GAMES = 4.0  # pseudo-count pulling a thin sample to the baseline
-_MODEL_BLEND_WEIGHT = 0.35     # how much the GLM mean moves a covered stat
-_STAT_MEAN_LO, _STAT_MEAN_HI = 0.45, 1.7  # clamp band around the trailing mean
-_YARD_CV, _COUNT_CV = 0.55, 0.85          # spread when the model gives no distribution
 
 
 _BASELINE_CACHE: dict[tuple[int, ...], dict[tuple[str, str], float]] = {}
@@ -282,7 +279,7 @@ def _rank_lookup(weekly: pd.DataFrame) -> pd.DataFrame:
 
         seasons = tuple(sorted(int(s) for s in weekly["season"].unique()))
         return rank_frame(seasons)
-    except Exception:  # noqa: BLE001 - no depth data must degrade, not fail
+    except Exception:
         return pd.DataFrame()
 
 
@@ -337,7 +334,7 @@ def _rookie_capital_multiplier(player_id: str, weekly: pd.DataFrame) -> float:
         from data.draft import capital_multiplier, draft_capital
 
         return capital_multiplier(draft_capital(player_id, _seasons_span(weekly)))
-    except Exception:  # noqa: BLE001
+    except Exception:
         return 1.0
 
 
@@ -360,7 +357,7 @@ def _depth_ranks_for(
             effective_rank(player_id, int(season), int(week), seasons),
             prior_rank(player_id, int(season), int(week), seasons),
         )
-    except Exception:  # noqa: BLE001 - depth data is an enhancement, never a gate
+    except Exception:
         return (None, None)
 
 
@@ -475,7 +472,7 @@ def _games_in_role(
         from data.depth_chart import game_ranks
 
         ranks = game_ranks(player_id, _seasons_span(weekly, season))
-    except Exception:  # noqa: BLE001 - depth data is an enhancement, never a gate
+    except Exception:
         return hist
     if not ranks:
         return hist
@@ -1064,7 +1061,7 @@ def _usage_factor(
         # Current season included: its role changes are the point. A season
         # with no file yet falls back inside the loaders.
         trend = usage_trend(player_id, int(season), int(week), seasons)
-    except Exception:  # noqa: BLE001
+    except Exception:
         trend = None
     if not trend:
         return _neutral_factor(
@@ -1419,7 +1416,7 @@ def _news_factor(*, team: str, opponent_team: str, position: str) -> FantasyCont
 
         own = " || ".join(team_headlines(team)) if team else ""
         opp = " || ".join(team_headlines(opponent_team)) if opponent_team else ""
-    except Exception:  # noqa: BLE001
+    except Exception:
         own = opp = ""
     if not own and not opp:
         return _neutral_factor(
@@ -1514,7 +1511,7 @@ def _context_factors(
             current_rank(player_id, int(season), int(week), seasons),
             prior_rank(player_id, int(season), int(week), seasons),
         )
-    except Exception:  # noqa: BLE001 - depth data is an enhancement, never a gate
+    except Exception:
         _depth_ranks = (None, None)
 
     factors: list[FantasyContextFactor] = [
@@ -1578,11 +1575,6 @@ def _context_factors(
     factors.extend(_game_script_factors(context, position=position))
     return _resolve_role_precedence(factors)
 
-
-# Injury "Out"/"Doubtful" are deliberate near-zeros; every other factor is a
-# nudge. Clamp the *product* of the nudges so a stack of them can't run away.
-# Defaults live in FantasyCalibration; these names kept for back-compat readers.
-_STAT_MULT_LO, _STAT_MULT_HI = 0.78, 1.22
 
 _OFFENSE_STACK_SET = frozenset(OFFENSE_STACK_FACTORS)
 

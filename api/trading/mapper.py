@@ -1,33 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import timedelta
 from typing import Literal
 
-from api.trading.audit import log_event
 from api.trading.types import ExecutionIntent, MarketRef, Signal
-
-
-class KalshiMapper:
-    """Kalshi-specific signal mapper scaffold.
-
-    Returns None and logs an audit event on every call until in-season activation.
-    Real ticker-matching logic replaces the body without changing the interface.
-    """
-
-    def map_signal(
-        self,
-        signal: Signal,
-        markets: list[MarketRef],
-        audit_dir: Path = Path("docs/audit"),
-    ) -> ExecutionIntent | None:
-        log_event(
-            "mapping_skipped",
-            {"venue": "kalshi", "reason": "scaffold", "pick_id": signal.pick_id},
-            audit_dir,
-        )
-        return None
 
 
 class PickToIntentMapper:

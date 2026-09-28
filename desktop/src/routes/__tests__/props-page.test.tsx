@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 
 import * as api from '../../lib/api'
-import { DashboardPage } from '../dashboard-page'
+import { PropsPage } from '../props-page'
 
 const MOCK_BOARD = {
   season: 2026,
@@ -76,7 +76,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
   )
 }
 
-describe('DashboardPage', () => {
+describe('PropsPage', () => {
   beforeEach(() => {
     // The page reads the live week off the schedule before it asks for a board.
     vi.spyOn(api, 'getSchedule').mockResolvedValue({ season: 2026, current_week: 1 })
@@ -86,14 +86,14 @@ describe('DashboardPage', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('renders both picks when no filters active', async () => {
-    render(<DashboardPage />, { wrapper })
+    render(<PropsPage />, { wrapper })
     await waitFor(() => expect(screen.getByText('QB One')).toBeInTheDocument())
     expect(screen.getByText('RB Two')).toBeInTheDocument()
   })
 
   it('filters picks by market when a stat chip is clicked', async () => {
     const user = userEvent.setup()
-    render(<DashboardPage />, { wrapper })
+    render(<PropsPage />, { wrapper })
     await waitFor(() => screen.getByText('QB One'))
 
     await user.click(screen.getByRole('button', { name: 'passing yards' }))
@@ -104,7 +104,7 @@ describe('DashboardPage', () => {
 
   it('opens the decision drawer from a player card', async () => {
     const user = userEvent.setup()
-    render(<DashboardPage />, { wrapper })
+    render(<PropsPage />, { wrapper })
     await waitFor(() => screen.getByText('QB One'))
 
     await user.click(screen.getAllByRole('button', { name: /why this bet/i })[0])
@@ -116,7 +116,7 @@ describe('DashboardPage', () => {
 
   it('adds a pick to the parlay slip', async () => {
     const user = userEvent.setup()
-    render(<DashboardPage />, { wrapper })
+    render(<PropsPage />, { wrapper })
     await waitFor(() => screen.getByText('QB One'))
 
     const addButtons = screen.getAllByRole('button', { name: /add to slip/i })

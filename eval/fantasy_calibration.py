@@ -127,7 +127,7 @@ def load_calibration(path: str | Path | None = None) -> FantasyCalibration:
         return default_calibration()
     try:
         return _from_dict(json.loads(p.read_text(encoding="utf-8")))
-    except Exception:  # noqa: BLE001 - a bad artifact must not brick projections
+    except Exception:
         logging.exception("fantasy calibration file %s unreadable - using defaults", p)
         return default_calibration()
 
@@ -147,7 +147,7 @@ def save_calibration(calib: FantasyCalibration, path: str | Path) -> None:
 # strength 1.0. The sweep then re-applies only the parametric transform, so a
 # config eval is milliseconds instead of a model fit.
 # ---------------------------------------------------------------------------
-import pickle  # noqa: E402
+import pickle
 
 _SAMPLE_PER_POSITION = 700
 _MIN_CAREER_GAMES = 3
@@ -207,7 +207,7 @@ def _eval_row_task(task: tuple) -> dict | None:
         depth_chart_ratio = _depth_chart_ratio(
             baselines, pos.upper().strip(), raw.get("rank_bucket"), raw.get("prior_bucket"),
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
     return {
         "player_id": pid, "season": season, "week": week, "position": pos,
@@ -280,7 +280,7 @@ def build_eval_cache(
             ctx_mp = multiprocessing.get_context("spawn")
             with ProcessPoolExecutor(max_workers=n_workers, mp_context=ctx_mp) as pool:
                 rows = [r for r in pool.map(_eval_row_task, tasks, chunksize=4) if r is not None]
-        except Exception:  # noqa: BLE001
+        except Exception:
             rows = [r for r in map(_eval_row_task, tasks) if r is not None]
 
     out = path or _EVAL_CACHE_PATH
@@ -592,7 +592,7 @@ def fit_glm_correction(
                     opponent_team=str(r.get("opponent_team", "") or ""), position=pos_u,
                     recent_team=str(r.get("recent_team", "") or ""),
                 )
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
             for st in _MODEL_STATS_BY_POSITION.get(pos_u, ()):
                 dd = d.get(st)

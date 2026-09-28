@@ -209,7 +209,7 @@ def context_for(
             from api.services.kalshi_odds_service import nfl_game_lines
 
             k = nfl_game_lines(season, week).get(gid)
-        except Exception:  # noqa: BLE001
+        except Exception:
             k = None
         if k and k.get("total"):
             implied_total = float(k["total"])

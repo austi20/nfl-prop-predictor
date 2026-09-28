@@ -1,5 +1,7 @@
 # Fantasy Downstream Calibration Implementation Plan
 
+> **DONE (v0.9-m3.x).** Results in `docs/fantasy_calibration_sweep.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Recalibrate every parameter downstream of the trailing-form anchor (GLM blend, blended-mean clamp, distribution spread, context-factor strengths and clamps) so 2025-backtested fantasy projections are well-calibrated and the 2026 Week-1 board is realistic (top WR ≈ 21–25, not 30).
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Python 3.13, numpy, pandas, statsmodels (existing), pytest, `uv`.
 
-**Spec:** `docs/superpowers/specs/2026-09-09-fantasy-downstream-calibration-design.md`
+**Spec:** `docs/fantasy_calibration_sweep.md`
 
 ---
 

@@ -1,5 +1,7 @@
 # Plan: Season-Prep — Inference Fidelity, Training, Pricing, Realistic Paper
 
+> **ARCHIVED.** Pre Phase H plan. Superseded by `plan.md` (Phase H) and `VERSIONS.md`.
+
 ## Current Implementation Sequence (2026-04-27)
 
 The post-G.5 sequence now proceeds as **Cleanup -> Pricing -> Execution -> UI -> Training** and is logged in `VERSIONS.md` as:

@@ -1,7 +1,7 @@
 # Modeling Notes
 
 Cross-cutting notes about model design choices and known caveats. Phase H
-will collapse the open-question section into a locked configuration.
+locked the configuration (v0.8c).
 
 ---
 
@@ -21,8 +21,7 @@ will collapse the open-question section into a locked configuration.
 - Odds, provenance, and outcome fields are explicitly excluded from model
   features via `eval/training_dataset.py::TRAINING_ODDS_FEATURE_EXCLUSIONS`.
 - `use_future_row` is wired as a flag path in replay/calibration/evaluation
-  and fantasy prediction, but the default remains `False` until Phase H
-  ablation confirms it should become the baseline.
+  and fantasy prediction. Default `True` since v0.9-m3.
 
 ---
 
@@ -40,12 +39,8 @@ will collapse the open-question section into a locked configuration.
   kwarg. When supplied, the feature vector is built from the dict instead of
   the latest historical row.
 - The legacy `opp_team` argument was made optional and emits a
-  `DeprecationWarning` when used without `future_row`. It will be removed
-  after Phase H.
-- `api/settings.py::use_future_row: bool = False` (env: `NFL_APP_USE_FUTURE_ROW`).
-  Defaults off — replay and evaluation services still use the latest-row
-  path, so 2024 replay output is unchanged. Phase H ablation flips this on
-  and treats it as a grid axis.
+  `DeprecationWarning` when used without `future_row`. Still present.
+- `api/settings.py::use_future_row: bool = True` (env: `NFL_APP_USE_FUTURE_ROW`).
 
 ### What was deferred
 
@@ -201,16 +196,15 @@ improvement" verdicts on these stats during v0.9 work should be interpreted as
 
 ### Phase H5 calibration deferral
 
-`api/settings.py::use_calibration: bool = False`. Cross-season mean
+Prop calibration is off (the `use_calibration` flag was removed as unread). Cross-season mean
 `max_reliability_dev` for the locked configs ranged 0.44-0.48 — high enough
 to motivate calibration in principle, but the metric is computed against
 **synthetic surrogate odds**, not real captured market lines. A calibrator
 fit on this data may shift probabilities in the wrong direction once we
-have real Kalshi quotes (see plan.md Season-Start checklist). Recommendation:
-keep `use_calibration=False` until v0.9 ships real captured quotes, then fit
-a calibrator on real lines and reassess.
+have real Kalshi quotes. Since v0.9-m6 props are priced off the fantasy
+projection instead. Fit a calibrator only once real quotes are captured.
 
-### What was NOT done in H5 (deferred to v0.9)
+### What was NOT done in H5 (still open)
 
 - **Per-stat L1**: noted above. Cost ~0.001-0.005 log_loss on receiving_yards
   and interceptions.
@@ -218,7 +212,6 @@ a calibrator on real lines and reassess.
   subsets but 2,227 games is too thin to detect.
 - **Re-test `use_opponent_epa` / `use_rest_days` / `use_home_away`**:
   shipped grid did not vary these.
-- **Calibrator on real captured quotes**: cannot fit until live Kalshi
-  capture (`scripts/capture_kalshi_quotes.py`) accumulates data.
+- **Calibrator on real captured quotes**: no quote capture exists yet.
 
 ---
