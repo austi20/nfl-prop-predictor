@@ -22,7 +22,7 @@ import pandas as pd
 from scipy.stats import norm
 from data.game_context import game_context_frame
 from data.nflverse_loader import load_weekly
-from eval.fantasy_points import POSITION_CUTOFFS
+from eval.fantasy_points import BOOM_MULTIPLIER, BUST_MULTIPLIER
 
 SEASONS = list(range(2017, 2026))
 TRAIL = 8
@@ -89,8 +89,8 @@ for pos, g in train.groupby("pos"):
 
 
 def brier(d: pd.DataFrame, sd: np.ndarray) -> tuple[float, float]:
-    boom_cut = d.pos.map(lambda p: POSITION_CUTOFFS[p][0]).to_numpy()
-    bust_cut = d.pos.map(lambda p: POSITION_CUTOFFS[p][1]).to_numpy()
+    boom_cut = (BOOM_MULTIPLIER * d.m).to_numpy()
+    bust_cut = (BUST_MULTIPLIER * d.m).to_numpy()
     p_boom = 1 - norm.cdf(boom_cut, d.m, sd)
     p_bust = norm.cdf(bust_cut, d.m, sd)
     hit_boom = (d.actual >= boom_cut).astype(float)
@@ -116,8 +116,8 @@ print("\nOut of sample 2024-2025 Brier (boom, bust):")
 print("  A same CV for every player  ", brier(test, (test.pos.map(pos_cv) * test.m).to_numpy()))
 print("  B player's own CV, shrunk    ", brier(test, (test.cv_shrunk * test.m).to_numpy()))
 print("  C own CV + game situation    ", brier(test, fitted_sd(test)))
-base_boom = np.mean(test.actual >= test.pos.map(lambda p: POSITION_CUTOFFS[p][0]))
-base_bust = np.mean(test.actual <= test.pos.map(lambda p: POSITION_CUTOFFS[p][1]))
+base_boom = np.mean(test.actual >= BOOM_MULTIPLIER * test.m)
+base_bust = np.mean(test.actual <= BUST_MULTIPLIER * test.m)
 print(f"  base rates boom={base_boom:.3f} bust={base_bust:.3f}")
 
 

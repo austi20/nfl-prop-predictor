@@ -5,6 +5,29 @@ Note: milestones are `v0.9-m<N>`; app releases use semver `0.9.x` (pyproject, pa
 
 ---
 
+## v0.9-m8 - 2026-09-29 (app 0.9.4)
+
+**Boom and bust are now relative to the player's own projection, not a position line.**
+
+- Boom = chance of scoring 1.5x the projection or more; bust = chance of 0.5x
+  or less. Read from the same Monte Carlo samples as before, after the per
+  player spread rescale, so a volatile player gets more of both than a steady
+  one at the same projection. The old fixed cutoffs (QB 24/14, RB 20/8, WR
+  20/7, TE 14/5) made boom a restatement of the projection and ignored half PPR.
+- Why 1.5x / 0.5x: on the locked 2025 backtest (projection >= 5) real weeks hit
+  1.5x at 14% (QB) to 26% (TE) and 0.5x at 25-29%. 1.25x is too common, 2.0x
+  too rare to separate players.
+- Week 3 2026 board: boom runs 26% avg for 3-8 pt players down to 15% for
+  16+; QB 18% vs WR 26%. Within 10-14 pts it spans 17% (Cam Ward) to 25%.
+- Board rows carry `boom_cutoff` / `bust_cutoff`; the GUI shows
+  `boom 22% · 21.0+` and `bust 25% · ≤7.0`.
+- `scripts/diag/verify_boom_bust.py` scores the live path on 2025 weeks;
+  replaces `verify_spread.py`, which scored the old cutoffs under a lognormal
+  the app never used. Full run not completed yet.
+- Out of scope, unchanged: projection means, context factors, market anchor,
+  `models/fantasy_spread.json`, and the locked tuner objective in
+  `eval/fantasy_calibration.py` (still uses the old cutoffs internally).
+
 ## v0.9-m7.1 - 2026-09-28 (cleanup, no app release)
 
 **Repo deep clean. No behavior change to projections.**
