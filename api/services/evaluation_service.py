@@ -19,8 +19,10 @@ from api.schemas import (
     SidePrice,
 )
 from api.settings import AppSettings
+from data import injuries
 from data.nflverse_loader import load_weekly
 from eval.calibration_pipeline import STAT_SPECS, spec_for
+from eval.fantasy_points import SCORING_PROFILES
 from eval.parlay_builder import build_parlay_candidates, summarize_parlays
 from eval.prop_pricer import (
     PropCalibrator,
@@ -110,6 +112,19 @@ def _side_model(raw: dict[str, float | str]) -> SidePrice:
     return SidePrice.model_validate(raw)
 
 
+# Stats the fantasy multipliers already scale for injury.
+_FANTASY_SCORED_STATS = frozenset(
+    stat for stat, weight in SCORING_PROFILES["full_ppr"].items() if weight != 0
+)
+
+
+def _injury_multiplier(request: PropEvaluationRequest) -> float:
+    status, _note = injuries.player_statuses(request.season, request.week).get(
+        request.player_id, ("not_reported", "")
+    )
+    return injuries.output_multiplier(status)
+
+
 def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> PropEvaluationResponse:
     if request.stat not in STAT_SPECS:
         raise ValueError(f"Unsupported prop stat: {request.stat}")
@@ -161,6 +176,7 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
     # returns a multiplier instead of a rescaled distribution because scaling a
     # line is exact for any family: P(m*X > L) == P(X > L/m).
     priced_line = request.line
+    projected = None
     if settings.use_fantasy_projection_for_props:
         from api.services.fantasy_service import prop_stat_projection
 
@@ -181,6 +197,9 @@ def evaluate_prop(settings: AppSettings, request: PropEvaluationRequest) -> Prop
         if projected is not None:
             distribution, multiplier = projected
             priced_line = request.line / multiplier
+    if projected is None or request.stat not in _FANTASY_SCORED_STATS:
+        # Volume props and the raw GLM never saw the injury factor.
+        priced_line /= _injury_multiplier(request)
 
     calibrator = _calibrator_from_request(settings, request.calibrator_path)
     market = price_two_sided_prop(

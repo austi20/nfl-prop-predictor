@@ -26,6 +26,7 @@ from api.services.evaluation_service import evaluate_prop
 from api.services.kalshi_odds_service import _blob_has_team, _client, _event_game_key
 from api.services.nflverse_service import current_week, get_roster, get_schedule
 from api.settings import AppSettings
+from data import injuries
 from data.nflverse_loader import load_schedules
 from eval.prop_pricer import fair_price_to_american
 
@@ -236,6 +237,8 @@ def _compute_board(settings: AppSettings, *, season: int, week: int, limit: int)
         for r in wk.itertuples(index=False)
     ]
     roster = _roster_index(season, set(context))
+    # Same cut the fantasy depth chart uses; no edge on a man who sits.
+    ruled_out = injuries.unavailable(season, week)
 
     picks: list[NormalizedPick] = []
     considered = 0
@@ -265,7 +268,7 @@ def _compute_board(settings: AppSettings, *, season: int, week: int, limit: int)
                         continue
                     sub_title = str(rung.get("yes_sub_title") or rung.get("no_sub_title") or "")
                     player = _resolve_player(sub_title, pkey, roster)
-                    if player is None:
+                    if player is None or player.player_id in ruled_out:
                         continue
                     opponent, _ = context.get(player.team, ("", ""))
                     considered += 1

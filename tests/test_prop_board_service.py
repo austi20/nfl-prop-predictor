@@ -218,6 +218,7 @@ def board_env(monkeypatch):
         svc, "get_roster", lambda season, *, team, skill_only=True, status=None: (rosters.get(team, []), 1)
     )
     monkeypatch.setattr(svc, "evaluate_prop", _fake_evaluate_prop)
+    monkeypatch.setattr(svc.injuries, "player_statuses", lambda season, week: {})
     return games
 
 
@@ -309,6 +310,51 @@ def test_compute_board_sorts_by_edge_and_respects_limit(monkeypatch, board_env):
     full = svc.build_prop_board(AppSettings(), season=2026, week=1, limit=50)
     assert [p.selected_edge for p in full.picks] == sorted((p.selected_edge for p in full.picks), reverse=True)
     assert set(full.stats) == {"passing_yards", "receiving_yards"}
+
+
+def test_compute_board_drops_players_ruled_out(monkeypatch, board_env):
+    rosters = {
+        "LAR": [
+            RosterPlayer(player_id="stafford", player_name="Matthew Stafford", team="LAR", position="QB", jersey_number=9),
+            RosterPlayer(player_id="nacua", player_name="Puka Nacua", team="LAR", position="WR", jersey_number=12),
+        ],
+        "SF": [],
+    }
+    monkeypatch.setattr(
+        svc, "get_roster", lambda season, *, team, skill_only=True, status=None: (rosters.get(team, []), 1)
+    )
+    monkeypatch.setattr(
+        svc.injuries, "player_statuses", lambda season, week: {"stafford": ("out", "ESPN injury feed")}
+    )
+    events = {
+        "KXNFLPASSYDS": [
+            {
+                "event_ticker": "KXNFLPASSYDS-26SEP10SFLAR",
+                "markets": [
+                    _market(
+                        "KXNFLPASSYDS-26SEP10SFLAR-LARMSTAFFORD9-221", 220.5,
+                        yes_bid=0.48, yes_ask=0.52, sub="Matthew Stafford: 221+",
+                    ),
+                ],
+            }
+        ],
+        "KXNFLRECYDS": [
+            {
+                "event_ticker": "KXNFLRECYDS-26SEP10SFLAR",
+                "markets": [
+                    _market(
+                        "KXNFLRECYDS-26SEP10SFLAR-LARPNACUA12-59", 58.5,
+                        yes_bid=0.48, yes_ask=0.52, sub="Puka Nacua: 59+",
+                    ),
+                ],
+            }
+        ],
+    }
+    monkeypatch.setattr(svc, "_client", lambda: _FakeClient(events))
+
+    board = svc.build_prop_board(AppSettings(), season=2026, week=1, limit=50)
+    assert [p.player_id for p in board.picks] == ["nacua"]
+    assert board.markets_considered == 1
 
 
 def test_build_prop_board_raises_for_missing_schedule(monkeypatch):
