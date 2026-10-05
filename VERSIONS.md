@@ -5,6 +5,26 @@ Note: milestones are `v0.9-m<N>`; app releases use semver `0.9.x` (pyproject, pa
 
 ---
 
+## v0.9-m9 - 2026-10-05 (app 0.9.5)
+
+**Prop board no longer shows players who are ruled out.**
+
+- Cause: props price off the fantasy projection, whose injury multiplier for
+  Out is the 0.05 floor. A 60 yd line was priced as 1200 yd, so every Out
+  player showed a near certain under and topped the edge ranking.
+- The board now drops anyone with P(out) >= 0.5 (`injuries.unavailable`, the
+  same cut the depth chart uses): Out, doubtful, and DNP with no designation.
+- Volume props (carries, completions, attempts) are not fantasy scoring stats,
+  so they never got the injury factor. `evaluate_prop` now applies
+  `injuries.output_multiplier` to them, and to the raw GLM fallback. Scoring
+  stats keep the fantasy multiplier only, no double scaling.
+- Questionable players stay on the board at the blended fantasy multiplier
+  (P(plays) x workload). Kalshi settles a player who sits, so the absence
+  share is real edge, not a void.
+- Live check, week 4: 139 players ruled out, none on the board (one game, 41
+  markets open at the time).
+- Fantasy side unchanged.
+
 ## v0.9-m8 - 2026-09-29 (app 0.9.4)
 
 **Boom and bust are now relative to the player's own projection, not a position line.**
