@@ -105,6 +105,37 @@ def pair_accuracy(rows: list[dict], preds: dict) -> float:
     return right / total
 
 
+def bootstrap_gaps(rows: list[dict], model: dict, others: dict, by: str, draws: int = 2000) -> None:
+    """95% interval on (baseline MAE - model MAE) and (model rank - baseline rank).
+    Resamples whole units: `by` is "row" or "player" (all of a player's weeks together)."""
+    rng = np.random.default_rng(42)
+    if by == "player":
+        members: dict = {}
+        for i, r in enumerate(rows):
+            members.setdefault(r["player_id"], []).append(i)
+        units = list(members.values())
+    else:
+        units = [[i] for i in range(len(rows))]
+
+    gaps = {name: ([], []) for name in others}
+    for _ in range(draws):
+        picks = rng.integers(0, len(units), size=len(units))
+        idx = [i for u in picks for i in units[u]]
+        sample = [rows[i] for i in idx]
+        m_mae, m_rank = score(sample, {k: model[i] for k, i in enumerate(idx)})
+        for name, preds in others.items():
+            o_mae, o_rank = score(sample, {k: preds[i] for k, i in enumerate(idx)})
+            gaps[name][0].append(o_mae - m_mae)
+            gaps[name][1].append(m_rank - o_rank)
+
+    print(f"\nBootstrap, resampling {by}s, {draws} draws (positive = model better):")
+    for name, (mae_gaps, rank_gaps) in gaps.items():
+        mlo, mhi = np.percentile(mae_gaps, [2.5, 97.5])
+        rlo, rhi = np.percentile(rank_gaps, [2.5, 97.5])
+        print(f"  vs {name}: MAE gap {np.mean(mae_gaps):+.3f} [{mlo:+.3f}, {mhi:+.3f}]"
+              f"  rank gap {np.mean(rank_gaps):+.3f} [{rlo:+.3f}, {rhi:+.3f}]")
+
+
 def main() -> None:
     cache = load_eval_cache()
     rows = cache["rows"]
@@ -143,6 +174,10 @@ def main() -> None:
     for name, preds in (("model", model), ("trailing 4 game avg", trail4), ("season to date avg", season_avg)):
         mae, rank = score(rows, preds)
         print(f"| {name} | {mae:.2f} | {rank:.3f} |")
+
+    others = {"trailing 4 game avg": trail4, "season to date avg": season_avg}
+    bootstrap_gaps(rows, model, others, "row")
+    bootstrap_gaps(rows, model, others, "player")
 
     print()
     for name, preds in (("model", model), ("trailing 4 game avg", trail4), ("season to date avg", season_avg)):

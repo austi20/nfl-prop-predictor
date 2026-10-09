@@ -16,6 +16,17 @@ Same 2,741 player weeks for every row (700 each of RB, WR, TE and 641 QB, weeks 
 
 Start/sit pair accuracy: take every two players at the same position in the same week and ask whether the one projected higher actually scored more. The model picks right in 73.5% of pairs, about 2 points better than either average.
 
+### Is the gap real?
+
+I resampled the 2,741 rows 2,000 times (and again resampling whole players, since one player's weeks are not independent). Gaps below are baseline minus model for MAE, model minus baseline for rank correlation, with 95% intervals from the player resample.
+
+| versus | MAE gap | rank correlation gap |
+|---|---|---|
+| trailing 4 game average | +0.23 [+0.14, +0.32] | +0.054 [+0.037, +0.071] |
+| season to date average | +0.13 [+0.02, +0.23] | +0.048 [+0.030, +0.067] |
+
+No interval touches zero, so the model's edge is real on this sample. The MAE edge over the season average is the weakest: its lower end is 0.02 points. The row resample gives nearly the same intervals. I did not bootstrap start/sit pair accuracy.
+
 Practical read: in a toss up between two same position players, the model picks the better one roughly 3 times in 4, and a plain average does it about 5 times in 7. Real, small, and nowhere near enough to call a week.
 
 ## Floor and ceiling band
@@ -61,8 +72,8 @@ uv run python -c "from eval.fantasy_calibration import build_eval_cache; print(b
 - The tuning sweep and this table use the same 2025 rows. The calibration was tuned on them, so the model's numbers are somewhat flattering. The baselines have no tuned parameters.
 - 90 of the 2,741 rows had no usable history for a baseline (a first game back, or none this season). Those rows use the model's own projection as the baseline, which makes the baselines look slightly better than they are.
 - The sample is 2025 only. One season is a single draw, and a 0.12 point gap in MAE is inside what a different sample could move.
-- No confidence intervals on the gaps yet.
+- The intervals only cover sampling noise within 2025. They say nothing about whether another season looks the same.
 
 ## What I would do next
 
-Bootstrap the MAE and rank gaps so I know whether 0.12 points is distinguishable from zero. Widen the band until it covers 80% and check it holds out of sample.
+Run the same comparison on 2024 to see if the edge holds in a second season. Widen the band until it covers 80% and check it holds out of sample.
